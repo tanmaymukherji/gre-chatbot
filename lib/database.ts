@@ -24,6 +24,110 @@ function matchesScalar(value: string | null | undefined, probe: string | undefin
   return (value || "").toLowerCase().includes(probe.toLowerCase());
 }
 
+function tokenizeQuery(query: string | undefined) {
+  if (!query) {
+    return [];
+  }
+
+  const stopWords = new Set([
+    "a",
+    "an",
+    "and",
+    "are",
+    "available",
+    "can",
+    "do",
+    "for",
+    "find",
+    "from",
+    "give",
+    "i",
+    "in",
+    "is",
+    "me",
+    "need",
+    "of",
+    "on",
+    "or",
+    "please",
+    "service",
+    "show",
+    "solution",
+    "solutions",
+    "the",
+    "to",
+    "with"
+  ]);
+
+  return [...new Set(
+    query
+      .toLowerCase()
+      .split(/[^a-z0-9]+/i)
+      .map((token) => token.trim())
+      .filter((token) => token.length >= 2 && !stopWords.has(token))
+  )];
+}
+
+function buildHaystack(row: any) {
+  return [
+    row.offering_name,
+    row.offering_category,
+    row.offering_group,
+    row.offering_type,
+    row.domain_6m,
+    row.primary_valuechain,
+    row.primary_application,
+    row.about_offering_text,
+    row.search_document,
+    ...(row.tags || []),
+    ...(row.languages || []),
+    ...(row.geographies || []),
+    row.solution?.solution_name,
+    row.solution?.about_solution_text,
+    row.solution?.trader?.organisation_name,
+    row.solution?.trader?.trader_name
+  ]
+    .filter(Boolean)
+    .join(" | ")
+    .toLowerCase();
+}
+
+function scoreRow(row: any, query: string | undefined) {
+  if (!query) {
+    return 1;
+  }
+
+  const haystack = buildHaystack(row);
+  const normalizedQuery = query.toLowerCase().trim();
+  const tokens = tokenizeQuery(query);
+
+  let score = 0;
+
+  if (normalizedQuery && haystack.includes(normalizedQuery)) {
+    score += 8;
+  }
+
+  for (const token of tokens) {
+    if (haystack.includes(token)) {
+      score += 2;
+    }
+  }
+
+  if (row.offering_name && normalizedQuery && row.offering_name.toLowerCase().includes(normalizedQuery)) {
+    score += 10;
+  }
+
+  if (row.primary_valuechain && tokens.some((token) => row.primary_valuechain.toLowerCase().includes(token))) {
+    score += 3;
+  }
+
+  if (row.primary_application && tokens.some((token) => row.primary_application.toLowerCase().includes(token))) {
+    score += 3;
+  }
+
+  return score;
+}
+
 export async function applyImportBundle(bundle: ImportBundle, fileNames: { solutionFileName: string; traderFileName: string }) {
   const supabase = createServerSupabaseClient();
 
@@ -124,6 +228,7 @@ export async function runSearch(filters: SearchFilters) {
       delivery_mode,
       certification_offered,
       gre_link,
+      search_document,
       solution:solutions (
         solution_id,
         solution_name,
@@ -142,29 +247,34 @@ export async function runSearch(filters: SearchFilters) {
     )
     .eq("publish_status", "Published")
     .order("offering_name", { ascending: true })
-    .limit(200);
+    .limit(2000);
 
   if (filters.category) query = query.eq("offering_group", filters.category);
   if (filters.domain6m) query = query.eq("domain_6m", filters.domain6m);
-  if (filters.offeringType) query = query.eq("offering_type", filters.offeringType);
-  if (filters.valueChain) query = query.ilike("search_document", `%${filters.valueChain}%`);
-  if (filters.application) query = query.ilike("search_document", `%${filters.application}%`);
-  if (q) query = query.ilike("search_document", `%${q}%`);
+  if (filters.offeringType) query = query.ilike("offering_type", `%${filters.offeringType}%`);
 
   const { data, error } = await query;
   if (error) {
     throw error;
   }
 
-  const filtered = (data || []).filter((row: any) => {
-    return (
-      matchesArray(row.tags, filters.q) &&
-      matchesArray(row.languages, filters.language) &&
-      matchesArray(row.geographies, filters.geography) &&
-      matchesScalar(row.primary_valuechain, filters.valueChain) &&
-      matchesScalar(row.primary_application, filters.application)
-    );
-  });
+  const filtered = (data || [])
+    .filter((row: any) => {
+      return (
+        matchesArray(row.languages, filters.language) &&
+        matchesArray(row.geographies, filters.geography) &&
+        matchesScalar(row.primary_valuechain, filters.valueChain) &&
+        matchesScalar(row.primary_application, filters.application)
+      );
+    })
+    .map((row: any) => ({
+      row,
+      score: scoreRow(row, q)
+    }))
+    .filter(({ score }) => !q || score > 0)
+    .sort((left, right) => right.score - left.score || String(left.row.offering_name || "").localeCompare(String(right.row.offering_name || "")))
+    .slice(0, limit)
+    .map(({ row }) => row);
 
-  return filtered.slice(0, limit);
+  return filtered;
 }
