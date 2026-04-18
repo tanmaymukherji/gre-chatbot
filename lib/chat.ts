@@ -1,16 +1,21 @@
 import OpenAI from "openai";
 import { getServerEnv } from "@/lib/env";
 
-function buildFallback(results: any[]) {
+function buildFallback(results: any[], reason?: string) {
   const lines = results.slice(0, 5).map((result, index) => {
     const trader = result.solution?.trader?.organisation_name || result.solution?.trader?.trader_name || "Unknown provider";
     const chain = result.primary_valuechain || "Unspecified value chain";
     const application = result.primary_application || "Unspecified application";
-    return `${index + 1}. ${result.offering_name} by ${trader} (${result.offering_group || "Offering"}; ${chain}; ${application})`;
+    const link = result.gre_link ? ` - ${result.gre_link}` : "";
+    return `${index + 1}. ${result.offering_name} by ${trader} (${result.offering_group || "Offering"}; ${chain}; ${application})${link}`;
   });
 
+  const intro = reason
+    ? `The AI summary is temporarily unavailable, so here are direct matches from the GRE dataset.`
+    : `I found ${results.length} matching offerings in the GRE dataset.`;
+
   return [
-    `I found ${results.length} matching offerings in the GRE dataset.`,
+    intro,
     ...lines
   ].join("\n");
 }
@@ -35,10 +40,21 @@ export async function generateGroundedAnswer(question: string, filters: Record<s
     `Search results: ${JSON.stringify(results)}`
   ].join("\n");
 
-  const response = await client.responses.create({
-    model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
-    input: prompt
-  });
+  try {
+    const response = await client.responses.create({
+      model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
+      input: prompt
+    });
 
-  return response.output_text || buildFallback(results);
+    return response.output_text || buildFallback(results);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const quotaLikeError =
+      message.includes("429") ||
+      message.toLowerCase().includes("quota") ||
+      message.toLowerCase().includes("rate limit") ||
+      message.toLowerCase().includes("billing");
+
+    return buildFallback(results, quotaLikeError ? "quota" : "openai_error");
+  }
 }
