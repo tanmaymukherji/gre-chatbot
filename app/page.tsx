@@ -19,14 +19,14 @@ export default function HomePage() {
       <section style={{ marginTop: 24 }}>
         <div className="stats-grid">
           <div className="stat">
-            Current source
+            Current Source
             <strong>1,659</strong>
-            solution offering rows
+            Solution Offerings
           </div>
           <div className="stat">
-            Provider file
+            Solution Providers
             <strong>233</strong>
-            trader rows
+            Providers
           </div>
           <div className="stat">
             Main groups
@@ -34,9 +34,9 @@ export default function HomePage() {
             Product, Knowledge, Service
           </div>
           <div className="stat">
-            Sector lens
+            Frameworks
             <strong>6</strong>
-            Manpower through Money
+            Manpower, Method, Material, Machine, Money and Market
           </div>
         </div>
       </section>
