@@ -27,10 +27,8 @@ Copy `.env.example` to `.env.local` and set:
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `OPENAI_API_KEY`
 - `ADMIN_EMAILS`
-- `ADMIN_LOGIN_PASSWORD`
 
 `ADMIN_EMAILS` should be a comma-separated list of email addresses allowed to import data.
-`ADMIN_LOGIN_PASSWORD` is the shared admin password used by the in-app upload login.
 
 ## Supabase setup
 

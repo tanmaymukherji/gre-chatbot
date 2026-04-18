@@ -3,22 +3,21 @@
 import { useEffect, useState } from "react";
 
 export function AdminConsole() {
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [sessionEmail, setSessionEmail] = useState<string | null>(null);
+  const [sessionUsername, setSessionUsername] = useState<string | null>(null);
   const [solutionFile, setSolutionFile] = useState<File | null>(null);
   const [traderFile, setTraderFile] = useState<File | null>(null);
-  const [status, setStatus] = useState<string>("Log in with an approved admin email and password to upload the latest GRE datasets.");
+  const [status, setStatus] = useState<string>("Enter the admin password to continue.");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/session")
       .then((response) => response.json())
       .then((data) => {
-        setSessionEmail(data.email || null);
+        setSessionUsername(data.username || null);
       })
       .catch(() => {
-        setSessionEmail(null);
+        setSessionUsername(null);
       });
   }, []);
 
@@ -32,16 +31,17 @@ export function AdminConsole() {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        email,
+        username: "admin",
         password
       })
     });
     const payload = await response.json();
     if (!response.ok) {
       setStatus(payload.error || "Login failed.");
-      setSessionEmail(null);
+      setSessionUsername(null);
     } else {
-      setSessionEmail(payload.email);
+      setSessionUsername(payload.username);
+      setPassword("");
       setStatus("Admin login successful. You can now upload the latest GRE workbooks.");
     }
     setBusy(false);
@@ -80,81 +80,79 @@ export function AdminConsole() {
     await fetch("/api/admin/logout", {
       method: "POST"
     });
-    setSessionEmail(null);
+    setSessionUsername(null);
+    setPassword("");
     setStatus("Signed out.");
   }
 
   return (
     <div className="admin-grid">
-      <div className="panel panel-pad">
-        <h2 className="section-title">Admin access</h2>
-        <p className="section-copy">
-          This page is for GRE admins who upload the latest Excel exports and refresh the data stored in the GRE database.
-        </p>
-
-        <div className="field">
-          <label htmlFor="admin-email">Admin email</label>
-          <input
-            id="admin-email"
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="name@example.org"
-          />
-        </div>
-
-        <div className="field">
-          <label htmlFor="admin-password">Admin password</label>
-          <input
-            id="admin-password"
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="Enter admin password"
-          />
-        </div>
-
-        <div className="actions">
-          <button className="btn" type="button" onClick={logIn} disabled={busy || !email || !password}>
-            {busy ? "Working..." : "Log in"}
-          </button>
-          <button className="btn ghost" type="button" onClick={signOut} disabled={busy || !sessionEmail}>
-            Sign out
-          </button>
-        </div>
-
-        <div className="notice" style={{ marginTop: 16 }}>
-          Signed in as: <span className="mono">{sessionEmail || "Not signed in"}</span>
-        </div>
-      </div>
-
-      <div className="panel panel-pad">
-        <h2 className="section-title">Dataset upload</h2>
-        <p className="section-copy">
-          Upload the latest `solution_data...xlsx` and `trader_data...xlsx` exports. The importer will normalize and
-          upsert the rows into the GRE database.
-        </p>
-
-        <div className="stack">
+      {!sessionUsername ? (
+        <div className="panel panel-pad">
           <div className="field">
-            <label htmlFor="solution-file">Solution workbook</label>
-            <input id="solution-file" type="file" accept=".xlsx,.xls" onChange={(event) => setSolutionFile(event.target.files?.[0] || null)} />
+            <label htmlFor="admin-username">User name</label>
+            <input id="admin-username" type="text" value="Admin" readOnly />
           </div>
 
           <div className="field">
-            <label htmlFor="trader-file">Trader workbook</label>
-            <input id="trader-file" type="file" accept=".xlsx,.xls" onChange={(event) => setTraderFile(event.target.files?.[0] || null)} />
+            <label htmlFor="admin-password">Password</label>
+            <input
+              id="admin-password"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Enter admin password"
+            />
           </div>
 
           <div className="actions">
-            <button className="btn secondary" type="button" onClick={uploadFiles} disabled={busy || !sessionEmail}>
-              {busy ? "Importing..." : "Upload and import"}
+            <button className="btn" type="button" onClick={logIn} disabled={busy || !password}>
+              {busy ? "Working..." : "Log in"}
             </button>
           </div>
 
-          <div className="notice">{status}</div>
+          <div className="notice" style={{ marginTop: 16 }}>{status}</div>
         </div>
-      </div>
+      ) : (
+        <div className="panel panel-pad">
+          <div className="split">
+            <div>
+              <h2 className="section-title">Dataset upload</h2>
+              <p className="section-copy">
+                Upload the latest `solution_data...xlsx` and `trader_data...xlsx` exports. The importer will normalize and
+                upsert the rows into the GRE database.
+              </p>
+            </div>
+            <button className="btn ghost" type="button" onClick={signOut} disabled={busy}>
+              Sign out
+            </button>
+          </div>
+
+          <div className="stack">
+            <div className="notice">
+              Signed in as: <span className="mono">{sessionUsername}</span>
+            </div>
+
+            <div className="field">
+              <label htmlFor="solution-file">Solution workbook</label>
+              <input id="solution-file" type="file" accept=".xlsx,.xls" onChange={(event) => setSolutionFile(event.target.files?.[0] || null)} />
+            </div>
+
+            <div className="field">
+              <label htmlFor="trader-file">Trader workbook</label>
+              <input id="trader-file" type="file" accept=".xlsx,.xls" onChange={(event) => setTraderFile(event.target.files?.[0] || null)} />
+            </div>
+
+            <div className="actions">
+              <button className="btn secondary" type="button" onClick={uploadFiles} disabled={busy}>
+                {busy ? "Importing..." : "Upload and import"}
+              </button>
+            </div>
+
+            <div className="notice">{status}</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

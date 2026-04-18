@@ -1,30 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createAdminCookie } from "@/lib/admin-session";
-import { getServerEnv } from "@/lib/env";
+import { authenticateAdmin, createAdminCookie } from "@/lib/grameee-admin-auth";
 
 const loginSchema = z.object({
-  email: z.string().email(),
+  username: z.string().min(1),
   password: z.string().min(1)
 });
 
 export async function POST(request: NextRequest) {
   try {
     const body = loginSchema.parse(await request.json());
-    const allowedEmails = getServerEnv().adminEmails;
-    const configuredPassword = process.env.ADMIN_LOGIN_PASSWORD || "";
-    const email = body.email.toLowerCase().trim();
+    const session = await authenticateAdmin(body.username, body.password);
 
-    if (!allowedEmails.includes(email)) {
-      return NextResponse.json({ error: "This account is not allowed to upload data." }, { status: 403 });
-    }
-
-    if (!configuredPassword || body.password !== configuredPassword) {
+    if (!session) {
       return NextResponse.json({ error: "Incorrect admin password." }, { status: 401 });
     }
 
-    const response = NextResponse.json({ ok: true, email });
-    const cookie = createAdminCookie(email);
+    const response = NextResponse.json({ ok: true, username: session.username });
+    const cookie = createAdminCookie(session.token);
     response.cookies.set(cookie.name, cookie.value, cookie.options);
     return response;
   } catch (error) {
