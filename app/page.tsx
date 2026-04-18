@@ -6,7 +6,7 @@ export default function HomePage() {
     <main className="page-shell">
       <section className="hero">
         <h1>GRE Solution Stack</h1>
-        <p>
+        <p className="hero-copy">
           A retrieval-first search and chatbot experience for Green Rural Economy offerings, designed to surface grounded recommendations across Product, Knowledge, Service, 6M domains, value chains, applications, tags, language, and geography.
         </p>
         <div className="hero-actions">
