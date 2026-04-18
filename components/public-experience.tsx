@@ -1,82 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const CATEGORY_OPTIONS = ["", "Knowledge", "Service", "Product"];
 const DOMAIN_OPTIONS = ["", "Manpower", "Method", "Machine", "Material", "Market", "Money"];
-const OFFERING_TYPE_OPTIONS = [
-  "",
-  "Sop manuals",
-  "Tech transfer",
-  "Training",
-  "Machinery",
-  "Videos",
-  "Consulting",
-  "Market support",
-  "Blogs",
-  "Market reports",
-  "Product bought",
-  "Raw material",
-  "Plant setup",
-  "Financial support"
-];
-const VALUE_CHAIN_OPTIONS = [
-  "",
-  "Entrepreneurship",
-  "Livestock",
-  "Farming",
-  "Bamboo",
-  "Millets",
-  "Food Products",
-  "Cereals",
-  "Bakery",
-  "Fruits",
-  "Beverages",
-  "Vegetables",
-  "Poultry",
-  "Rural"
-];
-const APPLICATION_OPTIONS = [
-  "",
-  "Business Training",
-  "Goat",
-  "Nano Enterprises",
-  "Food Processing",
-  "Natural Farming",
-  "Food Products",
-  "Vegetables",
-  "Chicken",
-  "Fruits",
-  "Community Development"
-];
-const LANGUAGE_OPTIONS = [
-  "",
-  "ENG",
-  "HIN",
-  "KANNADA",
-  "MARATHI",
-  "MALAYALAM",
-  "TAMIL",
-  "TELGU",
-  "BENGALI",
-  "ODIA",
-  "PUNJABI"
-];
-const GEOGRAPHY_OPTIONS = [
-  "",
-  "India",
-  "Karnataka",
-  "Mysore, Karnataka, India",
-  "Jharkhand",
-  "Maharashtra",
-  "Punjab",
-  "Odisha",
-  "Kerala",
-  "Tamil Nadu",
-  "Telangana",
-  "Bihar",
-  "Uttar Pradesh"
-];
 
 type Filters = {
   category: string;
@@ -86,6 +13,16 @@ type Filters = {
   application: string;
   language: string;
   geography: string;
+};
+
+type FilterOptions = {
+  categories: string[];
+  domains6m: string[];
+  offeringTypes: string[];
+  valueChains: string[];
+  applications: string[];
+  languages: string[];
+  geographies: string[];
 };
 
 const EMPTY_FILTERS: Filters = {
@@ -98,6 +35,29 @@ const EMPTY_FILTERS: Filters = {
   geography: ""
 };
 
+const EMPTY_OPTIONS: FilterOptions = {
+  categories: [],
+  domains6m: [],
+  offeringTypes: [],
+  valueChains: [],
+  applications: [],
+  languages: [],
+  geographies: []
+};
+
+function renderOptions(options: string[], emptyLabel: string) {
+  return [
+    <option key="all" value="">
+      {emptyLabel}
+    </option>,
+    ...options.map((option) => (
+      <option key={option} value={option}>
+        {option}
+      </option>
+    ))
+  ];
+}
+
 export function PublicExperience() {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [chatQuery, setChatQuery] = useState("");
@@ -107,6 +67,20 @@ export function PublicExperience() {
   const [chatting, setChatting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [activeMode, setActiveMode] = useState<"chat" | "parameters" | null>(null);
+  const [filterOptions, setFilterOptions] = useState<FilterOptions>(EMPTY_OPTIONS);
+
+  useEffect(() => {
+    fetch("/api/filters")
+      .then((response) => response.json())
+      .then((data) => {
+        if (!data.error) {
+          setFilterOptions(data);
+        }
+      })
+      .catch(() => {
+        setFilterOptions(EMPTY_OPTIONS);
+      });
+  }, []);
 
   async function runSearch() {
     setSearching(true);
@@ -223,77 +197,49 @@ export function PublicExperience() {
             <div className="field">
               <label htmlFor="category">Category</label>
               <select id="category" value={filters.category} onChange={(event) => updateFilter("category", event.target.value)}>
-                {CATEGORY_OPTIONS.map((option) => (
-                  <option key={option || "all"} value={option}>
-                    {option || "All categories"}
-                  </option>
-                ))}
+                {renderOptions(filterOptions.categories.length ? filterOptions.categories : CATEGORY_OPTIONS.filter(Boolean), "All categories")}
               </select>
             </div>
 
             <div className="field">
               <label htmlFor="domain6m">6M domain</label>
               <select id="domain6m" value={filters.domain6m} onChange={(event) => updateFilter("domain6m", event.target.value)}>
-                {DOMAIN_OPTIONS.map((option) => (
-                  <option key={option || "all"} value={option}>
-                    {option || "All 6M domains"}
-                  </option>
-                ))}
+                {renderOptions(filterOptions.domains6m.length ? filterOptions.domains6m : DOMAIN_OPTIONS.filter(Boolean), "All 6M domains")}
               </select>
             </div>
 
             <div className="field">
               <label htmlFor="offeringType">Offering type</label>
               <select id="offeringType" value={filters.offeringType} onChange={(event) => updateFilter("offeringType", event.target.value)}>
-                {OFFERING_TYPE_OPTIONS.map((option) => (
-                  <option key={option || "all"} value={option}>
-                    {option || "All offering types"}
-                  </option>
-                ))}
+                {renderOptions(filterOptions.offeringTypes, "All offering types")}
               </select>
             </div>
 
             <div className="field">
               <label htmlFor="valueChain">Value chain</label>
               <select id="valueChain" value={filters.valueChain} onChange={(event) => updateFilter("valueChain", event.target.value)}>
-                {VALUE_CHAIN_OPTIONS.map((option) => (
-                  <option key={option || "all"} value={option}>
-                    {option || "All value chains"}
-                  </option>
-                ))}
+                {renderOptions(filterOptions.valueChains, "All value chains")}
               </select>
             </div>
 
             <div className="field">
               <label htmlFor="application">Application</label>
               <select id="application" value={filters.application} onChange={(event) => updateFilter("application", event.target.value)}>
-                {APPLICATION_OPTIONS.map((option) => (
-                  <option key={option || "all"} value={option}>
-                    {option || "All applications"}
-                  </option>
-                ))}
+                {renderOptions(filterOptions.applications, "All applications")}
               </select>
             </div>
 
             <div className="field">
               <label htmlFor="language">Language</label>
               <select id="language" value={filters.language} onChange={(event) => updateFilter("language", event.target.value)}>
-                {LANGUAGE_OPTIONS.map((option) => (
-                  <option key={option || "all"} value={option}>
-                    {option || "All languages"}
-                  </option>
-                ))}
+                {renderOptions(filterOptions.languages, "All languages")}
               </select>
             </div>
 
             <div className="field">
               <label htmlFor="geography">Geography</label>
               <select id="geography" value={filters.geography} onChange={(event) => updateFilter("geography", event.target.value)}>
-                {GEOGRAPHY_OPTIONS.map((option) => (
-                  <option key={option || "all"} value={option}>
-                    {option || "All geographies"}
-                  </option>
-                ))}
+                {renderOptions(filterOptions.geographies, "All geographies")}
               </select>
             </div>
           </div>
@@ -364,7 +310,7 @@ export function PublicExperience() {
                   {result.about_offering_text ? <p style={{ marginTop: 14 }}>{result.about_offering_text}</p> : null}
                   {result.gre_link ? (
                     <p style={{ marginTop: 14 }}>
-                      <a href={result.gre_link} target="_blank" rel="noreferrer">
+                      <a className="result-link" href={result.gre_link} target="_blank" rel="noreferrer">
                         View on GRE
                       </a>
                     </p>

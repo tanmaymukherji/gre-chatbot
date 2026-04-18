@@ -279,6 +279,15 @@ textarea {
   line-height: 1.5;
 }
 
+.result-link {
+  color: var(--brand-2);
+  font-weight: 700;
+}
+
+.result-link:hover {
+  color: #8f3f21;
+}
+
 .meta-row {
   display: flex;
   gap: 10px;

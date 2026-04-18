@@ -24,6 +24,10 @@ function matchesScalar(value: string | null | undefined, probe: string | undefin
   return (value || "").toLowerCase().includes(probe.toLowerCase());
 }
 
+function uniqueSorted(values: string[]) {
+  return [...new Set(values.filter(Boolean))].sort((left, right) => left.localeCompare(right));
+}
+
 function tokenizeQuery(query: string | undefined) {
   if (!query) {
     return [];
@@ -277,4 +281,30 @@ export async function runSearch(filters: SearchFilters) {
     .map(({ row }) => row);
 
   return filtered;
+}
+
+export async function getFilterOptions() {
+  const supabase = createServerSupabaseClient();
+
+  const { data, error } = await supabase
+    .from("offerings")
+    .select("offering_group, domain_6m, offering_type, primary_valuechain, primary_application, languages, geographies")
+    .eq("publish_status", "Published")
+    .limit(3000);
+
+  if (error) {
+    throw error;
+  }
+
+  const rows = data || [];
+
+  return {
+    categories: uniqueSorted(rows.map((row: any) => row.offering_group).filter(Boolean)),
+    domains6m: uniqueSorted(rows.map((row: any) => row.domain_6m).filter(Boolean)),
+    offeringTypes: uniqueSorted(rows.map((row: any) => row.offering_type).filter(Boolean)),
+    valueChains: uniqueSorted(rows.map((row: any) => row.primary_valuechain).filter(Boolean)),
+    applications: uniqueSorted(rows.map((row: any) => row.primary_application).filter(Boolean)),
+    languages: uniqueSorted(rows.flatMap((row: any) => row.languages || [])),
+    geographies: uniqueSorted(rows.flatMap((row: any) => row.geographies || []))
+  };
 }
