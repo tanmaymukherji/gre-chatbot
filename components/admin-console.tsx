@@ -1,61 +1,53 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { createBrowserSupabaseClient } from "@/lib/supabase";
+import { useEffect, useState } from "react";
 
 export function AdminConsole() {
-  const supabase = useMemo(() => {
-    try {
-      return createBrowserSupabaseClient();
-    } catch {
-      return null;
-    }
-  }, []);
-
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
   const [solutionFile, setSolutionFile] = useState<File | null>(null);
   const [traderFile, setTraderFile] = useState<File | null>(null);
-  const [status, setStatus] = useState<string>("Sign in with an approved admin email to enable uploads.");
+  const [status, setStatus] = useState<string>("Log in with an approved admin email and password to upload the latest GRE datasets.");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!supabase) {
-      setStatus("Supabase public keys are not configured yet.");
-      return;
-    }
+    fetch("/api/admin/session")
+      .then((response) => response.json())
+      .then((data) => {
+        setSessionEmail(data.email || null);
+      })
+      .catch(() => {
+        setSessionEmail(null);
+      });
+  }, []);
 
-    supabase.auth.getSession().then(({ data }) => {
-      setSessionEmail(data.session?.user?.email || null);
-    });
-
-    const {
-      data: { subscription }
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSessionEmail(session?.user?.email || null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, [supabase]);
-
-  async function sendMagicLink() {
-    if (!supabase) return;
+  async function logIn() {
     setBusy(true);
-    setStatus("Sending admin sign-in link...");
+    setStatus("Signing in...");
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/admin` : undefined
-      }
+    const response = await fetch("/api/admin/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        email,
+        password
+      })
     });
-
-    setStatus(error ? error.message : "Magic link sent. Open the email on this browser, then return to upload files.");
+    const payload = await response.json();
+    if (!response.ok) {
+      setStatus(payload.error || "Login failed.");
+      setSessionEmail(null);
+    } else {
+      setSessionEmail(payload.email);
+      setStatus("Admin login successful. You can now upload the latest GRE workbooks.");
+    }
     setBusy(false);
   }
 
   async function uploadFiles() {
-    if (!supabase) return;
     if (!solutionFile || !traderFile) {
       setStatus("Attach both the solution and trader Excel files first.");
       return;
@@ -64,23 +56,12 @@ export function AdminConsole() {
     setBusy(true);
     setStatus("Uploading files and starting the Supabase import...");
 
-    const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token;
-    if (!token) {
-      setStatus("Admin session missing. Sign in again.");
-      setBusy(false);
-      return;
-    }
-
     const formData = new FormData();
     formData.append("solutionFile", solutionFile);
     formData.append("traderFile", traderFile);
 
     const response = await fetch("/api/admin/import", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`
-      },
       body: formData
     });
 
@@ -96,8 +77,9 @@ export function AdminConsole() {
   }
 
   async function signOut() {
-    if (!supabase) return;
-    await supabase.auth.signOut();
+    await fetch("/api/admin/logout", {
+      method: "POST"
+    });
     setSessionEmail(null);
     setStatus("Signed out.");
   }
@@ -107,7 +89,7 @@ export function AdminConsole() {
       <div className="panel panel-pad">
         <h2 className="section-title">Admin access</h2>
         <p className="section-copy">
-          This page is for GRE admins who upload the latest Excel exports and refresh the Supabase-backed search index.
+          This page is for GRE admins who upload the latest Excel exports and refresh the data stored in the GRE database.
         </p>
 
         <div className="field">
@@ -121,9 +103,20 @@ export function AdminConsole() {
           />
         </div>
 
+        <div className="field">
+          <label htmlFor="admin-password">Admin password</label>
+          <input
+            id="admin-password"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="Enter admin password"
+          />
+        </div>
+
         <div className="actions">
-          <button className="btn" type="button" onClick={sendMagicLink} disabled={busy || !email}>
-            {busy ? "Working..." : "Send magic link"}
+          <button className="btn" type="button" onClick={logIn} disabled={busy || !email || !password}>
+            {busy ? "Working..." : "Log in"}
           </button>
           <button className="btn ghost" type="button" onClick={signOut} disabled={busy || !sessionEmail}>
             Sign out
@@ -139,7 +132,7 @@ export function AdminConsole() {
         <h2 className="section-title">Dataset upload</h2>
         <p className="section-copy">
           Upload the latest `solution_data...xlsx` and `trader_data...xlsx` exports. The importer will normalize and
-          upsert the rows into Supabase.
+          upsert the rows into the GRE database.
         </p>
 
         <div className="stack">

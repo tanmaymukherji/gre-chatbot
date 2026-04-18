@@ -1,24 +1,18 @@
-import { createServerSupabaseClient } from "@/lib/supabase";
+import { NextRequest } from "next/server";
+import { readAdminSession } from "@/lib/admin-session";
 import { getServerEnv } from "@/lib/env";
 
-export async function requireAdminUser(accessToken: string | null) {
-  if (!accessToken) {
-    throw new Error("Missing bearer token.");
+export async function requireAdminUser(request: NextRequest) {
+  const session = readAdminSession(request.cookies.get("gre_admin_session")?.value);
+  if (!session?.email) {
+    throw new Error("Admin login required.");
   }
-
-  const supabase = createServerSupabaseClient();
-  const { data, error } = await supabase.auth.getUser(accessToken);
-
-  if (error || !data.user?.email) {
-    throw new Error("Unable to verify admin session.");
-  }
-
   const allowedEmails = getServerEnv().adminEmails;
-  const email = data.user.email.toLowerCase();
+  const email = session.email.toLowerCase();
 
   if (!allowedEmails.includes(email)) {
     throw new Error("This account is not allowed to import data.");
   }
 
-  return data.user;
+  return { email };
 }

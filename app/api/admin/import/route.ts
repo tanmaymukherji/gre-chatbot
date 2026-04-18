@@ -5,9 +5,7 @@ import { buildImportBundle } from "@/lib/importer";
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("authorization");
-    const token = authHeader?.replace(/^Bearer\s+/i, "") || null;
-    await requireAdminUser(token);
+    await requireAdminUser(request);
 
     const formData = await request.formData();
     const solutionFile = formData.get("solutionFile");

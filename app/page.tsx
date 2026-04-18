@@ -4,17 +4,10 @@ export default function HomePage() {
   return (
     <main className="page-shell">
       <section className="hero">
-        <h1>GRE Solutions Copilot</h1>
+        <h1>GRE Solution Stack</h1>
         <p>
-          A retrieval-first search and chatbot experience for Green Rural Economy offerings. It reads solution and
-          trader exports from Supabase, then answers with grounded recommendations across Product, Knowledge, Service,
-          6M domains, value chains, applications, tags, language, and geography.
+          A retrieval-first search and chatbot experience for Green Rural Economy offerings, designed to surface grounded recommendations across Product, Knowledge, Service, 6M domains, value chains, applications, tags, language, and geography.
         </p>
-        <div className="hero-meta">
-          <span className="pill">Public search + chatbot</span>
-          <span className="pill">Supabase-backed admin imports</span>
-          <span className="pill">Grounded OpenAI answers</span>
-        </div>
       </section>
 
       <section style={{ marginTop: 24 }}>
