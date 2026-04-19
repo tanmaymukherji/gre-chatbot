@@ -20,15 +20,8 @@ function buildFallback(results: any[], reason?: string) {
   ].join("\n");
 }
 
-export async function generateGroundedAnswer(question: string, filters: Record<string, unknown>, results: any[]) {
-  const env = getServerEnv();
-  if (!env.openAiApiKey) {
-    return buildFallback(results);
-  }
-
-  const client = new OpenAI({ apiKey: env.openAiApiKey });
-
-  const prompt = [
+function buildPrompt(question: string, filters: Record<string, unknown>, results: any[]) {
+  return [
     "You are a grounded assistant for the Green Rural Economy solutions directory.",
     "Answer only from the supplied search results.",
     "If the results are limited, say so plainly.",
@@ -39,14 +32,56 @@ export async function generateGroundedAnswer(question: string, filters: Record<s
     `Applied filters: ${JSON.stringify(filters)}`,
     `Search results: ${JSON.stringify(results)}`
   ].join("\n");
+}
+
+async function generateWithOpenAI(prompt: string, apiKey: string) {
+  const client = new OpenAI({ apiKey });
+  const response = await client.responses.create({
+    model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
+    input: prompt
+  });
+
+  return response.output_text || null;
+}
+
+async function generateWithGemini(prompt: string, apiKey: string) {
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${process.env.GEMINI_MODEL || "gemini-2.5-flash"}:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: prompt }]
+          }
+        ]
+      })
+    }
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Gemini request failed with status ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data?.candidates?.[0]?.content?.parts?.map((part: any) => part.text || "").join("").trim() || null;
+}
+
+export async function generateGroundedAnswer(question: string, filters: Record<string, unknown>, results: any[]) {
+  const env = getServerEnv();
+  const prompt = buildPrompt(question, filters, results);
 
   try {
-    const response = await client.responses.create({
-      model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
-      input: prompt
-    });
-
-    return response.output_text || buildFallback(results);
+    if (env.openAiApiKey) {
+      const response = await generateWithOpenAI(prompt, env.openAiApiKey);
+      if (response) {
+        return response;
+      }
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const quotaLikeError =
@@ -54,7 +89,21 @@ export async function generateGroundedAnswer(question: string, filters: Record<s
       message.toLowerCase().includes("quota") ||
       message.toLowerCase().includes("rate limit") ||
       message.toLowerCase().includes("billing");
-
-    return buildFallback(results, quotaLikeError ? "quota" : "openai_error");
+    if (!quotaLikeError && !env.geminiApiKey) {
+      return buildFallback(results, "openai_error");
+    }
   }
+
+  try {
+    if (env.geminiApiKey) {
+      const geminiResponse = await generateWithGemini(prompt, env.geminiApiKey);
+      if (geminiResponse) {
+        return geminiResponse;
+      }
+    }
+  } catch {
+    return buildFallback(results, "gemini_error");
+  }
+
+  return buildFallback(results, "no_ai_provider");
 }

@@ -26,6 +26,7 @@ Copy `.env.example` to `.env.local` and set:
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `OPENAI_API_KEY`
+- `GEMINI_API_KEY`
 - `ADMIN_EMAILS`
 
 `ADMIN_EMAILS` should be a comma-separated list of email addresses allowed to import data.
