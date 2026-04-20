@@ -6,6 +6,8 @@ export async function GET(request: NextRequest) {
     const params = request.nextUrl.searchParams;
     const results = await runSearch({
       q: params.get("q") || undefined,
+      strictKeyword: Boolean(params.get("q") || undefined),
+      solutionProvider: params.get("solutionProvider") || undefined,
       category: params.get("category") || undefined,
       domain6m: params.get("domain6m") || undefined,
       offeringType: params.get("offeringType") || undefined,

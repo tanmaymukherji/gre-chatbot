@@ -1,5 +1,7 @@
 export type SearchFilters = {
   q?: string;
+  strictKeyword?: boolean;
+  solutionProvider?: string;
   category?: string;
   domain6m?: string;
   offeringType?: string;

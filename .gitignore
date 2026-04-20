@@ -8,3 +8,7 @@ supabase/.temp
 dist
 coverage
 *.log
+
+.vercel
+*.tmp
+*.tsbuildinfo

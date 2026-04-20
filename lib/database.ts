@@ -9,12 +9,149 @@ function chunk<T>(rows: T[], size = 250) {
   return chunks;
 }
 
+function normalizeComparable(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
+const GEOGRAPHY_ALIASES: Record<string, string[]> = {
+  karnataka: [
+    "bengaluru",
+    "bangalore",
+    "mysore",
+    "mysuru",
+    "tiptur",
+    "tumkur",
+    "tumakuru",
+    "chamarajanagar",
+    "chikmagalur",
+    "chikkamagaluru",
+    "ramanagara",
+    "raichur",
+    "hassan",
+    "kolar",
+    "uttara kannada",
+    "karwar"
+  ],
+  "madhya pradesh": [
+    "indore",
+    "dewas",
+    "barwani",
+    "bhopal",
+    "ujjain",
+    "jabalpur",
+    "gwalior"
+  ],
+  odisha: [
+    "odisha",
+    "orissa",
+    "kalahandi",
+    "bhubaneswar"
+  ],
+  maharashtra: [
+    "mumbai",
+    "pune",
+    "kolhapur",
+    "nashik",
+    "solapur",
+    "jalgaon"
+  ],
+  telangana: [
+    "hyderabad",
+    "ranga reddy",
+    "mahabubnagar",
+    "nalgonda"
+  ]
+};
+
+function expandProbeVariants(probe: string | undefined) {
+  if (!probe) {
+    return [];
+  }
+
+  const normalized = normalizeComparable(probe);
+  const variants = new Set([normalized]);
+
+  if (["hindi", "hin", "हिंदी", "हिन्दी"].includes(normalized)) {
+    variants.add("hindi");
+    variants.add("hin");
+  }
+
+  if (["english", "eng", "अंग्रेजी"].includes(normalized)) {
+    variants.add("english");
+    variants.add("eng");
+  }
+
+  if (["odia", "oriya", "odiya", "od"].includes(normalized)) {
+    variants.add("odia");
+    variants.add("oriya");
+    variants.add("od");
+  }
+
+  return [...variants];
+}
+
 function matchesArray(rows: string[] | null | undefined, probe: string | undefined) {
   if (!probe) {
     return true;
   }
-  const target = probe.toLowerCase();
-  return (rows || []).some((value) => value.toLowerCase().includes(target));
+  const variants = expandProbeVariants(probe);
+  const geographyAliases = variants.flatMap((variant) => GEOGRAPHY_ALIASES[variant] || []);
+  return (rows || []).some((value) => {
+    const normalizedValue = normalizeComparable(value);
+    return (
+      variants.some((variant) => normalizedValue.includes(variant) || variant.includes(normalizedValue)) ||
+      geographyAliases.some((alias) => normalizedValue.includes(alias))
+    );
+  });
+}
+
+function getTopLevelGeographies(row: any) {
+  const values = [
+    ...(Array.isArray(row?.geographies) ? row.geographies : []),
+    typeof row?.geographies_raw === "string" ? row.geographies_raw : null
+  ]
+    .filter(Boolean)
+    .flatMap((value) => String(value).split(/[;|\n]+/))
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return [...new Set(values)];
+}
+
+function geographyComponents(entry: string) {
+  const whole = normalizeComparable(entry);
+  const parts = entry
+    .split(",")
+    .map((part) => normalizeComparable(part))
+    .filter(Boolean);
+
+  return [...new Set([whole, ...parts])];
+}
+
+function matchesGeography(row: any, probe: string | undefined) {
+  if (!probe) {
+    return true;
+  }
+
+  const variants = expandProbeVariants(probe);
+  const geographyAliases = variants.flatMap((variant) => GEOGRAPHY_ALIASES[variant] || []);
+  const entries = getTopLevelGeographies(row);
+  const hasNationwideIndia = entries.some((entry) => normalizeComparable(entry) === "india");
+
+  if (hasNationwideIndia) {
+    return true;
+  }
+
+  return entries.some((entry) => {
+    const components = geographyComponents(entry);
+    return (
+      variants.some((variant) => components.some((component) => component.includes(variant) || variant.includes(component))) ||
+      geographyAliases.some((alias) => components.some((component) => component.includes(alias)))
+    );
+  });
 }
 
 function matchesScalar(value: string | null | undefined, probe: string | undefined) {
@@ -24,8 +161,56 @@ function matchesScalar(value: string | null | undefined, probe: string | undefin
   return (value || "").toLowerCase().includes(probe.toLowerCase());
 }
 
+function matchesProvider(row: any, probe: string | undefined) {
+  if (!probe) {
+    return true;
+  }
+
+  const normalizedProbe = normalizeComparable(probe);
+  const providerNames = [
+    row.solution?.trader?.organisation_name,
+    row.solution?.trader?.trader_name
+  ]
+    .filter(Boolean)
+    .map((value: string) => normalizeComparable(value));
+
+  return providerNames.some((name) => name.includes(normalizedProbe) || normalizedProbe.includes(name));
+}
+
 function uniqueSorted(values: string[]) {
   return [...new Set(values.filter(Boolean))].sort((left, right) => left.localeCompare(right));
+}
+
+function inferSolutionProvider(query: string | undefined, options: string[] = []) {
+  if (!query) {
+    return undefined;
+  }
+
+  const normalizedQuery = normalizeComparable(query);
+
+  const matches = options
+    .map((option) => {
+      const normalizedOption = normalizeComparable(option);
+      if (!normalizedOption) {
+        return null;
+      }
+
+      if (normalizedQuery.includes(normalizedOption)) {
+        return { option, score: normalizedOption.length + 20 };
+      }
+
+      const optionTokens = normalizedOption.split(/\s+/).filter(Boolean);
+      const matchingTokens = optionTokens.filter((token) => normalizedQuery.includes(token)).length;
+      if (matchingTokens >= Math.max(1, Math.ceil(optionTokens.length * 0.75))) {
+        return { option, score: matchingTokens * 4 };
+      }
+
+      return null;
+    })
+    .filter(Boolean)
+    .sort((left: any, right: any) => right.score - left.score);
+
+  return matches[0]?.option;
 }
 
 function tokenizeQuery(query: string | undefined) {
@@ -63,13 +248,161 @@ function tokenizeQuery(query: string | undefined) {
     "with"
   ]);
 
-  return [...new Set(
-    query
+  const baseTokens = query
       .toLowerCase()
-      .split(/[^a-z0-9]+/i)
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
+      .split(/\s+/)
       .map((token) => token.trim())
-      .filter((token) => token.length >= 2 && !stopWords.has(token))
-  )];
+      .filter((token) => token.length >= 2 && !stopWords.has(token));
+
+  const expandedTokens = new Set(baseTokens);
+
+  if (expandedTokens.has("bakri") || expandedTokens.has("bakra") || expandedTokens.has("goat")) {
+    expandedTokens.add("goat");
+    expandedTokens.add("bakri");
+  }
+
+  if (expandedTokens.has("palan") || expandedTokens.has("rearing")) {
+    expandedTokens.add("farming");
+    expandedTokens.add("rearing");
+  }
+
+  if (expandedTokens.has("jankari") || expandedTokens.has("sikhaye") || expandedTokens.has("training")) {
+    expandedTokens.add("training");
+    expandedTokens.add("knowledge");
+    expandedTokens.add("guide");
+  }
+
+  if (expandedTokens.has("hindi") || expandedTokens.has("hin")) {
+    expandedTokens.add("hindi");
+    expandedTokens.add("hin");
+  }
+
+  return [...expandedTokens];
+}
+
+function expandTokenVariants(token: string) {
+  const normalized = normalizeComparable(token);
+  if (!normalized) {
+    return [];
+  }
+
+  const variants = new Set([normalized]);
+
+  if (normalized.endsWith("ies") && normalized.length > 3) {
+    variants.add(`${normalized.slice(0, -3)}y`);
+  }
+
+  if (normalized.endsWith("es") && normalized.length > 4) {
+    variants.add(normalized.slice(0, -2));
+  }
+
+  if (normalized.endsWith("s") && normalized.length > 3) {
+    variants.add(normalized.slice(0, -1));
+  } else {
+    variants.add(`${normalized}s`);
+    variants.add(`${normalized}es`);
+    if (normalized.endsWith("y") && normalized.length > 2) {
+      variants.add(`${normalized.slice(0, -1)}ies`);
+    }
+  }
+
+  return [...variants];
+}
+
+function matchesTokenVariant(haystack: string, token: string) {
+  const variants = expandTokenVariants(token);
+  return variants.some((variant) => haystack.includes(variant));
+}
+
+function simplifyQueryText(query: string | undefined, filters: SearchFilters) {
+  if (!query) {
+    return "";
+  }
+
+  let simplified = query;
+
+  if (filters.offeringType && /training/i.test(filters.offeringType)) {
+    simplified = simplified.replace(/\btraining\b/gi, " ");
+  }
+
+  return simplified.replace(/\s+/g, " ").trim();
+}
+
+export function inferSearchFilters<T extends SearchFilters>(filters: T, query: string | undefined) {
+  if (!query) {
+    return { ...filters };
+  }
+
+  const normalized = query.toLowerCase();
+  const inferred: Partial<SearchFilters> = {};
+
+  if (!filters.language) {
+    if (
+      normalized.includes("hindi") ||
+      normalized.includes("हिंदी") ||
+      normalized.includes("हिन्दी")
+    ) {
+      inferred.language = "Hindi";
+    } else if (normalized.includes("odia") || normalized.includes("oriya") || normalized.includes("ओड़िया")) {
+      inferred.language = "Odia";
+    } else if (normalized.includes("english") || normalized.includes("अंग्रेजी")) {
+      inferred.language = "English";
+    }
+  }
+
+  if (!filters.geography) {
+    if (normalized.includes("madhya pradesh") || /\bmp\b/.test(normalized)) {
+      inferred.geography = "Madhya Pradesh";
+    } else if (normalized.includes("uttar pradesh") || /\bup\b/.test(normalized)) {
+      inferred.geography = "Uttar Pradesh";
+    } else if (normalized.includes("jharkhand")) {
+      inferred.geography = "Jharkhand";
+    } else if (normalized.includes("bihar")) {
+      inferred.geography = "Bihar";
+    } else if (normalized.includes("odisha") || normalized.includes("orissa")) {
+      inferred.geography = "Odisha";
+    } else if (normalized.includes("rajasthan")) {
+      inferred.geography = "Rajasthan";
+    } else if (normalized.includes("karnataka")) {
+      inferred.geography = "Karnataka";
+    } else if (normalized.includes("chhattisgarh")) {
+      inferred.geography = "Chhattisgarh";
+    }
+  }
+
+  if (!filters.application || !filters.valueChain) {
+    if (
+      normalized.includes("bakri") ||
+      normalized.includes("bakra") ||
+      normalized.includes("goat")
+    ) {
+      if (!filters.application) {
+        inferred.application = "Goat";
+      }
+      if (!filters.valueChain) {
+        inferred.valueChain = "Livestock";
+      }
+    }
+  }
+
+  if (!filters.offeringType) {
+    if (/\btraining\b/i.test(normalized)) {
+      inferred.offeringType = "Training";
+    }
+  }
+
+  if (!filters.solutionProvider) {
+    const provider = inferSolutionProvider(query, []);
+    if (provider) {
+      inferred.solutionProvider = provider;
+    }
+  }
+
+  return {
+    ...filters,
+    ...inferred
+  };
 }
 
 function buildHaystack(row: any) {
@@ -96,6 +429,46 @@ function buildHaystack(row: any) {
     .toLowerCase();
 }
 
+function buildKeywordHaystack(row: any) {
+  return [
+    row.offering_name,
+    row.offering_category,
+    row.offering_group,
+    row.offering_type,
+    row.domain_6m,
+    row.primary_valuechain,
+    row.primary_application,
+    ...(row.tags || []),
+    ...(row.languages || []),
+    ...(row.geographies || []),
+    row.solution?.solution_name,
+    row.solution?.trader?.organisation_name,
+    row.solution?.trader?.trader_name
+  ]
+    .filter(Boolean)
+    .join(" | ")
+    .toLowerCase();
+}
+
+function strictKeywordMatch(row: any, query: string | undefined) {
+  if (!query) {
+    return true;
+  }
+
+  const haystack = buildKeywordHaystack(row);
+  const normalizedQuery = query.toLowerCase().trim();
+  if (normalizedQuery && haystack.includes(normalizedQuery)) {
+    return true;
+  }
+
+  const tokens = tokenizeQuery(query).filter(Boolean);
+  if (tokens.length === 0) {
+    return true;
+  }
+
+  return tokens.every((token) => matchesTokenVariant(haystack, token));
+}
+
 function scoreRow(row: any, query: string | undefined) {
   if (!query) {
     return 1;
@@ -112,7 +485,7 @@ function scoreRow(row: any, query: string | undefined) {
   }
 
   for (const token of tokens) {
-    if (haystack.includes(token)) {
+    if (matchesTokenVariant(haystack, token)) {
       score += 2;
     }
   }
@@ -121,15 +494,74 @@ function scoreRow(row: any, query: string | undefined) {
     score += 10;
   }
 
-  if (row.primary_valuechain && tokens.some((token) => row.primary_valuechain.toLowerCase().includes(token))) {
-    score += 3;
+  if (row.primary_valuechain && tokens.some((token) => matchesTokenVariant(row.primary_valuechain.toLowerCase(), token))) {
+    score += 4;
   }
 
-  if (row.primary_application && tokens.some((token) => row.primary_application.toLowerCase().includes(token))) {
-    score += 3;
+  if (row.primary_application && tokens.some((token) => matchesTokenVariant(row.primary_application.toLowerCase(), token))) {
+    score += 8;
+  }
+
+  if ((row.tags || []).some((tag: string) => tokens.some((token) => matchesTokenVariant(String(tag).toLowerCase(), token)))) {
+    score += 8;
+  }
+
+  if ((row.applications || []).some((application: string) => tokens.some((token) => matchesTokenVariant(String(application).toLowerCase(), token)))) {
+    score += 6;
   }
 
   return score;
+}
+
+function providerScore(row: any, probe: string | undefined) {
+  if (!probe) {
+    return 0;
+  }
+
+  const normalizedProbe = normalizeComparable(probe);
+  const providerNames = [
+    row.solution?.trader?.organisation_name,
+    row.solution?.trader?.trader_name
+  ]
+    .filter(Boolean)
+    .map((value: string) => normalizeComparable(value));
+
+  if (providerNames.some((name) => name === normalizedProbe)) {
+    return 40;
+  }
+
+  if (providerNames.some((name) => name.includes(normalizedProbe) || normalizedProbe.includes(name))) {
+    return 24;
+  }
+
+  return 0;
+}
+
+async function getProviderIdsByName(providerName: string | undefined) {
+  if (!providerName) {
+    return [];
+  }
+
+  const supabase = createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("traders")
+    .select("trader_id, organisation_name, trader_name")
+    .limit(1000);
+
+  if (error) {
+    throw error;
+  }
+
+  const normalizedProbe = normalizeComparable(providerName);
+  return (data || [])
+    .filter((row: any) => {
+      const names = [row.organisation_name, row.trader_name]
+        .filter(Boolean)
+        .map((value: string) => normalizeComparable(value));
+      return names.some((name) => name.includes(normalizedProbe) || normalizedProbe.includes(name));
+    })
+    .map((row: any) => row.trader_id)
+    .filter(Boolean);
 }
 
 export async function applyImportBundle(bundle: ImportBundle, fileNames: { solutionFileName: string; traderFileName: string }) {
@@ -208,7 +640,14 @@ export async function applyImportBundle(bundle: ImportBundle, fileNames: { solut
 export async function runSearch(filters: SearchFilters) {
   const supabase = createServerSupabaseClient();
   const limit = Math.min(filters.limit || 12, 50);
-  const q = filters.q?.trim();
+  const filterOptions = await getFilterOptions();
+  const inferredFilters = {
+    ...inferSearchFilters(filters, filters.q),
+    solutionProvider: filters.solutionProvider || inferSolutionProvider(filters.q, filterOptions.solutionProviders)
+  };
+  const simplifiedQuery = simplifyQueryText(inferredFilters.q, inferredFilters);
+  const q = (simplifiedQuery || inferredFilters.q || "").trim();
+  const providerIds = await getProviderIdsByName(inferredFilters.solutionProvider);
 
   let query = supabase
     .from("offerings")
@@ -253,30 +692,62 @@ export async function runSearch(filters: SearchFilters) {
     .order("offering_name", { ascending: true })
     .limit(2000);
 
-  if (filters.category) query = query.eq("offering_group", filters.category);
-  if (filters.domain6m) query = query.eq("domain_6m", filters.domain6m);
-  if (filters.offeringType) query = query.ilike("offering_type", `%${filters.offeringType}%`);
+  if (inferredFilters.category) query = query.eq("offering_group", inferredFilters.category);
+  if (inferredFilters.domain6m) query = query.eq("domain_6m", inferredFilters.domain6m);
+  if (inferredFilters.offeringType) query = query.ilike("offering_type", `%${inferredFilters.offeringType}%`);
+  if (providerIds.length > 0) query = query.in("trader_id", providerIds);
 
   const { data, error } = await query;
   if (error) {
     throw error;
   }
 
-  const filtered = (data || [])
+  const structuredFilterCount = [
+    inferredFilters.solutionProvider,
+    inferredFilters.category,
+    inferredFilters.domain6m,
+    inferredFilters.offeringType,
+    inferredFilters.valueChain,
+    inferredFilters.application,
+    inferredFilters.language,
+    inferredFilters.geography
+  ].filter(Boolean).length;
+
+  const scored = (data || [])
     .filter((row: any) => {
       return (
-        matchesArray(row.languages, filters.language) &&
-        matchesArray(row.geographies, filters.geography) &&
-        matchesScalar(row.primary_valuechain, filters.valueChain) &&
-        matchesScalar(row.primary_application, filters.application)
+        (!filters.strictKeyword || strictKeywordMatch(row, q)) &&
+        matchesProvider(row, inferredFilters.solutionProvider) &&
+        matchesArray(row.languages, inferredFilters.language) &&
+        matchesGeography(row, inferredFilters.geography) &&
+        matchesScalar(row.primary_valuechain, inferredFilters.valueChain) &&
+        matchesScalar(row.primary_application, inferredFilters.application)
       );
     })
     .map((row: any) => ({
       row,
-      score: scoreRow(row, q)
-    }))
-    .filter(({ score }) => !q || score > 0)
-    .sort((left, right) => right.score - left.score || String(left.row.offering_name || "").localeCompare(String(right.row.offering_name || "")))
+      score: scoreRow(row, q) + providerScore(row, inferredFilters.solutionProvider)
+    }));
+
+  const positiveScoreRows = scored.filter(({ score }) => !q || score > 0);
+  if (filters.strictKeyword && q && positiveScoreRows.length === 0) {
+    return [];
+  }
+  const scoredForRanking =
+    q && positiveScoreRows.length === 0 && structuredFilterCount > 0
+      ? scored.map(({ row }) => ({ row, score: 1 }))
+      : positiveScoreRows;
+
+  const ranked = scoredForRanking
+    .sort((left, right) => right.score - left.score || String(left.row.offering_name || "").localeCompare(String(right.row.offering_name || "")));
+
+  const topScore = ranked[0]?.score || 0;
+  const relevanceFloor = q && topScore > 0
+    ? Math.max(4, Math.ceil(topScore * 0.55), topScore - 4)
+    : 0;
+
+  const filtered = ranked
+    .filter(({ score }) => inferredFilters.solutionProvider || !q || structuredFilterCount > 0 || score >= relevanceFloor)
     .slice(0, limit)
     .map(({ row }) => row);
 
@@ -288,7 +759,21 @@ export async function getFilterOptions() {
 
   const { data, error } = await supabase
     .from("offerings")
-    .select("offering_group, domain_6m, offering_type, primary_valuechain, primary_application, languages, geographies")
+    .select(`
+      offering_group,
+      domain_6m,
+      offering_type,
+      primary_valuechain,
+      primary_application,
+      languages,
+      geographies,
+      solution:solutions (
+        trader:traders (
+          trader_name,
+          organisation_name
+        )
+      )
+    `)
     .eq("publish_status", "Published")
     .limit(3000);
 
@@ -296,9 +781,24 @@ export async function getFilterOptions() {
     throw error;
   }
 
+  const { data: traderRows, error: traderError } = await supabase
+    .from("traders")
+    .select("organisation_name, trader_name")
+    .limit(1000);
+
+  if (traderError) {
+    throw traderError;
+  }
+
   const rows = data || [];
+  const traders = traderRows || [];
 
   return {
+    solutionProviders: uniqueSorted(
+      traders
+        .map((row: any) => row.organisation_name || row.trader_name)
+        .filter(Boolean)
+    ),
     categories: uniqueSorted(rows.map((row: any) => row.offering_group).filter(Boolean)),
     domains6m: uniqueSorted(rows.map((row: any) => row.domain_6m).filter(Boolean)),
     offeringTypes: uniqueSorted(rows.map((row: any) => row.offering_type).filter(Boolean)),
@@ -307,4 +807,80 @@ export async function getFilterOptions() {
     languages: uniqueSorted(rows.flatMap((row: any) => row.languages || [])),
     geographies: uniqueSorted(rows.flatMap((row: any) => row.geographies || []))
   };
+}
+
+export async function getOfferingDetail(offeringId: string) {
+  const supabase = createServerSupabaseClient();
+
+  const { data, error } = await supabase
+    .from("offerings")
+    .select(
+      `
+      offering_id,
+      offering_name,
+      offering_category,
+      offering_group,
+      offering_type,
+      domain_6m,
+      primary_valuechain,
+      primary_application,
+      valuechains,
+      applications,
+      tags,
+      languages,
+      geographies,
+      geographies_raw,
+      about_offering_text,
+      audience,
+      trainer_name,
+      trainer_email,
+      trainer_phone,
+      trainer_details_text,
+      duration,
+      prerequisites,
+      service_cost,
+      support_post_service,
+      support_post_service_cost,
+      delivery_mode,
+      certification_offered,
+      cost_remarks,
+      location_availability,
+      service_brochure_url,
+      grade_capacity,
+      product_cost,
+      lead_time,
+      support_details,
+      product_brochure_url,
+      knowledge_content_url,
+      contact_details,
+      gre_link,
+      solution:solutions (
+        solution_id,
+        solution_name,
+        about_solution_text,
+        solution_image_url,
+        trader:traders (
+          trader_id,
+          trader_name,
+          organisation_name,
+          email,
+          website,
+          mobile,
+          poc_name,
+          description,
+          short_description,
+          tagline,
+          association_status
+        )
+      )
+    `
+    )
+    .eq("offering_id", offeringId)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
 }
