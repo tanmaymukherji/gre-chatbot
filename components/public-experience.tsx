@@ -53,6 +53,32 @@ const EMPTY_OPTIONS: FilterOptions = {
   geographies: []
 };
 
+const DEFAULT_FILTER_OPTIONS: FilterOptions = {
+  solutionProviders: [],
+  categories: CATEGORY_OPTIONS.filter(Boolean),
+  domains6m: DOMAIN_OPTIONS.filter(Boolean),
+  offeringTypes: ["Training", "Advisory", "Workshop", "Machine", "Input", "Service"],
+  valueChains: [
+    "Livestock",
+    "Dairy",
+    "Poultry",
+    "Goat",
+    "Agriculture",
+    "Bamboo",
+    "Food Processing"
+  ],
+  applications: [
+    "Goat",
+    "Dairy For Milk",
+    "Biscuit",
+    "Baked Goods",
+    "Poultry",
+    "Organic Farming"
+  ],
+  languages: ["English", "Hindi", "KANNADA", "MARATHI", "ODIA", "TELUGU", "TAMIL", "GUJARATI"],
+  geographies: ["India", "Karnataka", "Madhya Pradesh", "Odisha", "Maharashtra", "Telangana", "Jharkhand", "Bihar"]
+};
+
 const SEARCH_STATE_KEY = "gre-public-search-state";
 
 function renderOptions(options: string[], emptyLabel: string) {
@@ -77,7 +103,7 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
   const [chatting, setChatting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [activeMode, setActiveMode] = useState<"chat" | "parameters" | null>(null);
-  const [filterOptions, setFilterOptions] = useState<FilterOptions>(EMPTY_OPTIONS);
+  const [filterOptions, setFilterOptions] = useState<FilterOptions>(DEFAULT_FILTER_OPTIONS);
 
   useEffect(() => {
     try {
@@ -103,16 +129,29 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
       .then((response) => response.json())
       .then((data) => {
         if (!data.error) {
-          setFilterOptions(data);
+          setFilterOptions((current) => ({
+            solutionProviders: data.solutionProviders?.length ? data.solutionProviders : current.solutionProviders,
+            categories: data.categories?.length ? data.categories : current.categories,
+            domains6m: data.domains6m?.length ? data.domains6m : current.domains6m,
+            offeringTypes: data.offeringTypes?.length ? data.offeringTypes : current.offeringTypes,
+            valueChains: data.valueChains?.length ? data.valueChains : current.valueChains,
+            applications: data.applications?.length ? data.applications : current.applications,
+            languages: data.languages?.length ? data.languages : current.languages,
+            geographies: data.geographies?.length ? data.geographies : current.geographies
+          }));
         }
       })
-      .catch(() => {
-        setFilterOptions(EMPTY_OPTIONS);
-      });
+      .catch(() => undefined);
   }
 
   useEffect(() => {
-    loadFilterOptions();
+    const timeoutId = window.setTimeout(() => {
+      loadFilterOptions();
+    }, 1500);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, []);
 
   useEffect(() => {
