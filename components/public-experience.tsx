@@ -113,21 +113,6 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
 
   useEffect(() => {
     loadFilterOptions();
-
-    const handleFocus = () => {
-      loadFilterOptions();
-    };
-
-    const intervalId = window.setInterval(() => {
-      loadFilterOptions();
-    }, 60000);
-
-    window.addEventListener("focus", handleFocus);
-
-    return () => {
-      window.removeEventListener("focus", handleFocus);
-      window.clearInterval(intervalId);
-    };
   }, []);
 
   useEffect(() => {

@@ -1,6 +1,23 @@
 import { createServerSupabaseClient } from "@/lib/supabase";
 import type { ImportBundle, SearchFilters } from "@/lib/types";
 
+const FILTER_CACHE_TTL_MS = 10 * 60 * 1000;
+let filterOptionsCache:
+  | {
+      expiresAt: number;
+      value: {
+        solutionProviders: string[];
+        categories: string[];
+        domains6m: string[];
+        offeringTypes: string[];
+        valueChains: string[];
+        applications: string[];
+        languages: string[];
+        geographies: string[];
+      };
+    }
+  | null = null;
+
 function chunk<T>(rows: T[], size = 250) {
   const chunks: T[][] = [];
   for (let i = 0; i < rows.length; i += size) {
@@ -755,6 +772,11 @@ export async function runSearch(filters: SearchFilters) {
 }
 
 export async function getFilterOptions() {
+  const now = Date.now();
+  if (filterOptionsCache && filterOptionsCache.expiresAt > now) {
+    return filterOptionsCache.value;
+  }
+
   const supabase = createServerSupabaseClient();
 
   const { data, error } = await supabase
@@ -766,13 +788,7 @@ export async function getFilterOptions() {
       primary_valuechain,
       primary_application,
       languages,
-      geographies,
-      solution:solutions (
-        trader:traders (
-          trader_name,
-          organisation_name
-        )
-      )
+      geographies
     `)
     .eq("publish_status", "Published")
     .limit(3000);
@@ -793,7 +809,7 @@ export async function getFilterOptions() {
   const rows = data || [];
   const traders = traderRows || [];
 
-  return {
+  const value = {
     solutionProviders: uniqueSorted(
       traders
         .map((row: any) => row.organisation_name || row.trader_name)
@@ -807,6 +823,13 @@ export async function getFilterOptions() {
     languages: uniqueSorted(rows.flatMap((row: any) => row.languages || [])),
     geographies: uniqueSorted(rows.flatMap((row: any) => row.geographies || []))
   };
+
+  filterOptionsCache = {
+    expiresAt: now + FILTER_CACHE_TTL_MS,
+    value
+  };
+
+  return value;
 }
 
 export async function getOfferingDetail(offeringId: string) {
