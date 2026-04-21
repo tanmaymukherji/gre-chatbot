@@ -109,12 +109,27 @@ function normalizeTranslationKeyword(value: string) {
 function buildTranslationPrompt(question: string) {
   return [
     "Translate or transliterate the user's search phrase into compact English search text for database retrieval.",
-    "If the phrase is a name, transliterate it into Latin script.",
+    "Always return a Latin-script transliteration when the input uses a non-English script.",
+    "If the phrase could be a local named method, brand, solution title, or proper noun, keep the best search phrase as transliteration rather than replacing it with a literal meaning.",
+    "Use literal English meanings as extra keywords, not as the primary search phrase, when the phrase looks like a named technique or title.",
     "Also return 3 to 8 short English synonym or related search keywords that improve recall.",
     "Return JSON only.",
     'Keys: englishQuery, transliteration, keywords.',
     'Example: {"englishQuery":"akkadi saalu","transliteration":"Akkadi Saalu","keywords":["akkadi saalu","intercrop farming","natural farming"]}',
     'Example: {"englishQuery":"maize","transliteration":"jola","keywords":["maize","corn"]}',
+    "",
+    `Search phrase: ${question}`
+  ].join("\n");
+}
+
+function buildTransliterationPrompt(question: string) {
+  return [
+    "Transliterate the user's phrase into Latin script for database search.",
+    "Do not explain, and do not translate the meaning unless the phrase is already a common English crop or product name.",
+    "Return JSON only.",
+    'Keys: transliteration, keywords.',
+    'Example: {"transliteration":"Akkadi Saalu","keywords":["akkadi saalu"]}',
+    'Example: {"transliteration":"Jola","keywords":["jola"]}',
     "",
     `Search phrase: ${question}`
   ].join("\n");
@@ -148,6 +163,66 @@ function parseTranslationResponse(text: string | null, originalQuestion: string)
   }
 }
 
+function parseTransliterationResponse(text: string | null) {
+  if (!text) {
+    return null;
+  }
+
+  const json = extractJsonObject(text);
+  if (!json) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(json);
+    const transliteration = String(parsed.transliteration || "").trim();
+    const keywords = Array.isArray(parsed.keywords)
+      ? parsed.keywords.map((keyword: unknown) => normalizeTranslationKeyword(String(keyword || ""))).filter(Boolean).slice(0, 8)
+      : [];
+
+    if (!transliteration) {
+      return null;
+    }
+
+    return {
+      transliteration,
+      keywords: [...new Set([normalizeTranslationKeyword(transliteration), ...keywords])].filter(Boolean)
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function transliterateSearchText(question: string, env: ReturnType<typeof getServerEnv>) {
+  const prompt = buildTransliterationPrompt(question);
+
+  try {
+    if (env.openAiApiKey) {
+      const response = await generateWithOpenAI(prompt, env.openAiApiKey);
+      const parsed = parseTransliterationResponse(response);
+      if (parsed) {
+        return parsed;
+      }
+    }
+  } catch {
+    // fall through
+  }
+
+  try {
+    if (env.geminiApiKey) {
+      const response = await generateWithGemini(prompt, env.geminiApiKey, { jsonMode: true });
+      const parsed = parseTransliterationResponse(response);
+      if (parsed) {
+        return parsed;
+      }
+    }
+  } catch {
+    // fall through
+  }
+
+  return null;
+}
+
 export async function translateSearchText(question: string): Promise<TranslatedSearchText> {
   const cached = translationCache.get(question);
   if (cached && cached.expiresAt > Date.now()) {
@@ -156,12 +231,21 @@ export async function translateSearchText(question: string): Promise<TranslatedS
 
   const env = getServerEnv();
   const prompt = buildTranslationPrompt(question);
+  const rawWordCount = question.trim().split(/\s+/).filter(Boolean).length;
+  const needsScriptAwareTransliteration = /[^\u0000-\u024f\s]/.test(question) && rawWordCount <= 4;
 
   try {
     if (env.openAiApiKey) {
       const response = await generateWithOpenAI(prompt, env.openAiApiKey);
       const parsed = parseTranslationResponse(response, question);
       if (parsed) {
+        if (needsScriptAwareTransliteration && !parsed.transliteration) {
+          const transliterationResult = await transliterateSearchText(question, env);
+          if (transliterationResult) {
+            parsed.transliteration = transliterationResult.transliteration;
+            parsed.keywords = [...new Set([...(parsed.keywords || []), ...transliterationResult.keywords])].filter(Boolean);
+          }
+        }
         translationCache.set(question, {
           expiresAt: Date.now() + TRANSLATION_CACHE_TTL_MS,
           value: parsed
@@ -178,6 +262,13 @@ export async function translateSearchText(question: string): Promise<TranslatedS
       const response = await generateWithGemini(prompt, env.geminiApiKey, { jsonMode: true });
       const parsed = parseTranslationResponse(response, question);
       if (parsed) {
+        if (needsScriptAwareTransliteration && !parsed.transliteration) {
+          const transliterationResult = await transliterateSearchText(question, env);
+          if (transliterationResult) {
+            parsed.transliteration = transliterationResult.transliteration;
+            parsed.keywords = [...new Set([...(parsed.keywords || []), ...transliterationResult.keywords])].filter(Boolean);
+          }
+        }
         translationCache.set(question, {
           expiresAt: Date.now() + TRANSLATION_CACHE_TTL_MS,
           value: parsed
@@ -187,6 +278,22 @@ export async function translateSearchText(question: string): Promise<TranslatedS
     }
   } catch {
     // fall through
+  }
+
+  if (needsScriptAwareTransliteration) {
+    const transliterationResult = await transliterateSearchText(question, env);
+    if (transliterationResult) {
+      const fallback = {
+        englishQuery: transliterationResult.transliteration,
+        transliteration: transliterationResult.transliteration,
+        keywords: transliterationResult.keywords
+      };
+      translationCache.set(question, {
+        expiresAt: Date.now() + TRANSLATION_CACHE_TTL_MS,
+        value: fallback
+      });
+      return fallback;
+    }
   }
 
   const fallback = {
