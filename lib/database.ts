@@ -343,6 +343,22 @@ function simplifyQueryText(query: string | undefined, filters: SearchFilters) {
     simplified = simplified.replace(/\btraining\b/gi, " ");
   }
 
+  if (filters.domain6m) {
+    if (/machine/i.test(filters.domain6m)) {
+      simplified = simplified.replace(/\b(machine|machinery|equipment)\b/gi, " ");
+    } else if (/method/i.test(filters.domain6m)) {
+      simplified = simplified.replace(/\b(method|methods|process|processes|practice|practices)\b/gi, " ");
+    } else if (/manpower/i.test(filters.domain6m)) {
+      simplified = simplified.replace(/\b(manpower|skill|skills)\b/gi, " ");
+    } else if (/material/i.test(filters.domain6m)) {
+      simplified = simplified.replace(/\b(material|materials|input|inputs|raw material|raw materials)\b/gi, " ");
+    } else if (/market/i.test(filters.domain6m)) {
+      simplified = simplified.replace(/\b(market|markets|marketing|buyer|buyers)\b/gi, " ");
+    } else if (/money/i.test(filters.domain6m)) {
+      simplified = simplified.replace(/\b(money|finance|financial|loan|loans|credit)\b/gi, " ");
+    }
+  }
+
   return simplified.replace(/\s+/g, " ").trim();
 }
 
@@ -406,6 +422,22 @@ export function inferSearchFilters<T extends SearchFilters>(filters: T, query: s
   if (!filters.offeringType) {
     if (/\btraining\b/i.test(normalized)) {
       inferred.offeringType = "Training";
+    }
+  }
+
+  if (!filters.domain6m) {
+    if (/\b(machine|machinery|equipment)\b/i.test(normalized)) {
+      inferred.domain6m = "Machine";
+    } else if (/\b(method|methods|process|processes|practice|practices)\b/i.test(normalized)) {
+      inferred.domain6m = "Method";
+    } else if (/\b(manpower|skill|skills)\b/i.test(normalized)) {
+      inferred.domain6m = "Manpower";
+    } else if (/\b(material|materials|input|inputs|raw material|raw materials)\b/i.test(normalized)) {
+      inferred.domain6m = "Material";
+    } else if (/\b(market|markets|marketing|buyer|buyers)\b/i.test(normalized)) {
+      inferred.domain6m = "Market";
+    } else if (/\b(money|finance|financial|loan|loans|credit)\b/i.test(normalized)) {
+      inferred.domain6m = "Money";
     }
   }
 
