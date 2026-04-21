@@ -54,6 +54,15 @@ export type SearchIntent = {
   keywords?: string[];
 };
 
+type TranslatedSearchText = {
+  englishQuery: string;
+  transliteration?: string;
+  keywords: string[];
+};
+
+const TRANSLATION_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const translationCache = new Map<string, { expiresAt: number; value: TranslatedSearchText }>();
+
 export function shouldUseAiInterpretation(question: string) {
   const trimmed = question.trim();
   const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
@@ -89,21 +98,75 @@ export function shouldTranslateFirst(question: string) {
   return false;
 }
 
-export async function translateSearchText(question: string) {
-  const env = getServerEnv();
-  const prompt = [
-    "Translate or transliterate the user's search phrase into short English search text.",
-    "If the phrase is a name, transliterate it into Latin script instead of explaining it.",
-    "Return only the translated search text with no quotes and no extra commentary.",
+function normalizeTranslationKeyword(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildTranslationPrompt(question: string) {
+  return [
+    "Translate or transliterate the user's search phrase into compact English search text for database retrieval.",
+    "If the phrase is a name, transliterate it into Latin script.",
+    "Also return 3 to 8 short English synonym or related search keywords that improve recall.",
+    "Return JSON only.",
+    'Keys: englishQuery, transliteration, keywords.',
+    'Example: {"englishQuery":"akkadi saalu","transliteration":"Akkadi Saalu","keywords":["akkadi saalu","intercrop farming","natural farming"]}',
+    'Example: {"englishQuery":"maize","transliteration":"jola","keywords":["maize","corn"]}',
     "",
     `Search phrase: ${question}`
   ].join("\n");
+}
+
+function parseTranslationResponse(text: string | null, originalQuestion: string): TranslatedSearchText | null {
+  if (!text) {
+    return null;
+  }
+
+  const json = extractJsonObject(text);
+  if (!json) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(json);
+    const englishQuery = String(parsed.englishQuery || parsed.transliteration || originalQuestion).trim();
+    const transliteration = parsed.transliteration ? String(parsed.transliteration).trim() : undefined;
+    const keywords = Array.isArray(parsed.keywords)
+      ? parsed.keywords.map((keyword: unknown) => normalizeTranslationKeyword(String(keyword || ""))).filter(Boolean).slice(0, 8)
+      : [];
+
+    return {
+      englishQuery,
+      transliteration,
+      keywords: [...new Set([normalizeTranslationKeyword(englishQuery), ...keywords])].filter(Boolean)
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function translateSearchText(question: string): Promise<TranslatedSearchText> {
+  const cached = translationCache.get(question);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+
+  const env = getServerEnv();
+  const prompt = buildTranslationPrompt(question);
 
   try {
     if (env.openAiApiKey) {
       const response = await generateWithOpenAI(prompt, env.openAiApiKey);
-      if (response) {
-        return response.trim();
+      const parsed = parseTranslationResponse(response, question);
+      if (parsed) {
+        translationCache.set(question, {
+          expiresAt: Date.now() + TRANSLATION_CACHE_TTL_MS,
+          value: parsed
+        });
+        return parsed;
       }
     }
   } catch {
@@ -112,16 +175,29 @@ export async function translateSearchText(question: string) {
 
   try {
     if (env.geminiApiKey) {
-      const response = await generateWithGemini(prompt, env.geminiApiKey);
-      if (response) {
-        return response.trim();
+      const response = await generateWithGemini(prompt, env.geminiApiKey, { jsonMode: true });
+      const parsed = parseTranslationResponse(response, question);
+      if (parsed) {
+        translationCache.set(question, {
+          expiresAt: Date.now() + TRANSLATION_CACHE_TTL_MS,
+          value: parsed
+        });
+        return parsed;
       }
     }
   } catch {
     // fall through
   }
 
-  return question;
+  const fallback = {
+    englishQuery: question,
+    keywords: []
+  };
+  translationCache.set(question, {
+    expiresAt: Date.now() + TRANSLATION_CACHE_TTL_MS,
+    value: fallback
+  });
+  return fallback;
 }
 
 function buildFallback(results: any[], reason?: string, question?: string) {

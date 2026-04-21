@@ -31,7 +31,10 @@ export async function POST(request: NextRequest) {
       shortDirectQuery &&
       !/\b(and|or|for|with|near|in|from|available)\b/i.test(normalizedMessage);
     const requiresTranslationFirst = shouldTranslateFirst(body.message);
-    const translatedMessage = requiresTranslationFirst ? await translateSearchText(body.message) : body.message;
+    const translation = requiresTranslationFirst
+      ? await translateSearchText(body.message)
+      : { englishQuery: body.message, keywords: [] };
+    const translatedMessage = translation.englishQuery || body.message;
     const normalizedTranslatedMessage = translatedMessage.toLowerCase();
     const filterOptions = await getFilterOptions();
     const explicitStructuredCue = Boolean(
@@ -72,7 +75,7 @@ export async function POST(request: NextRequest) {
     const interpreted = simpleEnglishKeywordQuery && !explicitStructuredCue
       ? {
           englishQuery: translatedMessage.trim(),
-          keywords: [],
+          keywords: translation.keywords || [],
           solutionProvider: undefined,
           category: undefined,
           domain6m: undefined,
@@ -85,7 +88,11 @@ export async function POST(request: NextRequest) {
         }
       : useAiInterpretation
         ? await interpretSearchIntent(translatedMessage, filterOptions)
-        : heuristicIntent;
+        : {
+            ...heuristicIntent,
+            englishQuery: heuristicIntent.englishQuery || translatedMessage,
+            keywords: [...new Set([...(translation.keywords || []), ...(heuristicIntent.keywords || [])])].filter(Boolean).slice(0, 8)
+          };
     const shouldKeepInterpretedStructure = !shortDirectQuery || explicitStructuredCue || requiresTranslationFirst;
     const interpretedFilters = shouldKeepInterpretedStructure
       ? interpreted
