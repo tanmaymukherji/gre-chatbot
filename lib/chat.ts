@@ -75,6 +75,20 @@ export function shouldUseAiInterpretation(question: string) {
   return wordCount > 6 || hasQuestionPhrasing || hasConnectorWords;
 }
 
+export function shouldTranslateFirst(question: string) {
+  const trimmed = question.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  const hasNonLatinScript = /[^\u0000-\u024f\s]/.test(trimmed);
+  if (hasNonLatinScript) {
+    return true;
+  }
+
+  return false;
+}
+
 function buildFallback(results: any[], reason?: string, question?: string) {
   const language = detectLanguageStyle(question || "");
   const lines = results.slice(0, 5).map((result, index) => {

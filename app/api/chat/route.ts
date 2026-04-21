@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { formatGroundedResults, generateGroundedAnswer, getHeuristicSearchIntent, interpretSearchIntent, shouldUseAiInterpretation } from "@/lib/chat";
+import { formatGroundedResults, generateGroundedAnswer, getHeuristicSearchIntent, interpretSearchIntent, shouldTranslateFirst, shouldUseAiInterpretation } from "@/lib/chat";
 import { getFilterOptions, inferSearchFilters, runSearch } from "@/lib/database";
 
 const payloadSchema = z.object({
@@ -47,7 +47,26 @@ export async function POST(request: NextRequest) {
       /(karnataka|madhya pradesh|odisha|orissa|rajasthan|jharkhand|bihar|uttar pradesh|chhattisgarh)/i.test(normalizedMessage)
     );
     const heuristicIntent = getHeuristicSearchIntent(body.message, filterOptions);
-    const useAiInterpretation = !simpleEnglishKeywordQuery && shouldUseAiInterpretation(body.message);
+    const requiresTranslationFirst = shouldTranslateFirst(body.message);
+    const heuristicResolved = Boolean(
+      heuristicIntent.solutionProvider ||
+      heuristicIntent.category ||
+      heuristicIntent.domain6m ||
+      heuristicIntent.offeringType ||
+      heuristicIntent.valueChain ||
+      heuristicIntent.application ||
+      heuristicIntent.tag ||
+      heuristicIntent.language ||
+      heuristicIntent.geography ||
+      (heuristicIntent.keywords || []).length > 0 ||
+      (heuristicIntent.englishQuery && heuristicIntent.englishQuery.trim() && heuristicIntent.englishQuery.trim() !== body.message.trim())
+    );
+    const useAiInterpretation =
+      !simpleEnglishKeywordQuery &&
+      (
+        shouldUseAiInterpretation(body.message) ||
+        (requiresTranslationFirst && !heuristicResolved)
+      );
     const interpreted = simpleEnglishKeywordQuery && !explicitStructuredCue
       ? {
           englishQuery: body.message.trim(),
@@ -56,7 +75,7 @@ export async function POST(request: NextRequest) {
       : useAiInterpretation
         ? await interpretSearchIntent(body.message, filterOptions)
         : heuristicIntent;
-    const shouldKeepInterpretedStructure = !shortDirectQuery || explicitStructuredCue;
+    const shouldKeepInterpretedStructure = !shortDirectQuery || explicitStructuredCue || requiresTranslationFirst;
     const interpretedFilters = shouldKeepInterpretedStructure
       ? interpreted
       : {
