@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+﻿import OpenAI from "openai";
 import { getServerEnv } from "@/lib/env";
 
 type FilterOptions = {
@@ -310,8 +310,8 @@ function detectLanguageStyle(text: string) {
     return {
       name: "Gujarati",
       outputStyle: "Gujarati in Gujarati script",
-      summaryIntro: "મેં GRE dataset માં આ મેળ ખાતી offerings શોધી છે.",
-      noMatch: "મને આ offering માટે database માં વધુ માહિતી મળી નથી."
+      summaryIntro: "àª®à«‡àª‚ GRE dataset àª®àª¾àª‚ àª† àª®à«‡àª³ àª–àª¾àª¤à«€ offerings àª¶à«‹àª§à«€ àª›à«‡.",
+      noMatch: "àª®àª¨à«‡ àª† offering àª®àª¾àªŸà«‡ database àª®àª¾àª‚ àªµàª§à« àª®àª¾àª¹àª¿àª¤à«€ àª®àª³à«€ àª¨àª¥à«€."
     };
   }
 
@@ -537,13 +537,13 @@ function buildHeuristicIntent(question: string, options: FilterOptions) {
   const containsGujaratiScript = /[\u0a80-\u0aff]/.test(question);
   const directAliasMatches = [
     {
-      terms: ["ಅಕ್ಕಡಿ ಸಾಲು"],
+      terms: ["\u0C85\u0C95\u0CCD\u0C95\u0CA1\u0CBF \u0CB8\u0CBE\u0CB2\u0CC1"],
       englishQuery: "akkadi saalu",
       tag: "Akkadi Saalu",
       keywords: ["akkadi saalu"]
     },
     {
-      terms: ["ಜೋಳ"],
+      terms: ["\u0C9C\u0CCB\u0CB3"],
       englishQuery: "maize",
       keywords: ["maize"]
     }
@@ -571,9 +571,9 @@ function buildHeuristicIntent(question: string, options: FilterOptions) {
     normalized.includes("jankari") ||
     normalized.includes("guide") ||
     normalized.includes("learn") ||
-    question.includes("તાલીમ") ||
-    question.includes("પ્રશિક્ષણ") ||
-    question.includes("શીખ")
+    question.includes("àª¤àª¾àª²à«€àª®") ||
+    question.includes("àªªà«àª°àª¶àª¿àª•à«àª·àª£") ||
+    question.includes("àª¶à«€àª–")
   ) {
     intent.category = "Service";
     intent.domain6m = "Manpower";
@@ -591,7 +591,7 @@ function buildHeuristicIntent(question: string, options: FilterOptions) {
   intent.language = intent.language || normalizeLanguage(findDirectOptionMatch(question, options.languages), options.languages);
   intent.geography = intent.geography || normalizeGeography(findDirectOptionMatch(question, options.geographies), options.geographies);
 
-  if (normalized.includes("hindi") || normalized.includes("हिंदी") || normalized.includes("हिन्दी")) {
+  if (normalized.includes("hindi") || normalized.includes("à¤¹à¤¿à¤‚à¤¦à¥€") || normalized.includes("à¤¹à¤¿à¤¨à¥à¤¦à¥€")) {
     intent.language = "HIN";
     addKeyword("hindi");
   } else if (normalized.includes("kannada")) {
@@ -633,7 +633,7 @@ function buildHeuristicIntent(question: string, options: FilterOptions) {
     normalized.includes("maize") ||
     normalized.includes("corn") ||
     normalized.includes("jowar") ||
-    question.includes("ಜೋಳ")
+    question.includes("\u0C9C\u0CCB\u0CB3")
   ) {
     addKeyword("maize");
   }
@@ -641,8 +641,8 @@ function buildHeuristicIntent(question: string, options: FilterOptions) {
   if (
     normalized.includes("biscuit") ||
     normalized.includes("biscuits") ||
-    question.includes("બિસ્કીટ") ||
-    question.includes("બિસ્કિટ")
+    question.includes("àª¬àª¿àª¸à«àª•à«€àªŸ") ||
+    question.includes("àª¬àª¿àª¸à«àª•àª¿àªŸ")
   ) {
     intent.valueChain = intent.valueChain || "Bakery";
     intent.application = intent.application || "Biscuits";
@@ -1003,3 +1003,4 @@ export async function generateOfferingAnswer(offering: any, history: ChatMessage
     .filter(Boolean)
     .join("\n");
 }
+
