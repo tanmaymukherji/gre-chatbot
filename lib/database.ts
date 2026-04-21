@@ -2,20 +2,38 @@ import { createServerSupabaseClient } from "@/lib/supabase";
 import type { ImportBundle, SearchFilters } from "@/lib/types";
 
 const FILTER_CACHE_TTL_MS = 10 * 60 * 1000;
+const SEARCH_DATA_CACHE_TTL_MS = 10 * 60 * 1000;
+
+type CachedFilterOptions = {
+  solutionProviders: string[];
+  categories: string[];
+  domains6m: string[];
+  offeringTypes: string[];
+  valueChains: string[];
+  applications: string[];
+  tags: string[];
+  languages: string[];
+  geographies: string[];
+};
+
+type SearchOfferingRow = any;
+type TraderLookupRow = {
+  trader_id: string;
+  organisation_name: string | null;
+  trader_name: string | null;
+};
+
 let filterOptionsCache:
   | {
       expiresAt: number;
-      value: {
-        solutionProviders: string[];
-        categories: string[];
-        domains6m: string[];
-        offeringTypes: string[];
-        valueChains: string[];
-        applications: string[];
-        tags: string[];
-        languages: string[];
-        geographies: string[];
-      };
+      value: CachedFilterOptions;
+    }
+  | null = null;
+let searchDataCache:
+  | {
+      expiresAt: number;
+      offerings: SearchOfferingRow[];
+      traders: TraderLookupRow[];
     }
   | null = null;
 
@@ -197,6 +215,85 @@ function matchesProvider(row: any, probe: string | undefined) {
 
 function uniqueSorted(values: string[]) {
   return [...new Set(values.filter(Boolean))].sort((left, right) => left.localeCompare(right));
+}
+
+async function getCachedSearchData() {
+  const now = Date.now();
+  if (searchDataCache && searchDataCache.expiresAt > now) {
+    return searchDataCache;
+  }
+
+  const supabase = createServerSupabaseClient();
+
+  const offeringsQuery = supabase
+    .from("offerings")
+    .select(
+      `
+      offering_id,
+      trader_id,
+      offering_name,
+      offering_category,
+      offering_group,
+      offering_type,
+      domain_6m,
+      primary_valuechain,
+      primary_application,
+      applications,
+      tags,
+      languages,
+      geographies,
+      geographies_raw,
+      about_offering_text,
+      service_cost,
+      product_cost,
+      delivery_mode,
+      certification_offered,
+      gre_link,
+      search_document,
+      solution:solutions (
+        solution_id,
+        solution_name,
+        about_solution_text,
+        solution_image_url,
+        trader:traders (
+          trader_id,
+          trader_name,
+          organisation_name,
+          email,
+          website,
+          association_status
+        )
+      )
+    `
+    )
+    .eq("publish_status", "Published")
+    .limit(2500);
+
+  const tradersQuery = supabase
+    .from("traders")
+    .select("trader_id, organisation_name, trader_name")
+    .limit(1000);
+
+  const [{ data: offerings, error: offeringsError }, { data: traders, error: tradersError }] = await Promise.all([
+    offeringsQuery,
+    tradersQuery
+  ]);
+
+  if (offeringsError) {
+    throw offeringsError;
+  }
+
+  if (tradersError) {
+    throw tradersError;
+  }
+
+  searchDataCache = {
+    expiresAt: now + SEARCH_DATA_CACHE_TTL_MS,
+    offerings: offerings || [],
+    traders: (traders || []) as TraderLookupRow[]
+  };
+
+  return searchDataCache;
 }
 
 function inferSolutionProvider(query: string | undefined, options: string[] = []) {
@@ -587,23 +684,13 @@ function providerScore(row: any, probe: string | undefined) {
   return 0;
 }
 
-async function getProviderIdsByName(providerName: string | undefined) {
+async function getProviderIdsByName(providerName: string | undefined, traders?: TraderLookupRow[]) {
   if (!providerName) {
     return [];
   }
 
-  const supabase = createServerSupabaseClient();
-  const { data, error } = await supabase
-    .from("traders")
-    .select("trader_id, organisation_name, trader_name")
-    .limit(1000);
-
-  if (error) {
-    throw error;
-  }
-
   const normalizedProbe = normalizeComparable(providerName);
-  return (data || [])
+  return (traders || [])
     .filter((row: any) => {
       const names = [row.organisation_name, row.trader_name]
         .filter(Boolean)
@@ -616,6 +703,8 @@ async function getProviderIdsByName(providerName: string | undefined) {
 
 export async function applyImportBundle(bundle: ImportBundle, fileNames: { solutionFileName: string; traderFileName: string }) {
   const supabase = createServerSupabaseClient();
+  filterOptionsCache = null;
+  searchDataCache = null;
 
   const { data: importRow, error: importError } = await supabase
     .from("data_imports")
@@ -667,6 +756,9 @@ export async function applyImportBundle(bundle: ImportBundle, fileNames: { solut
       throw completeError;
     }
 
+    filterOptionsCache = null;
+    searchDataCache = null;
+
     return {
       importId,
       traders: bundle.traders.length,
@@ -688,7 +780,7 @@ export async function applyImportBundle(bundle: ImportBundle, fileNames: { solut
 }
 
 export async function runSearch(filters: SearchFilters) {
-  const supabase = createServerSupabaseClient();
+  const { offerings, traders } = await getCachedSearchData();
   const limit = Math.min(filters.limit || 12, 50);
   const filterOptions = await getFilterOptions();
   const inferredFilters = {
@@ -697,60 +789,7 @@ export async function runSearch(filters: SearchFilters) {
   };
   const simplifiedQuery = simplifyQueryText(inferredFilters.q, inferredFilters);
   const q = (simplifiedQuery || inferredFilters.q || "").trim();
-  const providerIds = await getProviderIdsByName(inferredFilters.solutionProvider);
-
-  let query = supabase
-    .from("offerings")
-    .select(
-      `
-      offering_id,
-      offering_name,
-      offering_category,
-      offering_group,
-      offering_type,
-      domain_6m,
-      primary_valuechain,
-      primary_application,
-      tags,
-      languages,
-      geographies,
-      geographies_raw,
-      about_offering_text,
-      service_cost,
-      product_cost,
-      delivery_mode,
-      certification_offered,
-      gre_link,
-      search_document,
-      solution:solutions (
-        solution_id,
-        solution_name,
-        about_solution_text,
-        solution_image_url,
-        trader:traders (
-          trader_id,
-          trader_name,
-          organisation_name,
-          email,
-          website,
-          association_status
-        )
-      )
-    `
-    )
-    .eq("publish_status", "Published")
-    .order("offering_name", { ascending: true })
-    .limit(2000);
-
-  if (inferredFilters.category) query = query.eq("offering_group", inferredFilters.category);
-  if (inferredFilters.domain6m) query = query.eq("domain_6m", inferredFilters.domain6m);
-  if (inferredFilters.offeringType) query = query.ilike("offering_type", `%${inferredFilters.offeringType}%`);
-  if (providerIds.length > 0) query = query.in("trader_id", providerIds);
-
-  const { data, error } = await query;
-  if (error) {
-    throw error;
-  }
+  const providerIds = await getProviderIdsByName(inferredFilters.solutionProvider, traders);
 
   const structuredFilterCount = [
     inferredFilters.solutionProvider,
@@ -763,7 +802,17 @@ export async function runSearch(filters: SearchFilters) {
     inferredFilters.geography
   ].filter(Boolean).length;
 
-  const scored = (data || [])
+  const baseRows = offerings
+    .filter((row: any) => {
+      return (
+        (!inferredFilters.category || row.offering_group === inferredFilters.category) &&
+        (!inferredFilters.domain6m || row.domain_6m === inferredFilters.domain6m) &&
+        (!inferredFilters.offeringType || String(row.offering_type || "").toLowerCase().includes(String(inferredFilters.offeringType || "").toLowerCase())) &&
+        (providerIds.length === 0 || providerIds.includes(row.trader_id))
+      );
+    });
+
+  const scored = baseRows
     .filter((row: any) => {
       return (
         (!filters.strictKeyword || strictKeywordMatch(row, q)) &&
@@ -811,42 +860,11 @@ export async function getFilterOptions() {
     return filterOptionsCache.value;
   }
 
-  const supabase = createServerSupabaseClient();
-
-  const { data, error } = await supabase
-    .from("offerings")
-    .select(`
-      offering_group,
-      domain_6m,
-      offering_type,
-      primary_valuechain,
-      primary_application,
-      tags,
-      languages,
-      geographies
-    `)
-    .eq("publish_status", "Published")
-    .limit(3000);
-
-  if (error) {
-    throw error;
-  }
-
-  const { data: traderRows, error: traderError } = await supabase
-    .from("traders")
-    .select("organisation_name, trader_name")
-    .limit(1000);
-
-  if (traderError) {
-    throw traderError;
-  }
-
-  const rows = data || [];
-  const traders = traderRows || [];
+  const { offerings: rows, traders } = await getCachedSearchData();
 
   const value = {
     solutionProviders: uniqueSorted(
-      traders
+      (traders || [])
         .map((row: any) => row.organisation_name || row.trader_name)
         .filter(Boolean)
     ),
