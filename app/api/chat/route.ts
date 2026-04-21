@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { formatGroundedResults, generateGroundedAnswer, getHeuristicSearchIntent, interpretSearchIntent, shouldTranslateFirst, shouldUseAiInterpretation } from "@/lib/chat";
+import { formatGroundedResults, generateGroundedAnswer, getHeuristicSearchIntent, interpretSearchIntent, shouldTranslateFirst, shouldUseAiInterpretation, translateSearchText } from "@/lib/chat";
 import { getFilterOptions, inferSearchFilters, runSearch } from "@/lib/database";
 
 const payloadSchema = z.object({
@@ -30,6 +30,9 @@ export async function POST(request: NextRequest) {
       /^[a-z\s]+$/i.test(body.message.trim()) &&
       shortDirectQuery &&
       !/\b(and|or|for|with|near|in|from|available)\b/i.test(normalizedMessage);
+    const requiresTranslationFirst = shouldTranslateFirst(body.message);
+    const translatedMessage = requiresTranslationFirst ? await translateSearchText(body.message) : body.message;
+    const normalizedTranslatedMessage = translatedMessage.toLowerCase();
     const filterOptions = await getFilterOptions();
     const explicitStructuredCue = Boolean(
       body.filters.solutionProvider ||
@@ -41,13 +44,12 @@ export async function POST(request: NextRequest) {
       body.filters.tag ||
       body.filters.language ||
       body.filters.geography ||
-      /\b(training|service|product|knowledge|manual|tech transfer|machine|method|manpower|material|market|money)\b/i.test(normalizedMessage) ||
-      /\b(taalim|talim|sikh|seekh|jankari|guide|course)\b/i.test(normalizedMessage) ||
-      /(hindi|kannada|odia|oriya|marathi|tamil|telugu)/i.test(normalizedMessage) ||
-      /(karnataka|madhya pradesh|odisha|orissa|rajasthan|jharkhand|bihar|uttar pradesh|chhattisgarh)/i.test(normalizedMessage)
+      /\b(training|service|product|knowledge|manual|tech transfer|machine|method|manpower|material|market|money)\b/i.test(normalizedTranslatedMessage) ||
+      /\b(taalim|talim|sikh|seekh|jankari|guide|course)\b/i.test(normalizedTranslatedMessage) ||
+      /(hindi|kannada|odia|oriya|marathi|tamil|telugu)/i.test(normalizedTranslatedMessage) ||
+      /(karnataka|madhya pradesh|odisha|orissa|rajasthan|jharkhand|bihar|uttar pradesh|chhattisgarh)/i.test(normalizedTranslatedMessage)
     );
-    const heuristicIntent = getHeuristicSearchIntent(body.message, filterOptions);
-    const requiresTranslationFirst = shouldTranslateFirst(body.message);
+    const heuristicIntent = getHeuristicSearchIntent(translatedMessage, filterOptions);
     const heuristicResolved = Boolean(
       heuristicIntent.solutionProvider ||
       heuristicIntent.category ||
@@ -59,7 +61,7 @@ export async function POST(request: NextRequest) {
       heuristicIntent.language ||
       heuristicIntent.geography ||
       (heuristicIntent.keywords || []).length > 0 ||
-      (heuristicIntent.englishQuery && heuristicIntent.englishQuery.trim() && heuristicIntent.englishQuery.trim() !== body.message.trim())
+      (heuristicIntent.englishQuery && heuristicIntent.englishQuery.trim() && heuristicIntent.englishQuery.trim() !== translatedMessage.trim())
     );
     const useAiInterpretation =
       !simpleEnglishKeywordQuery &&
@@ -69,11 +71,20 @@ export async function POST(request: NextRequest) {
       );
     const interpreted = simpleEnglishKeywordQuery && !explicitStructuredCue
       ? {
-          englishQuery: body.message.trim(),
-          keywords: []
+          englishQuery: translatedMessage.trim(),
+          keywords: [],
+          solutionProvider: undefined,
+          category: undefined,
+          domain6m: undefined,
+          offeringType: undefined,
+          valueChain: undefined,
+          application: undefined,
+          tag: undefined,
+          language: undefined,
+          geography: undefined
         }
       : useAiInterpretation
-        ? await interpretSearchIntent(body.message, filterOptions)
+        ? await interpretSearchIntent(translatedMessage, filterOptions)
         : heuristicIntent;
     const shouldKeepInterpretedStructure = !shortDirectQuery || explicitStructuredCue || requiresTranslationFirst;
     const interpretedFilters = shouldKeepInterpretedStructure
@@ -91,12 +102,12 @@ export async function POST(request: NextRequest) {
         ...interpretedFilters,
         ...body.filters
       },
-      interpreted.englishQuery || body.message
+      interpreted.englishQuery || translatedMessage
     );
     const searchQuery = shortDirectQuery
       ? simpleEnglishKeywordQuery
         ? body.message.trim()
-        : focusedKeyword || interpreted.englishQuery || body.message
+        : focusedKeyword || interpreted.englishQuery || translatedMessage
       : [
           interpreted.englishQuery,
           ...(interpreted.keywords || [])
@@ -118,7 +129,7 @@ export async function POST(request: NextRequest) {
     );
 
     const baseSearch = {
-      q: searchQuery || interpreted.englishQuery || body.message,
+      q: searchQuery || interpreted.englishQuery || translatedMessage,
       strictKeyword: shortDirectQuery,
       ...effectiveFilters,
       limit: effectiveFilters.solutionProvider ? 24 : 6

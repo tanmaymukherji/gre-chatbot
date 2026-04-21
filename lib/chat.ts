@@ -89,6 +89,41 @@ export function shouldTranslateFirst(question: string) {
   return false;
 }
 
+export async function translateSearchText(question: string) {
+  const env = getServerEnv();
+  const prompt = [
+    "Translate or transliterate the user's search phrase into short English search text.",
+    "If the phrase is a name, transliterate it into Latin script instead of explaining it.",
+    "Return only the translated search text with no quotes and no extra commentary.",
+    "",
+    `Search phrase: ${question}`
+  ].join("\n");
+
+  try {
+    if (env.openAiApiKey) {
+      const response = await generateWithOpenAI(prompt, env.openAiApiKey);
+      if (response) {
+        return response.trim();
+      }
+    }
+  } catch {
+    // fall through
+  }
+
+  try {
+    if (env.geminiApiKey) {
+      const response = await generateWithGemini(prompt, env.geminiApiKey);
+      if (response) {
+        return response.trim();
+      }
+    }
+  } catch {
+    // fall through
+  }
+
+  return question;
+}
+
 function buildFallback(results: any[], reason?: string, question?: string) {
   const language = detectLanguageStyle(question || "");
   const lines = results.slice(0, 5).map((result, index) => {
