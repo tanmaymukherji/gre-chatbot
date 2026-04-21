@@ -26,6 +26,7 @@ type FilterOptions = {
   offeringTypes: string[];
   valueChains: string[];
   applications: string[];
+  tags: string[];
   languages: string[];
   geographies: string[];
 };
@@ -49,6 +50,7 @@ const EMPTY_OPTIONS: FilterOptions = {
   offeringTypes: [],
   valueChains: [],
   applications: [],
+  tags: [],
   languages: [],
   geographies: []
 };
@@ -75,6 +77,7 @@ const DEFAULT_FILTER_OPTIONS: FilterOptions = {
     "Poultry",
     "Organic Farming"
   ],
+  tags: [],
   languages: ["English", "Hindi", "KANNADA", "MARATHI", "ODIA", "TELUGU", "TAMIL", "GUJARATI"],
   geographies: ["India", "Karnataka", "Madhya Pradesh", "Odisha", "Maharashtra", "Telangana", "Jharkhand", "Bihar"]
 };
@@ -104,6 +107,8 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
   const [notice, setNotice] = useState<string | null>(null);
   const [activeMode, setActiveMode] = useState<"chat" | "parameters" | null>(null);
   const [filterOptions, setFilterOptions] = useState<FilterOptions>(DEFAULT_FILTER_OPTIONS);
+  const [loadedLiveFilters, setLoadedLiveFilters] = useState(false);
+  const [loadingLiveFilters, setLoadingLiveFilters] = useState(false);
 
   useEffect(() => {
     try {
@@ -125,6 +130,12 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
   }, []);
 
   async function loadFilterOptions() {
+    if (loadedLiveFilters || loadingLiveFilters) {
+      return;
+    }
+
+    setLoadingLiveFilters(true);
+
     return fetch("/api/filters", { cache: "no-store" })
       .then((response) => response.json())
       .then((data) => {
@@ -136,23 +147,22 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
             offeringTypes: data.offeringTypes?.length ? data.offeringTypes : current.offeringTypes,
             valueChains: data.valueChains?.length ? data.valueChains : current.valueChains,
             applications: data.applications?.length ? data.applications : current.applications,
+            tags: data.tags?.length ? data.tags : current.tags,
             languages: data.languages?.length ? data.languages : current.languages,
             geographies: data.geographies?.length ? data.geographies : current.geographies
           }));
+          setLoadedLiveFilters(true);
         }
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => {
+        setLoadingLiveFilters(false);
+      });
   }
 
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      loadFilterOptions();
-    }, 1500);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, []);
+  function ensureLiveFilters() {
+    void loadFilterOptions();
+  }
 
   useEffect(() => {
     window.sessionStorage.setItem(
@@ -169,6 +179,7 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
   }, [filters, chatQuery, searchResults, assistantAnswer, notice, activeMode]);
 
   async function runSearch() {
+    ensureLiveFilters();
     setSearching(true);
     setNotice(null);
     setAssistantAnswer(null);
@@ -284,7 +295,7 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
             Use filters only. This mode does not need a chatbot question and works independently of the chat box.
           </p>
 
-          <div className="filter-grid query-panel-body">
+          <div className="filter-grid query-panel-body" onFocusCapture={ensureLiveFilters} onMouseEnter={ensureLiveFilters}>
             <div className="field">
               <label htmlFor="keywordSearch">Keyword search</label>
               <input

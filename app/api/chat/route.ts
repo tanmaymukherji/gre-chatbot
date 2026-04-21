@@ -147,10 +147,51 @@ export async function POST(request: NextRequest) {
       limit: effectiveFilters.solutionProvider ? 24 : 6
     };
 
+    const transliterationSearch =
+      requiresTranslationFirst && translation.transliteration && translation.transliteration.trim()
+        ? {
+            ...baseSearch,
+            q: translation.transliteration.trim(),
+            strictKeyword: false,
+            tag: effectiveFilters.tag,
+            application: effectiveFilters.application,
+            valueChain: effectiveFilters.valueChain
+          }
+        : null;
+
+    const translatedBroadSearch =
+      requiresTranslationFirst && translatedMessage.trim()
+        ? {
+            ...baseSearch,
+            q: translatedMessage.trim(),
+            strictKeyword: false
+          }
+        : null;
+
     const attempts = shortDirectQuery
       ? [
           baseSearch,
-          { ...baseSearch, strictKeyword: false }
+          { ...baseSearch, strictKeyword: false },
+          ...(translatedBroadSearch ? [translatedBroadSearch] : []),
+          ...(transliterationSearch ? [transliterationSearch] : []),
+          ...(requiresTranslationFirst
+            ? [
+                {
+                  ...baseSearch,
+                  q: translatedMessage.trim() || body.message.trim(),
+                  strictKeyword: false,
+                  solutionProvider: effectiveFilters.solutionProvider,
+                  category: effectiveFilters.category,
+                  domain6m: effectiveFilters.domain6m,
+                  offeringType: effectiveFilters.offeringType,
+                  valueChain: undefined,
+                  application: undefined,
+                  tag: undefined,
+                  language: effectiveFilters.language,
+                  geography: effectiveFilters.geography
+                }
+              ]
+            : [])
         ]
       : [
           baseSearch,
