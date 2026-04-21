@@ -482,6 +482,16 @@ function buildHeuristicIntent(question: string, options: FilterOptions) {
   }
 
   if (
+    normalized.includes("maize") ||
+    normalized.includes("corn") ||
+    normalized.includes("jowar") ||
+    question.includes("ಜೋಳ")
+  ) {
+    intent.application = intent.application || "Maize";
+    addKeyword("maize");
+  }
+
+  if (
     normalized.includes("biscuit") ||
     normalized.includes("biscuits") ||
     question.includes("બિસ્કીટ") ||
@@ -515,6 +525,7 @@ function buildHeuristicIntent(question: string, options: FilterOptions) {
     intent.application === "Biscuits" ? "biscuit" : null,
     intent.application === "Goat" ? "goat farming" : null,
     intent.application === "Dairy For Milk" ? "milk dairy" : null,
+    intent.application === "Maize" ? "maize" : null,
     intent.offeringType === "Training" ? "training" : null,
     intent.domain6m?.toLowerCase() || null,
     intent.valueChain?.toLowerCase() || null,
