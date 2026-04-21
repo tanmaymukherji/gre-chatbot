@@ -487,7 +487,6 @@ function buildHeuristicIntent(question: string, options: FilterOptions) {
     normalized.includes("jowar") ||
     question.includes("ಜೋಳ")
   ) {
-    intent.application = intent.application || "Maize";
     addKeyword("maize");
   }
 
