@@ -719,6 +719,10 @@ function mergeIntent(primary: SearchIntent, fallback: SearchIntent): SearchInten
   };
 }
 
+export function mergeSearchIntents(primary: SearchIntent, fallback: SearchIntent) {
+  return mergeIntent(primary, fallback);
+}
+
 function compactResults(results: ChatResult[]) {
   return results.slice(0, 8).map((result, index) => ({
     rank: index + 1,

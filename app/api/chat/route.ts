@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { formatGroundedResults, generateGroundedAnswer, getHeuristicSearchIntent, interpretSearchIntent, shouldTranslateFirst, shouldUseAiInterpretation, translateSearchText } from "@/lib/chat";
+import { formatGroundedResults, generateGroundedAnswer, getHeuristicSearchIntent, interpretSearchIntent, mergeSearchIntents, shouldTranslateFirst, shouldUseAiInterpretation, translateSearchText } from "@/lib/chat";
 import { getFilterOptions, inferSearchFilters, runSearch } from "@/lib/database";
 
 const payloadSchema = z.object({
@@ -52,7 +52,12 @@ export async function POST(request: NextRequest) {
       /(hindi|kannada|odia|oriya|marathi|tamil|telugu)/i.test(normalizedTranslatedMessage) ||
       /(karnataka|madhya pradesh|odisha|orissa|rajasthan|jharkhand|bihar|uttar pradesh|chhattisgarh)/i.test(normalizedTranslatedMessage)
     );
-    const heuristicIntent = getHeuristicSearchIntent(translatedMessage, filterOptions);
+    const originalHeuristicIntent = getHeuristicSearchIntent(body.message, filterOptions);
+    const translatedHeuristicIntent =
+      translatedMessage.trim() === body.message.trim()
+        ? originalHeuristicIntent
+        : getHeuristicSearchIntent(translatedMessage, filterOptions);
+    const heuristicIntent = mergeSearchIntents(translatedHeuristicIntent, originalHeuristicIntent);
     const heuristicResolved = Boolean(
       heuristicIntent.solutionProvider ||
       heuristicIntent.category ||
