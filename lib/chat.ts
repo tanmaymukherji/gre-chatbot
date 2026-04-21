@@ -8,6 +8,7 @@ type FilterOptions = {
   offeringTypes: string[];
   valueChains: string[];
   applications: string[];
+  tags: string[];
   languages: string[];
   geographies: string[];
 };
@@ -47,6 +48,7 @@ export type SearchIntent = {
   offeringType?: string;
   valueChain?: string;
   application?: string;
+  tag?: string;
   language?: string;
   geography?: string;
   keywords?: string[];
@@ -287,6 +289,80 @@ function normalizeGeography(value: string | undefined, options: string[]) {
   return tokenContaining || value;
 }
 
+function normalizeFreeText(value: string | undefined) {
+  return (value || "").toLowerCase().replace(/[^\p{L}\p{N}\s]+/gu, " ").replace(/\s+/g, " ").trim();
+}
+
+function findDirectOptionMatch(question: string, options: string[]) {
+  const normalizedQuestion = normalizeFreeText(question);
+
+  const matches = options
+    .map((option) => {
+      const normalizedOption = normalizeFreeText(option);
+      if (!normalizedOption) {
+        return null;
+      }
+
+      if (normalizedQuestion.includes(normalizedOption)) {
+        return { option, score: normalizedOption.length + 20 };
+      }
+
+      const tokens = normalizedOption.split(/\s+/).filter(Boolean);
+      const matchedTokens = tokens.filter((token) => normalizedQuestion.includes(token)).length;
+      if (matchedTokens >= Math.max(1, Math.ceil(tokens.length * 0.75))) {
+        return { option, score: matchedTokens * 4 };
+      }
+
+      return null;
+    })
+    .filter(Boolean)
+    .sort((left: any, right: any) => right.score - left.score);
+
+  return matches[0]?.option;
+}
+
+function findDomain6mMatch(question: string, options: string[]) {
+  const normalized = normalizeFreeText(question);
+  const aliases: Record<string, string[]> = {
+    Machine: ["machine", "machinery", "equipment", "tool", "tools"],
+    Method: ["method", "methods", "process", "processes", "practice", "practices"],
+    Manpower: ["manpower", "skill", "skills", "training", "workforce"],
+    Material: ["material", "materials", "input", "inputs", "raw material", "raw materials"],
+    Market: ["market", "markets", "marketing", "buyer", "buyers"],
+    Money: ["money", "finance", "financial", "loan", "loans", "credit"]
+  };
+
+  for (const option of options) {
+    const terms = aliases[option] || [option.toLowerCase()];
+    if (terms.some((term) => normalized.includes(term))) {
+      return option;
+    }
+  }
+
+  return findDirectOptionMatch(question, options);
+}
+
+function findOfferingTypeMatch(question: string, options: string[]) {
+  const normalized = normalizeFreeText(question);
+  const aliases: Record<string, string[]> = {
+    Training: ["training", "course", "learn", "taalim", "talim", "sikh", "seekh", "guide", "workshop"],
+    Advisory: ["advisory", "advice", "consulting", "consultation"],
+    Workshop: ["workshop", "camp"],
+    Service: ["service", "services"],
+    Product: ["product", "products", "input", "inputs"],
+    Knowledge: ["knowledge", "manual", "content", "information", "jankari"]
+  };
+
+  for (const option of options) {
+    const terms = aliases[option] || [option.toLowerCase()];
+    if (terms.some((term) => normalized.includes(term))) {
+      return option;
+    }
+  }
+
+  return findDirectOptionMatch(question, options);
+}
+
 function normalizeIntent(intent: Partial<SearchIntent>, options: FilterOptions): SearchIntent {
   return {
     englishQuery: intent.englishQuery?.trim() || "",
@@ -296,6 +372,7 @@ function normalizeIntent(intent: Partial<SearchIntent>, options: FilterOptions):
     offeringType: normalizeOption(intent.offeringType, options.offeringTypes),
     valueChain: normalizeOption(intent.valueChain, options.valueChains),
     application: normalizeOption(intent.application, options.applications),
+    tag: normalizeOption(intent.tag, options.tags),
     language: normalizeLanguage(intent.language, options.languages),
     geography: normalizeGeography(intent.geography, options.geographies),
     keywords: (intent.keywords || []).map((keyword) => keyword.trim()).filter(Boolean).slice(0, 8)
@@ -306,7 +383,7 @@ function buildIntentPrompt(question: string, options: FilterOptions) {
   return [
     "Translate the user's search request into English and map it to GRE search fields.",
     "Return JSON only.",
-    "Keys: englishQuery, solutionProvider, category, domain6m, offeringType, valueChain, application, language, geography, keywords.",
+    "Keys: englishQuery, solutionProvider, category, domain6m, offeringType, valueChain, application, tag, language, geography, keywords.",
     "Use null when unsure.",
     "Geography should be an English place name from the question, not a sentence.",
     "",
@@ -316,11 +393,12 @@ function buildIntentPrompt(question: string, options: FilterOptions) {
     `Allowed offering types: ${JSON.stringify(options.offeringTypes)}`,
     `Allowed value chains: ${JSON.stringify(options.valueChains)}`,
     `Allowed applications: ${JSON.stringify(options.applications)}`,
+    `Allowed tags: ${JSON.stringify(options.tags.slice(0, 120))}`,
     `Allowed languages: ${JSON.stringify(options.languages)}`,
     `Known geographies: ${JSON.stringify(options.geographies.slice(0, 30))}`,
-    'Example 1: {"englishQuery":"goat farming training in Hindi in Madhya Pradesh","solutionProvider":null,"category":"Service","domain6m":"Manpower","offeringType":"Training","valueChain":"Livestock","application":"Goat","language":"HIN","geography":"Madhya Pradesh","keywords":["goat","training","hindi","madhya pradesh"]}',
-    'Example 2: {"englishQuery":"milk training in Kannada in Karnataka","solutionProvider":null,"category":"Service","domain6m":"Manpower","offeringType":"Training","valueChain":"Dairy","application":"Dairy For Milk","language":"KANNADA","geography":"Karnataka","keywords":["milk","dairy","training","kannada","karnataka"]}',
-    'Example 3: {"englishQuery":"show all solutions by Akshaykalpa","solutionProvider":"Akshaykalpa","category":null,"domain6m":null,"offeringType":null,"valueChain":null,"application":null,"language":null,"geography":null,"keywords":["akshaykalpa"]}',
+    'Example 1: {"englishQuery":"goat farming training in Hindi in Madhya Pradesh","solutionProvider":null,"category":"Service","domain6m":"Manpower","offeringType":"Training","valueChain":"Livestock","application":"Goat","tag":null,"language":"HIN","geography":"Madhya Pradesh","keywords":["goat","training","hindi","madhya pradesh"]}',
+    'Example 2: {"englishQuery":"milk training in Kannada in Karnataka","solutionProvider":null,"category":"Service","domain6m":"Manpower","offeringType":"Training","valueChain":"Dairy","application":"Dairy For Milk","tag":null,"language":"KANNADA","geography":"Karnataka","keywords":["milk","dairy","training","kannada","karnataka"]}',
+    'Example 3: {"englishQuery":"show all solutions by Akshaykalpa","solutionProvider":"Akshaykalpa","category":null,"domain6m":null,"offeringType":null,"valueChain":null,"application":null,"tag":null,"language":null,"geography":null,"keywords":["akshaykalpa"]}',
     "",
     `User question: ${question}`
   ].join("\n");
@@ -354,6 +432,16 @@ function buildHeuristicIntent(question: string, options: FilterOptions) {
     intent.offeringType = "Training";
     addKeyword("training");
   }
+
+  intent.domain6m = intent.domain6m || findDomain6mMatch(question, options.domains6m);
+  intent.category = intent.category || findDirectOptionMatch(question, options.categories);
+  intent.offeringType = intent.offeringType || findOfferingTypeMatch(question, options.offeringTypes);
+  intent.solutionProvider = intent.solutionProvider || findDirectOptionMatch(question, options.solutionProviders);
+  intent.valueChain = intent.valueChain || findDirectOptionMatch(question, options.valueChains);
+  intent.application = intent.application || findDirectOptionMatch(question, options.applications);
+  intent.tag = intent.tag || findDirectOptionMatch(question, options.tags);
+  intent.language = intent.language || normalizeLanguage(findDirectOptionMatch(question, options.languages), options.languages);
+  intent.geography = intent.geography || normalizeGeography(findDirectOptionMatch(question, options.geographies), options.geographies);
 
   if (normalized.includes("hindi") || normalized.includes("हिंदी") || normalized.includes("हिन्दी")) {
     intent.language = "HIN";
@@ -413,11 +501,25 @@ function buildHeuristicIntent(question: string, options: FilterOptions) {
     addKeyword(inferredProvider.toLowerCase());
   }
 
+  if (intent.tag) {
+    addKeyword(intent.tag.toLowerCase());
+  }
+  if (intent.valueChain) {
+    addKeyword(intent.valueChain.toLowerCase());
+  }
+  if (intent.application) {
+    addKeyword(intent.application.toLowerCase());
+  }
+
   const englishParts = [
     intent.application === "Biscuits" ? "biscuit" : null,
     intent.application === "Goat" ? "goat farming" : null,
     intent.application === "Dairy For Milk" ? "milk dairy" : null,
     intent.offeringType === "Training" ? "training" : null,
+    intent.domain6m?.toLowerCase() || null,
+    intent.valueChain?.toLowerCase() || null,
+    intent.application?.toLowerCase() || null,
+    intent.tag?.toLowerCase() || null,
     intent.language ? normalizeLanguage(intent.language, options.languages)?.toLowerCase() : null,
     intent.geography?.toLowerCase() || null
   ].filter(Boolean);
@@ -449,6 +551,7 @@ function mergeIntent(primary: SearchIntent, fallback: SearchIntent): SearchInten
       preferSpecificFallbackTopic && fallback.application
         ? fallback.application
         : primary.application || fallback.application,
+    tag: primary.tag || fallback.tag,
     language: primary.language || fallback.language,
     geography: primary.geography || fallback.geography,
     keywords: [...new Set([...(primary.keywords || []), ...(fallback.keywords || [])])].slice(0, 8)

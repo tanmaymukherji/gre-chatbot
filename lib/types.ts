@@ -7,6 +7,7 @@ export type SearchFilters = {
   offeringType?: string;
   valueChain?: string;
   application?: string;
+  tag?: string;
   language?: string;
   geography?: string;
   limit?: number;

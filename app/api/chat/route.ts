@@ -13,6 +13,7 @@ const payloadSchema = z.object({
       offeringType: z.string().optional(),
       valueChain: z.string().optional(),
       application: z.string().optional(),
+      tag: z.string().optional(),
       language: z.string().optional(),
       geography: z.string().optional()
     })
@@ -37,6 +38,7 @@ export async function POST(request: NextRequest) {
       body.filters.offeringType ||
       body.filters.valueChain ||
       body.filters.application ||
+      body.filters.tag ||
       body.filters.language ||
       body.filters.geography ||
       /\b(training|service|product|knowledge|manual|tech transfer|machine|method|manpower|material|market|money)\b/i.test(normalizedMessage) ||
@@ -88,6 +90,7 @@ export async function POST(request: NextRequest) {
       effectiveFilters.solutionProvider ||
       effectiveFilters.valueChain ||
       effectiveFilters.application ||
+      effectiveFilters.tag ||
       effectiveFilters.language ||
       effectiveFilters.geography ||
       effectiveFilters.category ||

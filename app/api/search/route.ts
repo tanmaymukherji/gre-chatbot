@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
       offeringType: params.get("offeringType") || undefined,
       valueChain: params.get("valueChain") || undefined,
       application: params.get("application") || undefined,
+      tag: params.get("tag") || undefined,
       language: params.get("language") || undefined,
       geography: params.get("geography") || undefined,
       limit: Number(params.get("limit") || 12)

@@ -12,6 +12,7 @@ let filterOptionsCache:
         offeringTypes: string[];
         valueChains: string[];
         applications: string[];
+        tags: string[];
         languages: string[];
         geographies: string[];
       };
@@ -767,6 +768,7 @@ export async function runSearch(filters: SearchFilters) {
       return (
         (!filters.strictKeyword || strictKeywordMatch(row, q)) &&
         matchesProvider(row, inferredFilters.solutionProvider) &&
+        matchesArray(row.tags, inferredFilters.tag) &&
         matchesArray(row.languages, inferredFilters.language) &&
         matchesGeography(row, inferredFilters.geography) &&
         matchesScalar(row.primary_valuechain, inferredFilters.valueChain) &&
@@ -819,6 +821,7 @@ export async function getFilterOptions() {
       offering_type,
       primary_valuechain,
       primary_application,
+      tags,
       languages,
       geographies
     `)
@@ -852,6 +855,7 @@ export async function getFilterOptions() {
     offeringTypes: uniqueSorted(rows.map((row: any) => row.offering_type).filter(Boolean)),
     valueChains: uniqueSorted(rows.map((row: any) => row.primary_valuechain).filter(Boolean)),
     applications: uniqueSorted(rows.map((row: any) => row.primary_application).filter(Boolean)),
+    tags: uniqueSorted(rows.flatMap((row: any) => row.tags || [])),
     languages: uniqueSorted(rows.flatMap((row: any) => row.languages || [])),
     geographies: uniqueSorted(rows.flatMap((row: any) => row.geographies || []))
   };
