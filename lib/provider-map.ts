@@ -39,6 +39,8 @@ export type ProviderMarker = {
   }>;
 };
 
+const OVERLAP_RADIUS_DEGREES = 0.9;
+
 const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> = {
   india: { lat: 22.5, lng: 79.0 },
   karnataka: { lat: 15.3, lng: 75.7 },
@@ -179,5 +181,32 @@ export function buildProviderMarkers(results: ProviderResult[]) {
     }
   }
 
-  return [...markers.values()];
+  return spreadOverlappingMarkers([...markers.values()]);
+}
+
+function spreadOverlappingMarkers(markers: ProviderMarker[]) {
+  const groups = new Map<string, ProviderMarker[]>();
+
+  for (const marker of markers) {
+    const key = `${marker.lat.toFixed(4)}::${marker.lng.toFixed(4)}`;
+    if (!groups.has(key)) {
+      groups.set(key, []);
+    }
+    groups.get(key)!.push(marker);
+  }
+
+  for (const group of groups.values()) {
+    if (group.length <= 1) {
+      continue;
+    }
+
+    group.forEach((marker, index) => {
+      const angle = (Math.PI * 2 * index) / group.length;
+      const radius = OVERLAP_RADIUS_DEGREES;
+      marker.lat += Math.sin(angle) * radius;
+      marker.lng += Math.cos(angle) * radius;
+    });
+  }
+
+  return markers;
 }
