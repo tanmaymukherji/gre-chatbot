@@ -459,12 +459,35 @@ function buildHeuristicIntent(question: string, options: FilterOptions) {
     keywords: []
   };
   const containsGujaratiScript = /[\u0a80-\u0aff]/.test(question);
+  const directAliasMatches = [
+    {
+      terms: ["ಅಕ್ಕಡಿ ಸಾಲು"],
+      englishQuery: "akkadi saalu",
+      tag: "Akkadi Saalu",
+      keywords: ["akkadi saalu"]
+    },
+    {
+      terms: ["ಜೋಳ"],
+      englishQuery: "maize",
+      keywords: ["maize"]
+    }
+  ].filter((entry) => entry.terms.some((term) => question.includes(term)));
 
   const addKeyword = (keyword: string) => {
     if (!intent.keywords?.includes(keyword)) {
       intent.keywords?.push(keyword);
     }
   };
+
+  for (const alias of directAliasMatches) {
+    intent.englishQuery = alias.englishQuery;
+    if (alias.tag) {
+      intent.tag = alias.tag;
+    }
+    for (const keyword of alias.keywords) {
+      addKeyword(keyword);
+    }
+  }
 
   if (
     normalized.includes("training") ||
@@ -583,7 +606,10 @@ function buildHeuristicIntent(question: string, options: FilterOptions) {
     intent.geography?.toLowerCase() || null
   ].filter(Boolean);
 
-  intent.englishQuery = englishParts.join(" ").trim() || (containsGujaratiScript ? "training" : question);
+  intent.englishQuery =
+    intent.englishQuery ||
+    englishParts.join(" ").trim() ||
+    (containsGujaratiScript ? "training" : question);
 
   return normalizeIntent(intent, options);
 }
