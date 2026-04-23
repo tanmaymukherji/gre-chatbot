@@ -477,6 +477,12 @@ textarea {
   fill: var(--brand);
 }
 
+.map-popup-content {
+  max-height: min(420px, 70vh);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
 .map-popup-header {
   display: flex;
   justify-content: space-between;
@@ -486,6 +492,11 @@ textarea {
 
 .map-popup-offerings {
   margin-top: 14px;
+  display: grid;
+  gap: 10px;
+  max-height: min(260px, 42vh);
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .provider-offering {
