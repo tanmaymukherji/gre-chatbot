@@ -52,6 +52,10 @@ function normalizeComparable(value: string) {
     .trim();
 }
 
+function normalizeLooseComparable(value: string) {
+  return normalizeComparable(value).replace(/([aeiou])\1+/g, "$1");
+}
+
 const GEOGRAPHY_ALIASES: Record<string, string[]> = {
   karnataka: [
     "bengaluru",
@@ -297,20 +301,31 @@ async function getCachedSearchData() {
 }
 
 function inferSolutionProvider(query: string | undefined, options: string[] = []) {
+  return inferOptionFromQuery(query, options);
+}
+
+function inferOptionFromQuery(query: string | undefined, options: string[] = []) {
   if (!query) {
     return undefined;
   }
 
   const normalizedQuery = normalizeComparable(query);
+  const looseQuery = normalizeLooseComparable(query);
 
   const matches = options
     .map((option) => {
       const normalizedOption = normalizeComparable(option);
+      const looseOption = normalizeLooseComparable(option);
       if (!normalizedOption) {
         return null;
       }
 
-      if (normalizedQuery.includes(normalizedOption)) {
+      if (
+        normalizedQuery.includes(normalizedOption) ||
+        normalizedOption.includes(normalizedQuery) ||
+        looseQuery.includes(looseOption) ||
+        looseOption.includes(looseQuery)
+      ) {
         return { option, score: normalizedOption.length + 20 };
       }
 
@@ -318,6 +333,12 @@ function inferSolutionProvider(query: string | undefined, options: string[] = []
       const matchingTokens = optionTokens.filter((token) => normalizedQuery.includes(token)).length;
       if (matchingTokens >= Math.max(1, Math.ceil(optionTokens.length * 0.75))) {
         return { option, score: matchingTokens * 4 };
+      }
+
+      const looseOptionTokens = looseOption.split(/\s+/).filter(Boolean);
+      const looseMatchingTokens = looseOptionTokens.filter((token) => looseQuery.includes(token) || token.includes(looseQuery)).length;
+      if (looseMatchingTokens >= 1) {
+        return { option, score: looseMatchingTokens * 5 };
       }
 
       return null;
@@ -785,7 +806,15 @@ export async function runSearch(filters: SearchFilters) {
   const filterOptions = await getFilterOptions();
   const inferredFilters = {
     ...inferSearchFilters(filters, filters.q),
-    solutionProvider: filters.solutionProvider || inferSolutionProvider(filters.q, filterOptions.solutionProviders)
+    solutionProvider: filters.solutionProvider || inferSolutionProvider(filters.q, filterOptions.solutionProviders),
+    category: filters.category || inferOptionFromQuery(filters.q, filterOptions.categories),
+    domain6m: filters.domain6m || inferOptionFromQuery(filters.q, filterOptions.domains6m),
+    offeringType: filters.offeringType || inferOptionFromQuery(filters.q, filterOptions.offeringTypes),
+    valueChain: filters.valueChain || inferOptionFromQuery(filters.q, filterOptions.valueChains),
+    application: filters.application || inferOptionFromQuery(filters.q, filterOptions.applications),
+    tag: filters.tag || inferOptionFromQuery(filters.q, filterOptions.tags),
+    language: filters.language || inferOptionFromQuery(filters.q, filterOptions.languages),
+    geography: filters.geography || inferOptionFromQuery(filters.q, filterOptions.geographies)
   };
   const simplifiedQuery = simplifyQueryText(inferredFilters.q, inferredFilters);
   const q = (simplifiedQuery || inferredFilters.q || "").trim();
