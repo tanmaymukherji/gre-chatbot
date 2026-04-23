@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
       q: searchQuery || interpreted.englishQuery || translatedMessage,
       strictKeyword: shortDirectQuery,
       ...effectiveFilters,
-      limit: effectiveFilters.solutionProvider ? 24 : 6
+      limit: effectiveFilters.solutionProvider ? 250 : 120
     };
 
     const transliterationSearch =

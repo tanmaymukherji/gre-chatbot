@@ -83,6 +83,7 @@ const DEFAULT_FILTER_OPTIONS: FilterOptions = {
 };
 
 const SEARCH_STATE_KEY = "gre-public-search-state";
+const RESULTS_PAGE_SIZE = 12;
 
 function renderOptions(options: string[], emptyLabel: string) {
   return [
@@ -109,6 +110,7 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
   const [filterOptions, setFilterOptions] = useState<FilterOptions>(DEFAULT_FILTER_OPTIONS);
   const [loadedLiveFilters, setLoadedLiveFilters] = useState(false);
   const [loadingLiveFilters, setLoadingLiveFilters] = useState(false);
+  const [resultsPage, setResultsPage] = useState(1);
 
   useEffect(() => {
     try {
@@ -124,6 +126,7 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
       setAssistantAnswer(parsed.assistantAnswer || null);
       setNotice(parsed.notice || null);
       setActiveMode(parsed.activeMode || null);
+      setResultsPage(parsed.resultsPage || 1);
     } catch {
       window.sessionStorage.removeItem(SEARCH_STATE_KEY);
     }
@@ -173,10 +176,11 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
         searchResults,
         assistantAnswer,
         notice,
-        activeMode
+        activeMode,
+        resultsPage
       })
     );
-  }, [filters, chatQuery, searchResults, assistantAnswer, notice, activeMode]);
+  }, [filters, chatQuery, searchResults, assistantAnswer, notice, activeMode, resultsPage]);
 
   async function runSearch() {
     ensureLiveFilters();
@@ -197,6 +201,7 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
         throw new Error(data.error || "Search failed.");
       }
       setSearchResults(data.results || []);
+      setResultsPage(1);
       if (!data.results?.length) {
         setNotice("No exact matches yet. Try broader filter combinations.");
       }
@@ -236,6 +241,7 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
 
       setSearchResults(data.results || []);
       setAssistantAnswer(data.answer || null);
+      setResultsPage(1);
     } catch (error) {
       setAssistantAnswer(error instanceof Error ? error.message : "Chat failed.");
     } finally {
@@ -254,8 +260,12 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
     setAssistantAnswer(null);
     setNotice(null);
     setActiveMode(null);
+    setResultsPage(1);
     window.sessionStorage.removeItem(SEARCH_STATE_KEY);
   }
+
+  const totalPages = Math.max(1, Math.ceil(searchResults.length / RESULTS_PAGE_SIZE));
+  const paginatedResults = searchResults.slice((resultsPage - 1) * RESULTS_PAGE_SIZE, resultsPage * RESULTS_PAGE_SIZE);
 
   return (
     <div className="stack">
@@ -390,7 +400,7 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
                     : "Results from either the chatbot or the parameter search will appear here."}
               </p>
             </div>
-            <span className="pill">{searchResults.length} offerings</span>
+            <span className="pill">{searchResults.length} offerings total</span>
           </div>
 
           {assistantAnswer ? (
@@ -406,7 +416,7 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
                 Use either the chatbot or the parameter search above. The matching GRE offerings will show up here.
               </div>
             ) : (
-              searchResults.map((result) => {
+              paginatedResults.map((result) => {
                 const trader =
                   result.solution?.trader?.organisation_name || result.solution?.trader?.trader_name || "Unknown provider";
                 return (
@@ -445,6 +455,20 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
               })
             )}
           </div>
+
+          {searchResults.length > RESULTS_PAGE_SIZE ? (
+            <div className="results-pagination">
+              <button className="btn ghost" type="button" disabled={resultsPage === 1} onClick={() => setResultsPage((page) => Math.max(1, page - 1))}>
+                Previous
+              </button>
+              <span className="pill">
+                Page {resultsPage} of {totalPages}
+              </span>
+              <button className="btn ghost" type="button" disabled={resultsPage === totalPages} onClick={() => setResultsPage((page) => Math.min(totalPages, page + 1))}>
+                Next
+              </button>
+            </div>
+          ) : null}
         </section>
 
         <ProviderMapPanel results={searchResults} mapplsPublicKey={mapplsPublicKey || null} />

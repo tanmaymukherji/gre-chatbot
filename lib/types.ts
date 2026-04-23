@@ -11,6 +11,7 @@ export type SearchFilters = {
   language?: string;
   geography?: string;
   limit?: number;
+  page?: number;
 };
 
 export type TraderRecord = {

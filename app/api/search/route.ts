@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
       tag: params.get("tag") || undefined,
       language: params.get("language") || undefined,
       geography: params.get("geography") || undefined,
-      limit: Number(params.get("limit") || 12)
+      limit: Number(params.get("limit") || 250)
     });
 
     return NextResponse.json({ results });

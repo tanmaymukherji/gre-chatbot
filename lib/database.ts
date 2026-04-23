@@ -871,7 +871,7 @@ export async function applyImportBundle(bundle: ImportBundle, fileNames: { solut
 
 export async function runSearch(filters: SearchFilters) {
   const { offerings, traders } = await getCachedSearchData();
-  const limit = Math.min(filters.limit || 12, 50);
+  const limit = Math.min(filters.limit || 100, 500);
   const filterOptions = await getFilterOptions();
   const primaryKeywordFilter = resolvePrimaryKeywordFilter(filters.q, filterOptions);
   const inferredFilters = {
