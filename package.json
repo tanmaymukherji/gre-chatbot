@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "postbuild": "node scripts/prepare-standalone.mjs",
     "start": "node scripts/start-server.mjs",
     "lint": "next lint",
     "import:sample": "node scripts/run-sample-import.mjs"

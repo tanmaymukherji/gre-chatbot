@@ -1,18 +1,23 @@
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 
 const port = process.env.PORT || process.env.port || "3000";
-const hostname = process.env.HOSTNAME || "0.0.0.0";
+const hostname = "0.0.0.0";
+const standaloneServer = ".next/standalone/server.js";
+const useStandalone = existsSync(standaloneServer);
 
 const child = spawn(
   process.execPath,
-  [
-    "./node_modules/next/dist/bin/next",
-    "start",
-    "-H",
-    hostname,
-    "-p",
-    String(port)
-  ],
+  useStandalone
+    ? [standaloneServer]
+    : [
+        "./node_modules/next/dist/bin/next",
+        "start",
+        "-H",
+        hostname,
+        "-p",
+        String(port)
+      ],
   {
     stdio: "inherit",
     env: {
