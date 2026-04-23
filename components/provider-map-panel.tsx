@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { buildProviderMarkers } from "@/lib/provider-map";
 
@@ -12,47 +13,6 @@ const MAPPLS_SCRIPT_URLS = (accessToken: string) => [
   `https://sdk.mappls.com/map/sdk/web?v=3.0&layer=vector&access_token=${accessToken}`,
   `https://apis.mappls.com/advancedmaps/api/${accessToken}/map_sdk?layer=vector&v=3.0`
 ];
-
-function buildPopupHtml(marker: ReturnType<typeof buildProviderMarkers>[number]) {
-  const offerings = marker.offerings
-    .slice(0, 5)
-    .map((offering) => {
-      const links = [
-        offering.offeringId
-          ? `<a class="result-link" href="/offering/${offering.offeringId}">View details</a>`
-          : "",
-        offering.greLink
-          ? `<a class="result-link" href="${offering.greLink}" target="_blank" rel="noreferrer">View on GRE</a>`
-          : ""
-      ]
-        .filter(Boolean)
-        .join("");
-
-      return `
-        <div class="provider-offering">
-          <strong>${offering.offeringName || "Untitled offering"}</strong>
-          <span>${[offering.offeringGroup || "Offering", offering.valueChain || "No value chain", offering.application || "No application"].join(" | ")}</span>
-          <div class="provider-offering-links">${links}</div>
-        </div>
-      `;
-    })
-    .join("");
-
-  return `
-    <div class="map-popup-content">
-      <div class="map-popup-header">
-        <div>
-          <h3>${marker.providerName}</h3>
-          <p>${marker.locationLabel}</p>
-        </div>
-      </div>
-      ${marker.associationStatus ? `<p>Status: ${marker.associationStatus}</p>` : ""}
-      ${marker.email ? `<p>Email: ${marker.email}</p>` : ""}
-      ${marker.website ? `<p>Website: <a class="result-link" href="${marker.website}" target="_blank" rel="noreferrer">${marker.website}</a></p>` : ""}
-      <div class="map-popup-offerings">${offerings}</div>
-    </div>
-  `;
-}
 
 function ensureMapplsCss() {
   if (document.getElementById(MAPPLS_CSS_ID)) {
@@ -116,6 +76,7 @@ export function ProviderMapPanel({ results, mapplsPublicKey }: { results: any[];
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
   const markers = useMemo(() => buildProviderMarkers(results), [results]);
+  const [selectedMarker, setSelectedMarker] = useState<(typeof markers)[number] | null>(null);
 
   useEffect(() => {
     if (!mapplsPublicKey || mapInstanceRef.current) {
@@ -175,6 +136,7 @@ export function ProviderMapPanel({ results, mapplsPublicKey }: { results: any[];
       mapInstanceRef.current?.remove?.();
       mapInstanceRef.current = null;
       setMapReady(false);
+      setSelectedMarker(null);
     };
   }, [mapplsPublicKey]);
 
@@ -188,6 +150,7 @@ export function ProviderMapPanel({ results, mapplsPublicKey }: { results: any[];
     markerRefs.current = [];
 
     if (markers.length === 0) {
+      setSelectedMarker(null);
       map.setCenter?.(INDIA_CENTER);
       map.setZoom?.(4.8);
       return;
@@ -200,14 +163,11 @@ export function ProviderMapPanel({ results, mapplsPublicKey }: { results: any[];
         icon: GREEN_MARKER_ICON,
         width: 28,
         height: 28,
-        fitbounds: false,
-        popupHtml: buildPopupHtml(marker),
-        popupOptions: {
-          openPopup: false,
-          autoClose: true,
-          maxWidth: 360
-        }
+        fitbounds: false
       });
+      const handleSelect = () => setSelectedMarker(marker);
+      markerInstance.on?.("click", handleSelect);
+      markerInstance.addListener?.("click", handleSelect);
       markerRefs.current.push(markerInstance);
     });
 
@@ -237,6 +197,51 @@ export function ProviderMapPanel({ results, mapplsPublicKey }: { results: any[];
           {mapplsPublicKey ? (
             <>
               <div id={MAP_CONTAINER_ID} className="mappls-canvas" />
+              {selectedMarker ? (
+                <aside className="map-popup-panel">
+                  <div className="map-popup-header">
+                    <div>
+                      <h3>{selectedMarker.providerName}</h3>
+                      <p>{selectedMarker.locationLabel}</p>
+                    </div>
+                    <button className="map-popup-close" type="button" onClick={() => setSelectedMarker(null)}>
+                      Close
+                    </button>
+                  </div>
+                  <div className="map-popup-content">
+                    {selectedMarker.associationStatus ? <p>Status: {selectedMarker.associationStatus}</p> : null}
+                    {selectedMarker.email ? <p>Email: {selectedMarker.email}</p> : null}
+                    {selectedMarker.website ? (
+                      <p>
+                        Website:{" "}
+                        <a className="result-link" href={selectedMarker.website} target="_blank" rel="noreferrer">
+                          {selectedMarker.website}
+                        </a>
+                      </p>
+                    ) : null}
+                    <div className="map-popup-offerings">
+                      {selectedMarker.offerings.map((offering, index) => (
+                        <div className="provider-offering" key={`${selectedMarker.providerName}-${offering.offeringId || index}`}>
+                          <strong>{offering.offeringName || "Untitled offering"}</strong>
+                          <span>{[offering.offeringGroup || "Offering", offering.valueChain || "No value chain", offering.application || "No application"].join(" | ")}</span>
+                          <div className="provider-offering-links">
+                            {offering.offeringId ? (
+                              <Link className="result-link" href={`/offering/${offering.offeringId}`}>
+                                View details
+                              </Link>
+                            ) : null}
+                            {offering.greLink ? (
+                              <a className="result-link" href={offering.greLink} target="_blank" rel="noreferrer">
+                                View on GRE
+                              </a>
+                            ) : null}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </aside>
+              ) : null}
               {!mapReady && !mapError ? <div className="notice">Preparing India map...</div> : null}
               {mapError ? <div className="notice warn">{mapError}</div> : null}
             </>

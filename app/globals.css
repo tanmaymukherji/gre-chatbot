@@ -422,6 +422,23 @@ textarea {
   display: inline-block;
 }
 
+.map-popup-panel {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 5;
+  width: min(380px, calc(100% - 36px));
+  max-height: calc(100% - 36px);
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(31, 43, 30, 0.12);
+  background: rgba(255, 252, 245, 0.96);
+  box-shadow: 0 18px 48px rgba(20, 30, 18, 0.16);
+  overflow: hidden;
+}
+
 .mappls-provider-marker {
   width: 18px;
   height: 18px;
@@ -478,7 +495,7 @@ textarea {
 }
 
 .map-popup-content {
-  max-height: min(420px, 70vh);
+  max-height: 100%;
   overflow-y: auto;
   padding-right: 4px;
 }
@@ -487,14 +504,24 @@ textarea {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  align-items: start;
+  align-items: flex-start;
+}
+
+.map-popup-close {
+  border: 0;
+  border-radius: 999px;
+  background: rgba(45, 106, 79, 0.12);
+  color: var(--ink);
+  padding: 8px 12px;
+  font: inherit;
+  cursor: pointer;
 }
 
 .map-popup-offerings {
   margin-top: 14px;
   display: grid;
   gap: 10px;
-  max-height: min(260px, 42vh);
+  max-height: min(360px, 50vh);
   overflow-y: auto;
   padding-right: 4px;
 }
