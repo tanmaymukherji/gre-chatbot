@@ -314,12 +314,12 @@ function buildFallback(results: any[], reason?: string, question?: string) {
     const chain = result.primary_valuechain || "Unspecified value chain";
     const application = result.primary_application || "Unspecified application";
     const link = result.gre_link ? ` - ${result.gre_link}` : "";
-    return `${index + 1}. ${result.offering_name} by ${trader} (${result.offering_group || "Offering"}; ${chain}; ${application})${link}`;
+    return `${index + 1}. ${result.offering_name} ${language.byLabel} ${trader} (${result.offering_group || language.offeringLabel}; ${chain}; ${application})${link}`;
   });
 
   const intro = results.length === 1
-    ? `${language.summaryIntro} 1 offering matched.`
-    : `${language.summaryIntro} ${results.length} offerings matched.`;
+    ? `${language.summaryIntro} ${results.length} ${language.matchSuffixSingular}`
+    : `${language.summaryIntro} ${results.length} ${language.matchSuffixPlural}`;
 
   return [
     intro,
@@ -364,7 +364,11 @@ function detectLanguageStyle(text: string) {
       name: "Hindi",
       outputStyle: "Hindi written in Roman script",
       summaryIntro: "Maine GRE dataset mein ye matching offerings dhoondi hain.",
-      noMatch: "Mujhe is offering ke liye database mein aur jankari nahin mili."
+      noMatch: "Mujhe is offering ke liye database mein aur jankari nahin mili.",
+      matchSuffixSingular: "matching offering mili hai.",
+      matchSuffixPlural: "matching offerings mili hain.",
+      byLabel: "dwara",
+      offeringLabel: "offering"
     };
   }
 
@@ -372,8 +376,12 @@ function detectLanguageStyle(text: string) {
     return {
       name: "Hindi",
       outputStyle: "Hindi in Devanagari script",
-      summaryIntro: "Maine GRE dataset mein ye matching offerings dhoondi hain.",
-      noMatch: "Mujhe is offering ke liye database mein aur jankari nahin mili."
+      summaryIntro: "मुझे GRE dataset में ये matching offerings मिली हैं।",
+      noMatch: "मुझे इस offering के लिए database में और जानकारी नहीं मिली।",
+      matchSuffixSingular: "matching offering मिली है।",
+      matchSuffixPlural: "matching offerings मिली हैं।",
+      byLabel: "द्वारा",
+      offeringLabel: "offering"
     };
   }
 
@@ -381,8 +389,12 @@ function detectLanguageStyle(text: string) {
     return {
       name: "Kannada",
       outputStyle: "Kannada in Kannada script",
-      summaryIntro: "GRE dataset nalli ee matching offerings sigive.",
-      noMatch: "Ee offering bagge database nalli hecchu mahiti sigalilla."
+      summaryIntro: "GRE dataset ನಲ್ಲಿ ಈ ಹೊಂದುವ offerings ಸಿಕ್ಕಿವೆ.",
+      noMatch: "ಈ offering ಬಗ್ಗೆ database ನಲ್ಲಿ ಹೆಚ್ಚುವರಿ ಮಾಹಿತಿ ಸಿಗಲಿಲ್ಲ.",
+      matchSuffixSingular: "offering ಸಿಕ್ಕಿದೆ.",
+      matchSuffixPlural: "offerings ಸಿಕ್ಕಿವೆ.",
+      byLabel: "ಇವರಿಂದ",
+      offeringLabel: "offering"
     };
   }
 
@@ -390,8 +402,12 @@ function detectLanguageStyle(text: string) {
     return {
       name: "Odia",
       outputStyle: "Odia in Odia script",
-      summaryIntro: "Mu GRE dataset ru ei milithiba offerings paichi.",
-      noMatch: "Ei offering pain database re adhika tathya milila nahin."
+      summaryIntro: "ମୁଁ GRE dataset ରେ ଏହି ମେଳିଥିବା offerings ପାଇଛି।",
+      noMatch: "ଏହି offering ପାଇଁ database ରେ ଅଧିକ ତଥ୍ୟ ମିଳିଲା ନାହିଁ।",
+      matchSuffixSingular: "offering ମିଳିଛି।",
+      matchSuffixPlural: "offerings ମିଳିଛି।",
+      byLabel: "ଦ୍ୱାରା",
+      offeringLabel: "offering"
     };
   }
 
@@ -399,8 +415,12 @@ function detectLanguageStyle(text: string) {
     return {
       name: "Tamil",
       outputStyle: "Tamil in Tamil script",
-      summaryIntro: "GRE dataset-il indha porundhum offerings kandupidithen.",
-      noMatch: "Indha offering-kku database-il adhiga vivaram kidaikkavillai."
+      summaryIntro: "GRE dataset-இல் இந்த பொருந்தும் offerings கிடைத்துள்ளன.",
+      noMatch: "இந்த offering குறித்து database-இல் கூடுதல் விவரம் கிடைக்கவில்லை.",
+      matchSuffixSingular: "offering கிடைத்துள்ளது.",
+      matchSuffixPlural: "offerings கிடைத்துள்ளன.",
+      byLabel: "மூலம்",
+      offeringLabel: "offering"
     };
   }
 
@@ -408,8 +428,12 @@ function detectLanguageStyle(text: string) {
     return {
       name: "Telugu",
       outputStyle: "Telugu in Telugu script",
-      summaryIntro: "GRE dataset lo ee saripoye offerings dorikayi.",
-      noMatch: "Ee offering gurinchi database lo inka ekkuva samacharam ledu."
+      summaryIntro: "GRE dataset లో ఈ సరిపోయే offerings దొరికాయి.",
+      noMatch: "ఈ offering గురించి database లో ఇంకా ఎక్కువ సమాచారం లేదు.",
+      matchSuffixSingular: "offering దొరికింది.",
+      matchSuffixPlural: "offerings దొరికాయి.",
+      byLabel: "వారి నుండి",
+      offeringLabel: "offering"
     };
   }
 
@@ -417,8 +441,12 @@ function detectLanguageStyle(text: string) {
     return {
       name: "Gujarati",
       outputStyle: "Gujarati in Gujarati script",
-      summaryIntro: "àª®à«‡àª‚ GRE dataset àª®àª¾àª‚ àª† àª®à«‡àª³ àª–àª¾àª¤à«€ offerings àª¶à«‹àª§à«€ àª›à«‡.",
-      noMatch: "àª®àª¨à«‡ àª† offering àª®àª¾àªŸà«‡ database àª®àª¾àª‚ àªµàª§à« àª®àª¾àª¹àª¿àª¤à«€ àª®àª³à«€ àª¨àª¥à«€."
+      summaryIntro: "મેં GRE dataset માં આ મળતી offerings શોધી છે.",
+      noMatch: "મને આ offering માટે database માં વધુ માહિતી મળી નથી.",
+      matchSuffixSingular: "offering મળી છે.",
+      matchSuffixPlural: "offerings મળી છે.",
+      byLabel: "દ્વારા",
+      offeringLabel: "offering"
     };
   }
 
@@ -426,8 +454,12 @@ function detectLanguageStyle(text: string) {
     return {
       name: "Marathi",
       outputStyle: "Marathi",
-      summaryIntro: "Mala GRE dataset madhye he matching offerings sapadle.",
-      noMatch: "Ya offering babat database madhye adhik mahiti sapadli nahi."
+      summaryIntro: "मला GRE dataset मध्ये हे matching offerings सापडले.",
+      noMatch: "या offering बद्दल database मध्ये अधिक माहिती सापडली नाही.",
+      matchSuffixSingular: "matching offering सापडली आहे.",
+      matchSuffixPlural: "matching offerings सापडल्या आहेत.",
+      byLabel: "यांच्या कडून",
+      offeringLabel: "offering"
     };
   }
 
@@ -435,7 +467,11 @@ function detectLanguageStyle(text: string) {
     name: "the same language as the user",
     outputStyle: "the same language and script as the user",
     summaryIntro: "I found these matching offerings in the GRE dataset.",
-    noMatch: "I could not find more detail for this offering in the database."
+    noMatch: "I could not find more detail for this offering in the database.",
+    matchSuffixSingular: "offering matched.",
+    matchSuffixPlural: "offerings matched.",
+    byLabel: "by",
+    offeringLabel: "Offering"
   };
 }
 
