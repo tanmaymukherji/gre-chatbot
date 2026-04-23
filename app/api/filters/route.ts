@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { getFilterOptions } from "@/lib/database";
 
-export const revalidate = 600;
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET() {
   try {
