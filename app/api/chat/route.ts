@@ -168,10 +168,18 @@ export async function POST(request: NextRequest) {
             strictKeyword: false
           }
         : null;
+    const structuredOnlySearch = hasStructuredIntent
+      ? {
+          ...baseSearch,
+          q: undefined,
+          strictKeyword: false
+        }
+      : null;
 
     const attempts = shortDirectQuery
       ? [
           baseSearch,
+          ...(structuredOnlySearch ? [structuredOnlySearch] : []),
           { ...baseSearch, strictKeyword: false },
           ...(translatedBroadSearch ? [translatedBroadSearch] : []),
           ...(transliterationSearch ? [transliterationSearch] : []),
@@ -209,6 +217,7 @@ export async function POST(request: NextRequest) {
         ]
       : [
           baseSearch,
+          ...(structuredOnlySearch ? [structuredOnlySearch] : []),
           { ...baseSearch, application: undefined },
           { ...baseSearch, application: undefined, offeringType: undefined },
           { ...baseSearch, application: undefined, geography: undefined },

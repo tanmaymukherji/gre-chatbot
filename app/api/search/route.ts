@@ -19,33 +19,24 @@ export async function GET(request: NextRequest) {
       limit: Number(params.get("limit") || 250)
     };
     const inferredFilters = inferSearchFilters(baseFilters, baseFilters.q);
-    const inferredStructuredKeyword = Boolean(
+    const keywordAddedStructuredFilter = Boolean(
       baseFilters.q &&
-        !baseFilters.solutionProvider &&
-        !baseFilters.category &&
-        !baseFilters.domain6m &&
-        !baseFilters.offeringType &&
-        !baseFilters.valueChain &&
-        !baseFilters.application &&
-        !baseFilters.tag &&
-        !baseFilters.language &&
-        !baseFilters.geography &&
         (
-          inferredFilters.category ||
-          inferredFilters.domain6m ||
-          inferredFilters.offeringType ||
-          inferredFilters.valueChain ||
-          inferredFilters.application ||
-          inferredFilters.tag ||
-          inferredFilters.language ||
-          inferredFilters.geography
+          (!baseFilters.category && inferredFilters.category) ||
+          (!baseFilters.domain6m && inferredFilters.domain6m) ||
+          (!baseFilters.offeringType && inferredFilters.offeringType) ||
+          (!baseFilters.valueChain && inferredFilters.valueChain) ||
+          (!baseFilters.application && inferredFilters.application) ||
+          (!baseFilters.tag && inferredFilters.tag) ||
+          (!baseFilters.language && inferredFilters.language) ||
+          (!baseFilters.geography && inferredFilters.geography)
         )
     );
 
     const results = await runSearch({
       ...inferredFilters,
-      q: inferredStructuredKeyword ? undefined : baseFilters.q,
-      strictKeyword: inferredStructuredKeyword ? false : baseFilters.strictKeyword
+      q: keywordAddedStructuredFilter ? undefined : baseFilters.q,
+      strictKeyword: keywordAddedStructuredFilter ? false : baseFilters.strictKeyword
     });
 
     return NextResponse.json({ results });
