@@ -349,6 +349,26 @@ function inferOptionFromQuery(query: string | undefined, options: string[] = [])
   return matches[0]?.option;
 }
 
+function queryCoveredByOption(query: string | undefined, option: string | undefined) {
+  if (!query || !option) {
+    return false;
+  }
+
+  const normalizedQuery = normalizeComparable(query);
+  const normalizedOption = normalizeComparable(option);
+  const looseQuery = normalizeLooseComparable(query);
+  const looseOption = normalizeLooseComparable(option);
+
+  return (
+    normalizedQuery === normalizedOption ||
+    normalizedOption.includes(normalizedQuery) ||
+    normalizedQuery.includes(normalizedOption) ||
+    looseQuery === looseOption ||
+    looseOption.includes(looseQuery) ||
+    looseQuery.includes(looseOption)
+  );
+}
+
 function tokenizeQuery(query: string | undefined) {
   if (!query) {
     return [];
@@ -816,8 +836,19 @@ export async function runSearch(filters: SearchFilters) {
     language: filters.language || inferOptionFromQuery(filters.q, filterOptions.languages),
     geography: filters.geography || inferOptionFromQuery(filters.q, filterOptions.geographies)
   };
-  const simplifiedQuery = simplifyQueryText(inferredFilters.q, inferredFilters);
-  const q = (simplifiedQuery || inferredFilters.q || "").trim();
+  const structuredMatchFromKeyword = [
+    inferredFilters.solutionProvider,
+    inferredFilters.category,
+    inferredFilters.domain6m,
+    inferredFilters.offeringType,
+    inferredFilters.valueChain,
+    inferredFilters.application,
+    inferredFilters.tag,
+    inferredFilters.language,
+    inferredFilters.geography
+  ].some((value) => queryCoveredByOption(filters.q, value));
+  const simplifiedQuery = structuredMatchFromKeyword ? "" : simplifyQueryText(inferredFilters.q, inferredFilters);
+  const q = (simplifiedQuery || (structuredMatchFromKeyword ? "" : inferredFilters.q) || "").trim();
   const providerIds = await getProviderIdsByName(inferredFilters.solutionProvider, traders);
 
   const structuredFilterCount = [
