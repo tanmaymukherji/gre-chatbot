@@ -418,6 +418,20 @@ function resolvePrimaryKeywordFilter(query: string | undefined, options: CachedF
   return null;
 }
 
+function hasExplicitNonKeywordFilters(filters: SearchFilters) {
+  return Boolean(
+    filters.solutionProvider ||
+      filters.category ||
+      filters.domain6m ||
+      filters.offeringType ||
+      filters.valueChain ||
+      filters.application ||
+      filters.tag ||
+      filters.language ||
+      filters.geography
+  );
+}
+
 function tokenizeQuery(query: string | undefined) {
   if (!query) {
     return [];
@@ -870,6 +884,31 @@ export async function applyImportBundle(bundle: ImportBundle, fileNames: { solut
 }
 
 export async function runSearch(filters: SearchFilters) {
+  const results = await runSearchInternal(filters);
+  if (results.length > 0) {
+    return results;
+  }
+
+  if (filters.q && !hasExplicitNonKeywordFilters(filters)) {
+    return runSearchInternal({
+      ...filters,
+      strictKeyword: false,
+      solutionProvider: undefined,
+      category: undefined,
+      domain6m: undefined,
+      offeringType: undefined,
+      valueChain: undefined,
+      application: undefined,
+      tag: undefined,
+      language: undefined,
+      geography: undefined
+    });
+  }
+
+  return results;
+}
+
+async function runSearchInternal(filters: SearchFilters) {
   const { offerings, traders } = await getCachedSearchData();
   const limit = Math.min(filters.limit || 100, 500);
   const filterOptions = await getFilterOptions();

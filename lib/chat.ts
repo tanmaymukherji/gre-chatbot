@@ -714,9 +714,9 @@ function buildHeuristicIntent(question: string, options: FilterOptions) {
     normalized.includes("jankari") ||
     normalized.includes("guide") ||
     normalized.includes("learn") ||
-    question.includes("àª¤àª¾àª²à«€àª®") ||
-    question.includes("àªªà«àª°àª¶àª¿àª•à«àª·àª£") ||
-    question.includes("àª¶à«€àª–")
+    question.includes("\u0AA4\u0ABE\u0AB2\u0AC0\u0AAE") ||
+    question.includes("\u0AAA\u0ACD\u0AB0\u0AB6\u0ABF\u0A95\u0ACD\u0AB7\u0AA3") ||
+    question.includes("\u0AB6\u0AC0\u0A96")
   ) {
     intent.category = "Service";
     intent.domain6m = "Manpower";
@@ -784,8 +784,8 @@ function buildHeuristicIntent(question: string, options: FilterOptions) {
   if (
     normalized.includes("biscuit") ||
     normalized.includes("biscuits") ||
-    question.includes("àª¬àª¿àª¸à«àª•à«€àªŸ") ||
-    question.includes("àª¬àª¿àª¸à«àª•àª¿àªŸ")
+    question.includes("\u0AAC\u0ABF\u0AB8\u0ACD\u0A95\u0AC0\u0A9F") ||
+    question.includes("\u0AAC\u0ABF\u0AB8\u0ACD\u0A95\u0ABF\u0A9F")
   ) {
     intent.valueChain = intent.valueChain || "Bakery";
     intent.application = intent.application || "Biscuits";
