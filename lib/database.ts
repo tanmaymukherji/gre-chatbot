@@ -229,10 +229,7 @@ async function getCachedSearchData() {
 
   const supabase = createServerSupabaseClient();
 
-  const offeringsQuery = supabase
-    .from("offerings")
-    .select(
-      `
+  const offeringColumns = `
       offering_id,
       trader_id,
       offering_name,
@@ -268,24 +265,31 @@ async function getCachedSearchData() {
           association_status
         )
       )
-    `
-    )
-    .eq("publish_status", "Published")
-    .limit(2500);
+    `;
 
-  const tradersQuery = supabase
+  const offeringPages: SearchOfferingRow[] = [];
+  const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from("offerings")
+      .select(offeringColumns)
+      .eq("publish_status", "Published")
+      .range(from, from + pageSize - 1);
+
+    if (error) {
+      throw error;
+    }
+
+    offeringPages.push(...(data || []));
+    if (!data || data.length < pageSize) {
+      break;
+    }
+  }
+
+  const { data: traders, error: tradersError } = await supabase
     .from("traders")
     .select("trader_id, organisation_name, trader_name")
     .limit(1000);
-
-  const [{ data: offerings, error: offeringsError }, { data: traders, error: tradersError }] = await Promise.all([
-    offeringsQuery,
-    tradersQuery
-  ]);
-
-  if (offeringsError) {
-    throw offeringsError;
-  }
 
   if (tradersError) {
     throw tradersError;
@@ -293,7 +297,7 @@ async function getCachedSearchData() {
 
   searchDataCache = {
     expiresAt: now + SEARCH_DATA_CACHE_TTL_MS,
-    offerings: offerings || [],
+    offerings: offeringPages,
     traders: (traders || []) as TraderLookupRow[]
   };
 
@@ -1000,10 +1004,7 @@ async function runSearchInternal(filters: SearchFilters) {
   if (filters.strictKeyword && q && positiveScoreRows.length === 0) {
     return [];
   }
-  const scoredForRanking =
-    q && positiveScoreRows.length === 0 && structuredFilterCount > 0
-      ? scored.map(({ row }) => ({ row, score: 1 }))
-      : positiveScoreRows;
+  const scoredForRanking = positiveScoreRows;
 
   const ranked = scoredForRanking
     .sort((left, right) => right.score - left.score || String(left.row.offering_name || "").localeCompare(String(right.row.offering_name || "")));
