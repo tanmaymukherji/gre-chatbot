@@ -623,6 +623,15 @@ export function inferSearchFilters<T extends SearchFilters>(filters: T, query: s
         inferred.valueChain = "Livestock";
       }
     }
+
+    if (/\bbiscuits?\b/i.test(normalized)) {
+      if (!filters.application) {
+        inferred.application = "Biscuits";
+      }
+      if (!filters.valueChain) {
+        inferred.valueChain = "Bakery";
+      }
+    }
   }
 
   if (!filters.offeringType) {
