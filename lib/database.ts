@@ -939,7 +939,7 @@ async function runSearchInternal(filters: SearchFilters) {
       (primaryKeywordFilter?.field === "application" ? primaryKeywordFilter.value : undefined),
     tag:
       filters.tag ||
-      (primaryKeywordFilter?.field === "tag" ? primaryKeywordFilter.value : undefined),
+      undefined,
     language:
       filters.language ||
       (primaryKeywordFilter?.field === "language" ? primaryKeywordFilter.value : undefined),

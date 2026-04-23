@@ -112,6 +112,7 @@ export async function POST(request: NextRequest) {
     const effectiveFilters = inferSearchFilters(
       {
         ...interpretedFilters,
+        tag: body.filters.tag || undefined,
         ...body.filters
       },
       interpreted.englishQuery || translatedMessage
