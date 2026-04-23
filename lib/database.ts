@@ -369,6 +369,55 @@ function queryCoveredByOption(query: string | undefined, option: string | undefi
   );
 }
 
+function resolvePrimaryKeywordFilter(query: string | undefined, options: CachedFilterOptions) {
+  const provider = inferSolutionProvider(query, options.solutionProviders);
+  if (queryCoveredByOption(query, provider)) {
+    return { field: "solutionProvider" as const, value: provider };
+  }
+
+  const category = inferOptionFromQuery(query, options.categories);
+  if (queryCoveredByOption(query, category)) {
+    return { field: "category" as const, value: category };
+  }
+
+  const domain6m = inferOptionFromQuery(query, options.domains6m);
+  if (queryCoveredByOption(query, domain6m)) {
+    return { field: "domain6m" as const, value: domain6m };
+  }
+
+  const offeringType = inferOptionFromQuery(query, options.offeringTypes);
+  if (queryCoveredByOption(query, offeringType)) {
+    return { field: "offeringType" as const, value: offeringType };
+  }
+
+  const valueChain = inferOptionFromQuery(query, options.valueChains);
+  if (queryCoveredByOption(query, valueChain)) {
+    return { field: "valueChain" as const, value: valueChain };
+  }
+
+  const application = inferOptionFromQuery(query, options.applications);
+  if (queryCoveredByOption(query, application)) {
+    return { field: "application" as const, value: application };
+  }
+
+  const tag = inferOptionFromQuery(query, options.tags);
+  if (queryCoveredByOption(query, tag)) {
+    return { field: "tag" as const, value: tag };
+  }
+
+  const language = inferOptionFromQuery(query, options.languages);
+  if (queryCoveredByOption(query, language)) {
+    return { field: "language" as const, value: language };
+  }
+
+  const geography = inferOptionFromQuery(query, options.geographies);
+  if (queryCoveredByOption(query, geography)) {
+    return { field: "geography" as const, value: geography };
+  }
+
+  return null;
+}
+
 function tokenizeQuery(query: string | undefined) {
   if (!query) {
     return [];
@@ -824,17 +873,36 @@ export async function runSearch(filters: SearchFilters) {
   const { offerings, traders } = await getCachedSearchData();
   const limit = Math.min(filters.limit || 12, 50);
   const filterOptions = await getFilterOptions();
+  const primaryKeywordFilter = resolvePrimaryKeywordFilter(filters.q, filterOptions);
   const inferredFilters = {
     ...inferSearchFilters(filters, filters.q),
-    solutionProvider: filters.solutionProvider || inferSolutionProvider(filters.q, filterOptions.solutionProviders),
-    category: filters.category || inferOptionFromQuery(filters.q, filterOptions.categories),
-    domain6m: filters.domain6m || inferOptionFromQuery(filters.q, filterOptions.domains6m),
-    offeringType: filters.offeringType || inferOptionFromQuery(filters.q, filterOptions.offeringTypes),
-    valueChain: filters.valueChain || inferOptionFromQuery(filters.q, filterOptions.valueChains),
-    application: filters.application || inferOptionFromQuery(filters.q, filterOptions.applications),
-    tag: filters.tag || inferOptionFromQuery(filters.q, filterOptions.tags),
-    language: filters.language || inferOptionFromQuery(filters.q, filterOptions.languages),
-    geography: filters.geography || inferOptionFromQuery(filters.q, filterOptions.geographies)
+    solutionProvider:
+      filters.solutionProvider ||
+      (primaryKeywordFilter?.field === "solutionProvider" ? primaryKeywordFilter.value : inferSolutionProvider(filters.q, filterOptions.solutionProviders)),
+    category:
+      filters.category ||
+      (primaryKeywordFilter?.field === "category" ? primaryKeywordFilter.value : undefined),
+    domain6m:
+      filters.domain6m ||
+      (primaryKeywordFilter?.field === "domain6m" ? primaryKeywordFilter.value : undefined),
+    offeringType:
+      filters.offeringType ||
+      (primaryKeywordFilter?.field === "offeringType" ? primaryKeywordFilter.value : undefined),
+    valueChain:
+      filters.valueChain ||
+      (primaryKeywordFilter?.field === "valueChain" ? primaryKeywordFilter.value : undefined),
+    application:
+      filters.application ||
+      (primaryKeywordFilter?.field === "application" ? primaryKeywordFilter.value : undefined),
+    tag:
+      filters.tag ||
+      (primaryKeywordFilter?.field === "tag" ? primaryKeywordFilter.value : undefined),
+    language:
+      filters.language ||
+      (primaryKeywordFilter?.field === "language" ? primaryKeywordFilter.value : undefined),
+    geography:
+      filters.geography ||
+      (primaryKeywordFilter?.field === "geography" ? primaryKeywordFilter.value : undefined)
   };
   const structuredMatchFromKeyword = [
     inferredFilters.solutionProvider,
