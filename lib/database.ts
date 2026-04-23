@@ -936,31 +936,41 @@ async function runSearchInternal(filters: SearchFilters) {
     ...baseInferredFilters,
     solutionProvider:
       filters.solutionProvider ||
-      (primaryKeywordFilter?.field === "solutionProvider" ? primaryKeywordFilter.value : filters.disableKeywordPromotion ? undefined : inferSolutionProvider(filters.q, filterOptions.solutionProviders)),
+      (primaryKeywordFilter?.field === "solutionProvider" ? primaryKeywordFilter.value : undefined) ||
+      baseInferredFilters.solutionProvider ||
+      (filters.disableKeywordPromotion ? undefined : inferSolutionProvider(filters.q, filterOptions.solutionProviders)),
     category:
       filters.category ||
-      (primaryKeywordFilter?.field === "category" ? primaryKeywordFilter.value : undefined),
+      (primaryKeywordFilter?.field === "category" ? primaryKeywordFilter.value : undefined) ||
+      baseInferredFilters.category,
     domain6m:
       filters.domain6m ||
-      (primaryKeywordFilter?.field === "domain6m" ? primaryKeywordFilter.value : undefined),
+      (primaryKeywordFilter?.field === "domain6m" ? primaryKeywordFilter.value : undefined) ||
+      baseInferredFilters.domain6m,
     offeringType:
       filters.offeringType ||
-      (primaryKeywordFilter?.field === "offeringType" ? primaryKeywordFilter.value : undefined),
+      (primaryKeywordFilter?.field === "offeringType" ? primaryKeywordFilter.value : undefined) ||
+      baseInferredFilters.offeringType,
     valueChain:
       filters.valueChain ||
-      (primaryKeywordFilter?.field === "valueChain" ? primaryKeywordFilter.value : undefined),
+      (primaryKeywordFilter?.field === "valueChain" ? primaryKeywordFilter.value : undefined) ||
+      baseInferredFilters.valueChain,
     application:
       filters.application ||
-      (primaryKeywordFilter?.field === "application" ? primaryKeywordFilter.value : undefined),
+      (primaryKeywordFilter?.field === "application" ? primaryKeywordFilter.value : undefined) ||
+      baseInferredFilters.application,
     tag:
       filters.tag ||
+      baseInferredFilters.tag ||
       undefined,
     language:
       filters.language ||
-      (primaryKeywordFilter?.field === "language" ? primaryKeywordFilter.value : undefined),
+      (primaryKeywordFilter?.field === "language" ? primaryKeywordFilter.value : undefined) ||
+      baseInferredFilters.language,
     geography:
       filters.geography ||
-      (primaryKeywordFilter?.field === "geography" ? primaryKeywordFilter.value : undefined)
+      (primaryKeywordFilter?.field === "geography" ? primaryKeywordFilter.value : undefined) ||
+      baseInferredFilters.geography
   };
   const structuredMatchFromKeyword = !filters.disableKeywordPromotion && [
     inferredFilters.solutionProvider,
