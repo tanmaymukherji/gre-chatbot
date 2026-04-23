@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { runSearch } from "@/lib/database";
+import { inferSearchFilters, runSearch } from "@/lib/database";
 
 export async function GET(request: NextRequest) {
   try {
     const params = request.nextUrl.searchParams;
-    const results = await runSearch({
+    const baseFilters = {
       q: params.get("q") || undefined,
       strictKeyword: Boolean(params.get("q") || undefined),
       solutionProvider: params.get("solutionProvider") || undefined,
@@ -17,6 +17,35 @@ export async function GET(request: NextRequest) {
       language: params.get("language") || undefined,
       geography: params.get("geography") || undefined,
       limit: Number(params.get("limit") || 250)
+    };
+    const inferredFilters = inferSearchFilters(baseFilters, baseFilters.q);
+    const inferredStructuredKeyword = Boolean(
+      baseFilters.q &&
+        !baseFilters.solutionProvider &&
+        !baseFilters.category &&
+        !baseFilters.domain6m &&
+        !baseFilters.offeringType &&
+        !baseFilters.valueChain &&
+        !baseFilters.application &&
+        !baseFilters.tag &&
+        !baseFilters.language &&
+        !baseFilters.geography &&
+        (
+          inferredFilters.category ||
+          inferredFilters.domain6m ||
+          inferredFilters.offeringType ||
+          inferredFilters.valueChain ||
+          inferredFilters.application ||
+          inferredFilters.tag ||
+          inferredFilters.language ||
+          inferredFilters.geography
+        )
+    );
+
+    const results = await runSearch({
+      ...inferredFilters,
+      q: inferredStructuredKeyword ? undefined : baseFilters.q,
+      strictKeyword: inferredStructuredKeyword ? false : baseFilters.strictKeyword
     });
 
     return NextResponse.json({ results });
