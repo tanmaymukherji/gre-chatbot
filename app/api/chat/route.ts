@@ -190,6 +190,19 @@ export async function POST(request: NextRequest) {
                   tag: undefined,
                   language: effectiveFilters.language,
                   geography: effectiveFilters.geography
+                },
+                {
+                  q: [
+                    translatedMessage.trim(),
+                    ...(translation.keywords || []),
+                    ...(interpreted.keywords || [])
+                  ]
+                    .filter(Boolean)
+                    .join(" ")
+                    .trim(),
+                  strictKeyword: false,
+                  disableKeywordPromotion: true,
+                  limit: 120
                 }
               ]
             : [])
@@ -204,7 +217,7 @@ export async function POST(request: NextRequest) {
         ];
 
     let results: any[] = [];
-    let appliedSearch = baseSearch;
+    let appliedSearch: any = baseSearch;
 
     for (const attempt of attempts) {
       results = await runSearch(attempt);

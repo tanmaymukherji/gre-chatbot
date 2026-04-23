@@ -897,6 +897,7 @@ export async function runSearch(filters: SearchFilters) {
     return runSearchInternal({
       ...filters,
       strictKeyword: false,
+      disableKeywordPromotion: true,
       solutionProvider: undefined,
       category: undefined,
       domain6m: undefined,
@@ -916,12 +917,17 @@ async function runSearchInternal(filters: SearchFilters) {
   const { offerings, traders } = await getCachedSearchData();
   const limit = Math.min(filters.limit || 100, 500);
   const filterOptions = await getFilterOptions();
-  const primaryKeywordFilter = resolvePrimaryKeywordFilter(filters.q, filterOptions);
+  const primaryKeywordFilter = filters.disableKeywordPromotion
+    ? null
+    : resolvePrimaryKeywordFilter(filters.q, filterOptions);
+  const baseInferredFilters = filters.disableKeywordPromotion
+    ? { ...filters }
+    : inferSearchFilters(filters, filters.q);
   const inferredFilters = {
-    ...inferSearchFilters(filters, filters.q),
+    ...baseInferredFilters,
     solutionProvider:
       filters.solutionProvider ||
-      (primaryKeywordFilter?.field === "solutionProvider" ? primaryKeywordFilter.value : inferSolutionProvider(filters.q, filterOptions.solutionProviders)),
+      (primaryKeywordFilter?.field === "solutionProvider" ? primaryKeywordFilter.value : filters.disableKeywordPromotion ? undefined : inferSolutionProvider(filters.q, filterOptions.solutionProviders)),
     category:
       filters.category ||
       (primaryKeywordFilter?.field === "category" ? primaryKeywordFilter.value : undefined),
@@ -947,7 +953,7 @@ async function runSearchInternal(filters: SearchFilters) {
       filters.geography ||
       (primaryKeywordFilter?.field === "geography" ? primaryKeywordFilter.value : undefined)
   };
-  const structuredMatchFromKeyword = [
+  const structuredMatchFromKeyword = !filters.disableKeywordPromotion && [
     inferredFilters.solutionProvider,
     inferredFilters.category,
     inferredFilters.domain6m,

@@ -1,6 +1,7 @@
 export type SearchFilters = {
   q?: string;
   strictKeyword?: boolean;
+  disableKeywordPromotion?: boolean;
   solutionProvider?: string;
   category?: string;
   domain6m?: string;
