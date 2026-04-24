@@ -443,13 +443,16 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
                       ))}
                     </div>
                     {result.about_offering_text ? <p style={{ marginTop: 14 }}>{result.about_offering_text}</p> : null}
-                    {result.gre_link ? (
-                      <p style={{ marginTop: 14 }}>
+                    <div className="provider-offering-links" style={{ marginTop: 14 }}>
+                      <Link className="result-link" href={`/offering/${result.offering_id}`}>
+                        View details
+                      </Link>
+                      {result.gre_link ? (
                         <a className="result-link" href={result.gre_link} target="_blank" rel="noreferrer">
                           View on GRE
                         </a>
-                      </p>
-                    ) : null}
+                      ) : null}
+                    </div>
                   </article>
                 );
               })
