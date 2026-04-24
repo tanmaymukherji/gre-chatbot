@@ -1154,3 +1154,121 @@ export async function getOfferingDetail(offeringId: string) {
 
   return data;
 }
+
+function providerNamesForRow(row: { organisation_name?: string | null; trader_name?: string | null }) {
+  return [row.organisation_name, row.trader_name]
+    .filter(Boolean)
+    .map((value) => normalizeComparable(String(value)));
+}
+
+function scoreProviderMatch(providerName: string, row: { organisation_name?: string | null; trader_name?: string | null }) {
+  const probe = normalizeComparable(providerName);
+  if (!probe) {
+    return -1;
+  }
+
+  const names = providerNamesForRow(row);
+  let bestScore = -1;
+
+  for (const name of names) {
+    if (!name) {
+      continue;
+    }
+
+    if (name === probe) {
+      bestScore = Math.max(bestScore, 1000);
+    } else if (name.includes(probe) || probe.includes(name)) {
+      bestScore = Math.max(bestScore, 700 - Math.abs(name.length - probe.length));
+    } else {
+      const probeTokens = probe.split(/\s+/).filter(Boolean);
+      const matchCount = probeTokens.filter((token) => name.includes(token)).length;
+      if (matchCount > 0) {
+        bestScore = Math.max(bestScore, matchCount * 100);
+      }
+    }
+  }
+
+  return bestScore;
+}
+
+export async function getProviderDetail(providerName: string) {
+  const supabase = createServerSupabaseClient();
+  const trimmedProviderName = providerName.trim();
+  if (!trimmedProviderName) {
+    throw new Error("Provider name is required.");
+  }
+
+  const { data: traders, error: traderError } = await supabase
+    .from("traders")
+    .select(
+      `
+      trader_id,
+      trader_name,
+      organisation_name,
+      mobile,
+      email,
+      poc_name,
+      description,
+      short_description,
+      tagline,
+      website,
+      association_status
+    `
+    )
+    .limit(2000);
+
+  if (traderError) {
+    throw traderError;
+  }
+
+  const matchedTrader = (traders || [])
+    .map((row: any) => ({ row, score: scoreProviderMatch(trimmedProviderName, row) }))
+    .filter(({ score }) => score >= 0)
+    .sort((left, right) => right.score - left.score)[0]?.row;
+
+  if (!matchedTrader) {
+    throw new Error("Provider not found.");
+  }
+
+  const { data: offerings, error: offeringError } = await supabase
+    .from("offerings")
+    .select(
+      `
+      offering_id,
+      offering_name,
+      offering_category,
+      offering_group,
+      offering_type,
+      domain_6m,
+      primary_valuechain,
+      primary_application,
+      valuechains,
+      applications,
+      tags,
+      languages,
+      geographies,
+      about_offering_text,
+      gre_link,
+      search_document,
+      solution:solutions (
+        solution_id,
+        solution_name,
+        about_solution_text
+      )
+    `
+    )
+    .eq("publish_status", "Published")
+    .eq("trader_id", matchedTrader.trader_id)
+    .order("primary_valuechain", { ascending: true })
+    .order("primary_application", { ascending: true })
+    .order("offering_name", { ascending: true });
+
+  if (offeringError) {
+    throw offeringError;
+  }
+
+  return {
+    provider: matchedTrader,
+    offerings: offerings || []
+  };
+}

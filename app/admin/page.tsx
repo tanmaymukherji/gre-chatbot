@@ -16,6 +16,12 @@ export default function AdminPage() {
       <section style={{ marginTop: 24 }}>
         <AdminConsole />
       </section>
+
+      <div className="page-bottom-actions">
+        <Link className="btn hero-link" href="/">
+          Back to Home
+        </Link>
+      </div>
     </main>
   );
 }

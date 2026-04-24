@@ -378,6 +378,15 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
             <button className="btn" type="button" disabled={searching} onClick={runSearch}>
               {searching ? "Searching..." : "Run parameter search"}
             </button>
+            {filters.solutionProvider ? (
+              <Link className="btn ghost" href={`/provider?name=${encodeURIComponent(filters.solutionProvider)}`}>
+                Solution Provider Page
+              </Link>
+            ) : (
+              <button className="btn ghost" type="button" disabled>
+                Solution Provider Page
+              </button>
+            )}
             <button className="btn ghost" type="button" onClick={resetAll}>
               Reset all
             </button>
@@ -474,7 +483,14 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
           ) : null}
         </section>
 
-        <ProviderMapPanel results={searchResults} mapplsPublicKey={mapplsPublicKey || null} />
+        <div className="stack">
+          <ProviderMapPanel results={searchResults} mapplsPublicKey={mapplsPublicKey || null} />
+          <div className="map-admin-link-wrap">
+            <Link className="subtle-admin-link" href="/admin">
+              GRE Data
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   );

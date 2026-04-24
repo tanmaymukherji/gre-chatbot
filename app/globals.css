@@ -555,6 +555,41 @@ textarea {
   margin-top: 4px;
 }
 
+.provider-application-heading {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.provider-tags-heading {
+  color: var(--ink);
+  font-size: 0.92rem;
+}
+
+.map-admin-link-wrap {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.subtle-admin-link {
+  color: var(--muted);
+  font-size: 0.92rem;
+  text-decoration: none;
+}
+
+.subtle-admin-link:hover {
+  color: var(--ink);
+}
+
+.page-bottom-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+  padding-bottom: 8px;
+}
+
 .detail-hero-top {
   display: flex;
   gap: 12px;

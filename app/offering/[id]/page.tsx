@@ -182,6 +182,12 @@ export default async function OfferingDetailPage({ params }: { params: Promise<{
           <OfferingDetailChat offeringId={offering.offering_id} offeringName={offering.offering_name || "this offering"} />
         </section>
       </section>
+
+      <div className="page-bottom-actions">
+        <Link className="btn hero-link" href="/">
+          Back to Search
+        </Link>
+      </div>
     </main>
   );
 }

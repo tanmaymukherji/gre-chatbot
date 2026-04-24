@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { PublicExperience } from "@/components/public-experience";
 
 export default function HomePage() {
@@ -11,11 +10,6 @@ export default function HomePage() {
         <p className="hero-copy">
           A retrieval-first search and chatbot experience for Green Rural Economy offerings, designed to surface grounded recommendations across Product, Knowledge, Service, 6M domains, value chains, applications, tags, language, and geography.
         </p>
-        <div className="hero-actions">
-          <Link className="btn hero-link" href="/admin">
-            Admin Upload
-          </Link>
-        </div>
       </section>
 
       <section style={{ marginTop: 24 }}>
