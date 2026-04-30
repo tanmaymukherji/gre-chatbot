@@ -1,4 +1,3 @@
-﻿import OpenAI from "openai";
 import { getServerEnv } from "@/lib/env";
 
 type FilterOptions = {
@@ -59,6 +58,8 @@ type TranslatedSearchText = {
   transliteration?: string;
   keywords: string[];
 };
+
+type ProviderName = "gemini" | "deepseek" | "openrouter";
 
 const TRANSLATION_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const translationCache = new Map<string, { expiresAt: number; value: TranslatedSearchText }>();
@@ -197,8 +198,8 @@ async function transliterateSearchText(question: string, env: ReturnType<typeof 
   const prompt = buildTransliterationPrompt(question);
 
   try {
-    if (env.openAiApiKey) {
-      const response = await generateWithOpenAI(prompt, env.openAiApiKey);
+    if (env.geminiApiKey) {
+      const response = await generateWithGemini(prompt, env.geminiApiKey, { jsonMode: true });
       const parsed = parseTransliterationResponse(response);
       if (parsed) {
         return parsed;
@@ -209,8 +210,20 @@ async function transliterateSearchText(question: string, env: ReturnType<typeof 
   }
 
   try {
-    if (env.geminiApiKey) {
-      const response = await generateWithGemini(prompt, env.geminiApiKey, { jsonMode: true });
+    if (env.deepseekApiKey) {
+      const response = await generateWithDeepSeek(prompt, env.deepseekApiKey, { jsonMode: true });
+      const parsed = parseTransliterationResponse(response);
+      if (parsed) {
+        return parsed;
+      }
+    }
+  } catch {
+    // fall through
+  }
+
+  try {
+    if (env.openRouterApiKey) {
+      const response = await generateWithOpenRouter(prompt, env.openRouterApiKey, { jsonMode: true });
       const parsed = parseTransliterationResponse(response);
       if (parsed) {
         return parsed;
@@ -235,8 +248,8 @@ export async function translateSearchText(question: string): Promise<TranslatedS
   const needsScriptAwareTransliteration = /[^\u0000-\u024f\s]/.test(question) && rawWordCount <= 4;
 
   try {
-    if (env.openAiApiKey) {
-      const response = await generateWithOpenAI(prompt, env.openAiApiKey);
+    if (env.geminiApiKey) {
+      const response = await generateWithGemini(prompt, env.geminiApiKey, { jsonMode: true });
       const parsed = parseTranslationResponse(response, question);
       if (parsed) {
         if (needsScriptAwareTransliteration && !parsed.transliteration) {
@@ -258,8 +271,31 @@ export async function translateSearchText(question: string): Promise<TranslatedS
   }
 
   try {
-    if (env.geminiApiKey) {
-      const response = await generateWithGemini(prompt, env.geminiApiKey, { jsonMode: true });
+    if (env.deepseekApiKey) {
+      const response = await generateWithDeepSeek(prompt, env.deepseekApiKey, { jsonMode: true });
+      const parsed = parseTranslationResponse(response, question);
+      if (parsed) {
+        if (needsScriptAwareTransliteration && !parsed.transliteration) {
+          const transliterationResult = await transliterateSearchText(question, env);
+          if (transliterationResult) {
+            parsed.transliteration = transliterationResult.transliteration;
+            parsed.keywords = [...new Set([...(parsed.keywords || []), ...transliterationResult.keywords])].filter(Boolean);
+          }
+        }
+        translationCache.set(question, {
+          expiresAt: Date.now() + TRANSLATION_CACHE_TTL_MS,
+          value: parsed
+        });
+        return parsed;
+      }
+    }
+  } catch {
+    // fall through
+  }
+
+  try {
+    if (env.openRouterApiKey) {
+      const response = await generateWithOpenRouter(prompt, env.openRouterApiKey, { jsonMode: true });
       const parsed = parseTranslationResponse(response, question);
       if (parsed) {
         if (needsScriptAwareTransliteration && !parsed.transliteration) {
@@ -977,16 +1013,6 @@ function buildOfferingPrompt(offering: any, history: ChatMessage[], question: st
   ].join("\n");
 }
 
-async function generateWithOpenAI(prompt: string, apiKey: string) {
-  const client = new OpenAI({ apiKey });
-  const response = await client.responses.create({
-    model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
-    input: prompt
-  });
-
-  return response.output_text || null;
-}
-
 async function generateWithGemini(prompt: string, apiKey: string, options?: { jsonMode?: boolean }) {
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${process.env.GEMINI_MODEL || "gemini-2.5-flash"}:generateContent?key=${apiKey}`,
@@ -1019,6 +1045,100 @@ async function generateWithGemini(prompt: string, apiKey: string, options?: { js
   return data?.candidates?.[0]?.content?.parts?.map((part: any) => part.text || "").join("").trim() || null;
 }
 
+async function generateWithOpenAiCompatible(
+  prompt: string,
+  url: string,
+  apiKey: string,
+  model: string,
+  options?: { jsonMode?: boolean; extraHeaders?: Record<string, string> }
+) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+      ...(options?.extraHeaders || {})
+    },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: "user", content: prompt }],
+      response_format: options?.jsonMode ? { type: "json_object" } : undefined
+    })
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `AI request failed with status ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data?.choices?.[0]?.message?.content?.trim() || null;
+}
+
+async function generateWithDeepSeek(prompt: string, apiKey: string, options?: { jsonMode?: boolean }) {
+  return generateWithOpenAiCompatible(
+    prompt,
+    "https://api.deepseek.com/chat/completions",
+    apiKey,
+    process.env.DEEPSEEK_MODEL || "deepseek-chat",
+    options
+  );
+}
+
+async function generateWithOpenRouter(prompt: string, apiKey: string, options?: { jsonMode?: boolean }) {
+  return generateWithOpenAiCompatible(
+    prompt,
+    "https://openrouter.ai/api/v1/chat/completions",
+    apiKey,
+    process.env.OPENROUTER_MODEL || "deepseek/deepseek-chat",
+    {
+      ...options,
+      extraHeaders: {
+        "HTTP-Referer": "https://github.com",
+        "X-Title": "gre-chatbot"
+      }
+    }
+  );
+}
+
+async function generateWithOrderedProviders(
+  prompt: string,
+  env: ReturnType<typeof getServerEnv>,
+  options?: { jsonMode?: boolean }
+) {
+  const attempts: Array<{ name: ProviderName; run: (() => Promise<string | null>) | null }> = [
+    {
+      name: "gemini",
+      run: env.geminiApiKey ? () => generateWithGemini(prompt, env.geminiApiKey!, options) : null
+    },
+    {
+      name: "deepseek",
+      run: env.deepseekApiKey ? () => generateWithDeepSeek(prompt, env.deepseekApiKey!, options) : null
+    },
+    {
+      name: "openrouter",
+      run: env.openRouterApiKey ? () => generateWithOpenRouter(prompt, env.openRouterApiKey!, options) : null
+    }
+  ];
+
+  for (const attempt of attempts) {
+    if (!attempt.run) {
+      continue;
+    }
+
+    try {
+      const response = await attempt.run();
+      if (response) {
+        return response;
+      }
+    } catch {
+      // fall through to the next provider
+    }
+  }
+
+  return null;
+}
+
 export async function interpretSearchIntent(question: string, options: FilterOptions) {
   const env = getServerEnv();
   const prompt = buildIntentPrompt(question, options);
@@ -1041,28 +1161,10 @@ export async function interpretSearchIntent(question: string, options: FilterOpt
     }
   };
 
-  try {
-    if (env.openAiApiKey) {
-      const response = await generateWithOpenAI(prompt, env.openAiApiKey);
-      const parsed = tryParse(response);
-      if (parsed) {
-        return parsed;
-      }
-    }
-  } catch {
-    // fall through to Gemini
-  }
-
-  try {
-    if (env.geminiApiKey) {
-      const response = await generateWithGemini(prompt, env.geminiApiKey, { jsonMode: true });
-      const parsed = tryParse(response);
-      if (parsed) {
-        return parsed;
-      }
-    }
-  } catch {
-    // fall through to heuristic fallback
+  const response = await generateWithOrderedProviders(prompt, env, { jsonMode: true });
+  const parsed = tryParse(response);
+  if (parsed) {
+    return parsed;
   }
 
   return heuristic;
@@ -1072,34 +1174,9 @@ export async function generateGroundedAnswer(question: string, filters: Record<s
   const env = getServerEnv();
   const prompt = buildPrompt(question, filters, results);
 
-  try {
-    if (env.openAiApiKey) {
-      const response = await generateWithOpenAI(prompt, env.openAiApiKey);
-      if (response) {
-        return response;
-      }
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    const quotaLikeError =
-      message.includes("429") ||
-      message.toLowerCase().includes("quota") ||
-      message.toLowerCase().includes("rate limit") ||
-      message.toLowerCase().includes("billing");
-    if (!quotaLikeError && !env.geminiApiKey) {
-      return buildFallback(results, "openai_error", question);
-    }
-  }
-
-  try {
-    if (env.geminiApiKey) {
-      const geminiResponse = await generateWithGemini(prompt, env.geminiApiKey);
-      if (geminiResponse) {
-        return geminiResponse;
-      }
-    }
-  } catch {
-    return buildFallback(results, "gemini_error", question);
+  const response = await generateWithOrderedProviders(prompt, env);
+  if (response) {
+    return response;
   }
 
   return buildFallback(results, "no_ai_provider", question);
@@ -1110,26 +1187,9 @@ export async function generateOfferingAnswer(offering: any, history: ChatMessage
   const prompt = buildOfferingPrompt(offering, history, question);
   const language = detectLanguageStyle(question);
 
-  try {
-    if (env.openAiApiKey) {
-      const response = await generateWithOpenAI(prompt, env.openAiApiKey);
-      if (response) {
-        return response;
-      }
-    }
-  } catch {
-    // fall through
-  }
-
-  try {
-    if (env.geminiApiKey) {
-      const response = await generateWithGemini(prompt, env.geminiApiKey);
-      if (response) {
-        return response;
-      }
-    }
-  } catch {
-    // fall through
+  const response = await generateWithOrderedProviders(prompt, env);
+  if (response) {
+    return response;
   }
 
   const provider =

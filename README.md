@@ -10,7 +10,7 @@ This project is a Next.js app for the Green Rural Economy dataset. It provides:
 
 - Next.js App Router
 - Supabase for Postgres and Auth
-- OpenAI for grounded response generation
+- Gemini, DeepSeek, and OpenRouter for grounded response generation
 - Excel parsing with `xlsx`
 
 ## Pages
@@ -26,9 +26,12 @@ Copy `.env.example` to `.env.local` and set:
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `MAPPLS_PUBLIC_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `OPENAI_API_KEY`
 - `GEMINI_API_KEY`
+- `DEEPSEEK_API_KEY`
+- `OPENROUTER_API_KEY`
 - `ADMIN_EMAILS`
+
+AI providers are queried in this order: `Gemini -> DeepSeek -> OpenRouter`.
 
 `ADMIN_EMAILS` should be a comma-separated list of email addresses allowed to import data.
 

@@ -15,8 +15,9 @@ export function getServerEnv() {
     supabaseUrl: optional("NEXT_PUBLIC_SUPABASE_URL"),
     supabaseAnonKey: optional("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
     supabaseServiceRoleKey: optional("SUPABASE_SERVICE_ROLE_KEY"),
-    openAiApiKey: optional("OPENAI_API_KEY"),
     geminiApiKey: optional("GEMINI_API_KEY"),
+    deepseekApiKey: optional("DEEPSEEK_API_KEY"),
+    openRouterApiKey: optional("OPENROUTER_API_KEY"),
     mapplsPublicKey: optional("MAPPLS_PUBLIC_KEY"),
     adminEmails: (optional("ADMIN_EMAILS") || "")
       .split(",")
