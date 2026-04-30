@@ -168,6 +168,17 @@ export async function POST(request: NextRequest) {
             strictKeyword: false
           }
         : null;
+    const intentTopicSearch =
+      effectiveFilters.valueChain || effectiveFilters.application || effectiveFilters.tag
+        ? {
+            ...baseSearch,
+            q: undefined,
+            strictKeyword: false,
+            category: undefined,
+            domain6m: undefined,
+            offeringType: undefined
+          }
+        : null;
     const structuredOnlySearch = hasStructuredIntent
       ? {
           ...baseSearch,
@@ -179,6 +190,7 @@ export async function POST(request: NextRequest) {
     const attempts = shortDirectQuery
       ? [
           baseSearch,
+          ...(intentTopicSearch ? [intentTopicSearch] : []),
           ...(structuredOnlySearch ? [structuredOnlySearch] : []),
           { ...baseSearch, strictKeyword: false },
           ...(translatedBroadSearch ? [translatedBroadSearch] : []),
@@ -217,9 +229,11 @@ export async function POST(request: NextRequest) {
         ]
       : [
           baseSearch,
+          ...(intentTopicSearch ? [intentTopicSearch] : []),
           ...(structuredOnlySearch ? [structuredOnlySearch] : []),
           { ...baseSearch, application: undefined },
           { ...baseSearch, application: undefined, offeringType: undefined },
+          { ...baseSearch, category: undefined, domain6m: undefined, offeringType: undefined, strictKeyword: false },
           { ...baseSearch, application: undefined, geography: undefined },
           { ...baseSearch, application: undefined, geography: undefined, language: undefined },
           { ...baseSearch, application: undefined, geography: undefined, language: undefined, solutionProvider: undefined, strictKeyword: false }

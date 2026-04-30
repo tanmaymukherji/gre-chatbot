@@ -511,6 +511,22 @@ function expandTokenVariants(token: string) {
   }
 
   const variants = new Set([normalized]);
+  const compact = normalized.replace(/\s+/g, "");
+  if (compact && compact !== normalized) {
+    variants.add(compact);
+  }
+
+  if (!normalized.includes(" ") && /streetlights?/.test(normalized)) {
+    variants.add(normalized.replace(/streetlights?/, (match) => (match === "streetlights" ? "street lights" : "street light")));
+  }
+
+  if (!normalized.includes(" ") && /lights?/.test(normalized)) {
+    variants.add(normalized.replace(/lights?/, (match) => (match === "lights" ? " lights" : " light")).trim());
+  }
+
+  if (normalized.includes(" ")) {
+    variants.add(normalized.replace(/\s+/g, ""));
+  }
 
   if (normalized.endsWith("ies") && normalized.length > 3) {
     variants.add(`${normalized.slice(0, -3)}y`);
@@ -630,6 +646,15 @@ export function inferSearchFilters<T extends SearchFilters>(filters: T, query: s
       }
       if (!filters.valueChain) {
         inferred.valueChain = "Bakery";
+      }
+    }
+
+    if (/\bsolar\b/i.test(normalized) && /\b(light|lights|streetlight|streetlights|led)\b/i.test(normalized)) {
+      if (!filters.application) {
+        inferred.application = "Solar Lights";
+      }
+      if (!filters.valueChain) {
+        inferred.valueChain = "Solar";
       }
     }
   }
@@ -758,12 +783,28 @@ function scoreRow(row: any, query: string | undefined) {
     score += 10;
   }
 
+  if (
+    row.offering_name &&
+    tokens.length > 1 &&
+    tokens.every((token) => matchesTokenVariant(String(row.offering_name).toLowerCase(), token))
+  ) {
+    score += 16;
+  }
+
   if (row.primary_valuechain && tokens.some((token) => matchesTokenVariant(row.primary_valuechain.toLowerCase(), token))) {
     score += 4;
   }
 
   if (row.primary_application && tokens.some((token) => matchesTokenVariant(row.primary_application.toLowerCase(), token))) {
     score += 8;
+  }
+
+  if (
+    row.primary_application &&
+    tokens.length > 1 &&
+    tokens.every((token) => matchesTokenVariant(String(row.primary_application).toLowerCase(), token))
+  ) {
+    score += 18;
   }
 
   if ((row.tags || []).some((tag: string) => tokens.some((token) => matchesTokenVariant(String(tag).toLowerCase(), token)))) {
