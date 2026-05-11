@@ -88,6 +88,20 @@ const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> = {
   rajasthan: { lat: 27.0238, lng: 74.2179 }
 };
 
+const COUNTRY_KEYS = new Set(["india"]);
+const STATE_KEYS = new Set([
+  "karnataka",
+  "madhya pradesh",
+  "odisha",
+  "maharashtra",
+  "telangana",
+  "tamil nadu",
+  "bihar",
+  "uttar pradesh",
+  "jharkhand",
+  "rajasthan"
+]);
+
 function normalize(value: string) {
   return value.toLowerCase().replace(/[^\p{L}\p{N}, ]+/gu, " ").replace(/\s+/g, " ").trim();
 }
@@ -122,6 +136,13 @@ function resolveCoordinate(geography: string) {
   return null;
 }
 
+function geographySpecificity(geography: string) {
+  const normalized = normalize(geography);
+  if (COUNTRY_KEYS.has(normalized)) return 1;
+  if (STATE_KEYS.has(normalized)) return 2;
+  return 3;
+}
+
 function collectGeographies(result: ProviderResult) {
   const values = [
     ...(result.geographies || []),
@@ -133,7 +154,7 @@ function collectGeographies(result: ProviderResult) {
     .filter(Boolean);
 
   const uniqueValues = [...new Set(values)];
-  return uniqueValues.filter((candidate) => {
+  const hierarchyFiltered = uniqueValues.filter((candidate) => {
     const candidateParts = splitGeographyParts(candidate);
     return !uniqueValues.some((other) => {
       if (other === candidate) return false;
@@ -141,6 +162,16 @@ function collectGeographies(result: ProviderResult) {
       if (otherParts.length <= candidateParts.length) return false;
       return candidateParts.every((part) => otherParts.includes(part));
     });
+  });
+
+  const hasSpecificLocation = hierarchyFiltered.some((entry) => geographySpecificity(entry) >= 3);
+  const hasStateLocation = hierarchyFiltered.some((entry) => geographySpecificity(entry) >= 2);
+
+  return hierarchyFiltered.filter((entry) => {
+    const specificity = geographySpecificity(entry);
+    if (specificity === 1 && hasStateLocation) return false;
+    if (specificity === 2 && hasSpecificLocation) return false;
+    return true;
   });
 }
 
