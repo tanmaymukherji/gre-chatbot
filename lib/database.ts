@@ -273,7 +273,7 @@ async function getCachedSearchData() {
     const { data, error } = await supabase
       .from("offerings")
       .select(offeringColumns)
-      .eq("publish_status", "Published")
+      .in("publish_status", ["Published", "MIS Published"])
       .range(from, from + pageSize - 1);
 
     if (error) {
@@ -1298,7 +1298,7 @@ export async function getProviderDetail(providerName: string) {
       )
     `
     )
-    .eq("publish_status", "Published")
+    .in("publish_status", ["Published", "MIS Published"])
     .eq("trader_id", matchedTrader.trader_id)
     .order("primary_valuechain", { ascending: true })
     .order("primary_application", { ascending: true })
