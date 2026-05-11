@@ -201,14 +201,26 @@ function matchesScalar(value: string | null | undefined, probe: string | undefin
   return (value || "").toLowerCase().includes(probe.toLowerCase());
 }
 
+function canonicalize6MValue(value: string | null | undefined) {
+  const text = normalizeComparable(String(value || ""));
+  if (!text) return "";
+  if (/(^| )manpower( |$)|training|capacity building|skills?/.test(text)) return "Manpower";
+  if (/(^| )method( |$)|consult|mentoring|technology transfer|manual|video|sop|blog|advisory/.test(text)) return "Method";
+  if (/(^| )machine( |$)|machinery|equipment|plant setup|street light/.test(text)) return "Machine";
+  if (/(^| )material( |$)|raw material|input|supply/.test(text)) return "Material";
+  if (/(^| )market( |$)|branding|packaging|marketplace|buyer|marketing/.test(text)) return "Market";
+  if (/(^| )money( |$)|financial|finance|funding|credit|loan/.test(text)) return "Money";
+  return "";
+}
+
 function matchesDomain6M(value: string | null | undefined, probe: string | undefined) {
   if (!probe) {
     return true;
   }
-  const normalizedProbe = normalizeComparable(probe);
+  const normalizedProbe = canonicalize6MValue(probe) || normalizeComparable(probe);
   const parts = String(value || "")
     .split(/[;,|]/)
-    .map((item) => normalizeComparable(item))
+    .map((item) => canonicalize6MValue(item) || normalizeComparable(item))
     .filter(Boolean);
 
   return parts.some((part) =>
@@ -241,7 +253,13 @@ function uniqueSorted(values: string[]) {
 function inferDomain6M(row: any) {
   const existing = String(row?.domain_6m || "").trim();
   if (existing) {
-    return existing;
+    const canonicalParts = existing
+      .split(/[;,|]/)
+      .map((item) => canonicalize6MValue(item))
+      .filter(Boolean);
+    if (canonicalParts.length) {
+      return [...new Set(canonicalParts)].join(", ");
+    }
   }
 
   const text = [
@@ -1205,7 +1223,7 @@ export async function getFilterOptions() {
       rows.flatMap((row: any) =>
         String(row.domain_6m || "")
           .split(/[;,|]/)
-          .map((item) => item.trim())
+          .map((item) => canonicalize6MValue(item) || item.trim())
           .filter(Boolean),
       ),
     ),
