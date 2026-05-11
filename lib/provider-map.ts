@@ -132,7 +132,16 @@ function collectGeographies(result: ProviderResult) {
     .map((entry) => entry.trim())
     .filter(Boolean);
 
-  return [...new Set(values)];
+  const uniqueValues = [...new Set(values)];
+  return uniqueValues.filter((candidate) => {
+    const candidateParts = splitGeographyParts(candidate);
+    return !uniqueValues.some((other) => {
+      if (other === candidate) return false;
+      const otherParts = splitGeographyParts(other);
+      if (otherParts.length <= candidateParts.length) return false;
+      return candidateParts.every((part) => otherParts.includes(part));
+    });
+  });
 }
 
 export function buildProviderMarkers(results: ProviderResult[]) {
