@@ -257,10 +257,48 @@ function inferDomain6M(row: any) {
   return [...new Set(sixM)].join(", ");
 }
 
+function getDataUrlFromAttachment(value: any) {
+  if (value && typeof value === "object" && typeof value.dataUrl === "string") {
+    return value.dataUrl;
+  }
+  return "";
+}
+
+function fallbackAttachmentUrl(row: any, keys: string[]) {
+  const payload = row?.raw_payload?.payload;
+  if (!payload || typeof payload !== "object") return "";
+  for (const key of keys) {
+    const url = getDataUrlFromAttachment(payload[key]);
+    if (url) return url;
+  }
+  return "";
+}
+
 function normalizeOfferingRow(row: any) {
+  const normalizedServiceBrochure =
+    row?.service_brochure_url ||
+    fallbackAttachmentUrl(row, ["service_brochure_attachment", "product_brochure_attachment"]);
+  const normalizedProductBrochure =
+    row?.product_brochure_url ||
+    fallbackAttachmentUrl(row, ["product_brochure_attachment", "service_brochure_attachment"]);
+  const normalizedKnowledgeContent =
+    row?.knowledge_content_url ||
+    fallbackAttachmentUrl(row, ["knowledge_content_attachment"]);
+  const normalizedSolutionImage =
+    row?.solution?.solution_image_url ||
+    fallbackAttachmentUrl(row, ["offering_image_attachment"]);
   return {
     ...row,
-    domain_6m: inferDomain6M(row)
+    domain_6m: inferDomain6M(row),
+    service_brochure_url: normalizedServiceBrochure || null,
+    product_brochure_url: normalizedProductBrochure || null,
+    knowledge_content_url: normalizedKnowledgeContent || null,
+    solution: row?.solution
+      ? {
+          ...row.solution,
+          solution_image_url: normalizedSolutionImage || row.solution.solution_image_url || null,
+        }
+      : row?.solution,
   };
 }
 
@@ -1208,11 +1246,13 @@ export async function getOfferingDetail(offeringId: string) {
       knowledge_content_url,
       contact_details,
       gre_link,
+      raw_payload,
       solution:solutions (
         solution_id,
         solution_name,
         about_solution_text,
         solution_image_url,
+        raw_payload,
         trader:traders (
           trader_id,
           trader_name,
