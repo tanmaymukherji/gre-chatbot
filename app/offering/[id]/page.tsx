@@ -45,7 +45,7 @@ function buildOfferingRows(offering: any) {
     ["Delivery Mode", offering.delivery_mode],
     ["Certification Offered", offering.certification_offered],
     ["Cost Remarks", offering.cost_remarks],
-    ["Service Brochure", offering.service_brochure_url]
+    ["Service Brochure", offering.service_brochure_url || offering.product_brochure_url]
   ];
 
   const productRows = [
@@ -66,10 +66,11 @@ function buildOfferingRows(offering: any) {
   ];
 
   const group = String(offering.offering_group || "").toLowerCase();
+  const category = String(offering.offering_category || "").toLowerCase();
   const relevantRows =
-    group === "service" ? serviceRows :
-    group === "product" ? productRows :
-    group === "knowledge" ? knowledgeRows :
+    (group === "service" || category.includes("service")) ? serviceRows :
+    (group === "product" || category.includes("product")) ? productRows :
+    (group === "knowledge" || category.includes("knowledge")) ? knowledgeRows :
     [];
 
   return [...commonRows, ...relevantRows].filter(([, value]) => isPresent(value));
@@ -116,10 +117,23 @@ export default async function OfferingDetailPage({ params }: { params: Promise<{
             </a>
           ) : null}
         </div>
-        <h1>{offering.offering_name || "Untitled offering"}</h1>
-        <p className="hero-copy">
-          {offering.about_offering_text || offering.solution?.about_solution_text || "This page shows the available GRE dataset details for this offering."}
-        </p>
+        <div className="detail-hero-main">
+          <div className="detail-hero-copy">
+            <h1>{offering.offering_name || "Untitled offering"}</h1>
+            <p className="hero-copy">
+              {offering.about_offering_text || offering.solution?.about_solution_text || "This page shows the available GRE dataset details for this offering."}
+            </p>
+          </div>
+          {offering.solution?.solution_image_url ? (
+            <div className="detail-hero-image-wrap">
+              <img
+                className="detail-hero-image"
+                src={offering.solution.solution_image_url}
+                alt={offering.offering_name || "Offering image"}
+              />
+            </div>
+          ) : null}
+        </div>
       </section>
 
       <section className="detail-grid" style={{ marginTop: 24 }}>

@@ -221,6 +221,49 @@ function uniqueSorted(values: string[]) {
   return [...new Set(values.filter(Boolean))].sort((left, right) => left.localeCompare(right));
 }
 
+function inferDomain6M(row: any) {
+  const existing = String(row?.domain_6m || "").trim();
+  if (existing) {
+    return existing;
+  }
+
+  const text = [
+    row?.offering_name,
+    row?.offering_category,
+    row?.offering_group,
+    row?.offering_type,
+    row?.primary_valuechain,
+    row?.primary_application,
+    ...(Array.isArray(row?.applications) ? row.applications : []),
+    ...(Array.isArray(row?.valuechains) ? row.valuechains : []),
+    ...(Array.isArray(row?.tags) ? row.tags : []),
+    row?.about_offering_text,
+    row?.solution?.solution_name,
+    row?.solution?.about_solution_text
+  ]
+    .filter(Boolean)
+    .join(" | ")
+    .toLowerCase();
+
+  const sixM = [
+    ["training", "capacity building"].some((pattern) => text.includes(pattern)) ? "Manpower" : "",
+    ["consulting", "consultancy", "mentoring", "technology transfer", "manual", "video", "sop", "blog", "advisory"].some((pattern) => text.includes(pattern)) ? "Method" : "",
+    ["machine", "machinery", "equipment", "plant setup", "street light"].some((pattern) => text.includes(pattern)) ? "Machine" : "",
+    ["raw material", "raw materials", "material supply", "supply"].some((pattern) => text.includes(pattern)) ? "Material" : "",
+    ["market", "branding", "packaging", "marketplace", "market report", "market reports"].some((pattern) => text.includes(pattern)) ? "Market" : "",
+    ["financial", "finance", "funding", "credit", "loan"].some((pattern) => text.includes(pattern)) ? "Money" : ""
+  ].filter(Boolean);
+
+  return [...new Set(sixM)].join(", ");
+}
+
+function normalizeOfferingRow(row: any) {
+  return {
+    ...row,
+    domain_6m: inferDomain6M(row)
+  };
+}
+
 async function getCachedSearchData() {
   const now = Date.now();
   if (searchDataCache && searchDataCache.expiresAt > now) {
@@ -297,7 +340,7 @@ async function getCachedSearchData() {
 
   searchDataCache = {
     expiresAt: now + SEARCH_DATA_CACHE_TTL_MS,
-    offerings: offeringPages,
+    offerings: offeringPages.map(normalizeOfferingRow),
     traders: (traders || []) as TraderLookupRow[]
   };
 
@@ -1193,7 +1236,7 @@ export async function getOfferingDetail(offeringId: string) {
     throw error;
   }
 
-  return data;
+  return normalizeOfferingRow(data);
 }
 
 function providerNamesForRow(row: { organisation_name?: string | null; trader_name?: string | null }) {
