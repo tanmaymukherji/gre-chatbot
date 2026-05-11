@@ -14,6 +14,11 @@ function isPresent(value: unknown) {
   return formatValue(value).length > 0;
 }
 
+function isLinkValue(value: unknown) {
+  const text = String(value || "").trim().toLowerCase();
+  return text.startsWith("http://") || text.startsWith("https://") || text.startsWith("data:");
+}
+
 function buildOfferingRows(offering: any) {
   const commonRows = [
     ["Offering Category", offering.offering_category],
@@ -148,7 +153,7 @@ export default async function OfferingDetailPage({ params }: { params: Promise<{
                 <tr key={label}>
                   <th>{label}</th>
                   <td>
-                    {String(value).startsWith("http") ? (
+                    {isLinkValue(value) ? (
                       <a className="result-link" href={String(value)} target="_blank" rel="noreferrer">
                         Open link
                       </a>
@@ -171,7 +176,7 @@ export default async function OfferingDetailPage({ params }: { params: Promise<{
                   <tr key={label}>
                     <th>{label}</th>
                     <td>
-                      {String(value).startsWith("http") ? (
+                      {isLinkValue(value) ? (
                         <a className="result-link" href={String(value)} target="_blank" rel="noreferrer">
                           Open link
                         </a>
