@@ -1,8 +1,8 @@
 import { createServerSupabaseClient } from "@/lib/supabase";
 import type { ImportBundle, SearchFilters } from "@/lib/types";
 
-const FILTER_CACHE_TTL_MS = 10 * 60 * 1000;
-const SEARCH_DATA_CACHE_TTL_MS = 10 * 60 * 1000;
+const FILTER_CACHE_TTL_MS = 60 * 1000;
+const SEARCH_DATA_CACHE_TTL_MS = 30 * 1000;
 
 type CachedFilterOptions = {
   solutionProviders: string[];
@@ -36,6 +36,11 @@ let searchDataCache:
       traders: TraderLookupRow[];
     }
   | null = null;
+
+export function invalidateSearchCaches() {
+  filterOptionsCache = null;
+  searchDataCache = null;
+}
 
 function chunk<T>(rows: T[], size = 250) {
   const chunks: T[][] = [];
@@ -977,8 +982,7 @@ async function getProviderIdsByName(providerName: string | undefined, traders?: 
 
 export async function applyImportBundle(bundle: ImportBundle, fileNames: { solutionFileName: string; traderFileName: string }) {
   const supabase = createServerSupabaseClient();
-  filterOptionsCache = null;
-  searchDataCache = null;
+  invalidateSearchCaches();
 
   const { data: importRow, error: importError } = await supabase
     .from("data_imports")
@@ -1030,8 +1034,7 @@ export async function applyImportBundle(bundle: ImportBundle, fileNames: { solut
       throw completeError;
     }
 
-    filterOptionsCache = null;
-    searchDataCache = null;
+    invalidateSearchCaches();
 
     return {
       importId,
