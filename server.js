@@ -1,12 +1,9 @@
 const { spawn } = require("node:child_process");
 const { existsSync } = require("node:fs");
-const path = require("node:path");
 
 const port = process.env.PORT || process.env.port || "3000";
 const hostname = "0.0.0.0";
-const appRoot = __dirname;
-const standaloneServer = path.join(appRoot, ".next", "standalone", "server.js");
-const nextBin = path.join(appRoot, "node_modules", "next", "dist", "bin", "next");
+const standaloneServer = ".next/standalone/server.js";
 const useStandalone = existsSync(standaloneServer);
 
 const child = spawn(
@@ -14,7 +11,7 @@ const child = spawn(
   useStandalone
     ? [standaloneServer]
     : [
-        nextBin,
+        "./node_modules/next/dist/bin/next",
         "start",
         "-H",
         hostname,
@@ -23,7 +20,6 @@ const child = spawn(
       ],
   {
     stdio: "inherit",
-    cwd: appRoot,
     env: {
       ...process.env,
       PORT: String(port),
