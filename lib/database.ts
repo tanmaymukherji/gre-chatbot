@@ -1183,10 +1183,12 @@ async function runSearchInternal(filters: SearchFilters) {
     }));
 
   const positiveScoreRows = scored.filter(({ score }) => !q || score > 0);
-  if (filters.strictKeyword && q && positiveScoreRows.length === 0) {
+  if (filters.strictKeyword && q && positiveScoreRows.length === 0 && structuredFilterCount === 0) {
     return [];
   }
-  const scoredForRanking = positiveScoreRows;
+  const scoredForRanking = positiveScoreRows.length || structuredFilterCount === 0
+    ? positiveScoreRows
+    : scored;
 
   const ranked = scoredForRanking
     .sort((left, right) => right.score - left.score || String(left.row.offering_name || "").localeCompare(String(right.row.offering_name || "")));
