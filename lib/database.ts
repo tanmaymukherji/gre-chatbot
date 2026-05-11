@@ -201,6 +201,23 @@ function matchesScalar(value: string | null | undefined, probe: string | undefin
   return (value || "").toLowerCase().includes(probe.toLowerCase());
 }
 
+function matchesDomain6M(value: string | null | undefined, probe: string | undefined) {
+  if (!probe) {
+    return true;
+  }
+  const normalizedProbe = normalizeComparable(probe);
+  const parts = String(value || "")
+    .split(/[;,|]/)
+    .map((item) => normalizeComparable(item))
+    .filter(Boolean);
+
+  return parts.some((part) =>
+    part === normalizedProbe ||
+    part.includes(normalizedProbe) ||
+    normalizedProbe.includes(part),
+  );
+}
+
 function matchesProvider(row: any, probe: string | undefined) {
   if (!probe) {
     return true;
@@ -1124,7 +1141,7 @@ async function runSearchInternal(filters: SearchFilters) {
     .filter((row: any) => {
       return (
         (!inferredFilters.category || row.offering_group === inferredFilters.category) &&
-        (!inferredFilters.domain6m || row.domain_6m === inferredFilters.domain6m) &&
+        matchesDomain6M(row.domain_6m, inferredFilters.domain6m) &&
         (!inferredFilters.offeringType || String(row.offering_type || "").toLowerCase().includes(String(inferredFilters.offeringType || "").toLowerCase())) &&
         (providerIds.length === 0 || providerIds.includes(row.trader_id))
       );
@@ -1184,7 +1201,14 @@ export async function getFilterOptions() {
         .filter(Boolean)
     ),
     categories: uniqueSorted(rows.map((row: any) => row.offering_group).filter(Boolean)),
-    domains6m: uniqueSorted(rows.map((row: any) => row.domain_6m).filter(Boolean)),
+    domains6m: uniqueSorted(
+      rows.flatMap((row: any) =>
+        String(row.domain_6m || "")
+          .split(/[;,|]/)
+          .map((item) => item.trim())
+          .filter(Boolean),
+      ),
+    ),
     offeringTypes: uniqueSorted(rows.map((row: any) => row.offering_type).filter(Boolean)),
     valueChains: uniqueSorted(rows.map((row: any) => row.primary_valuechain).filter(Boolean)),
     applications: uniqueSorted(rows.map((row: any) => row.primary_application).filter(Boolean)),
