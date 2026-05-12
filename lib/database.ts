@@ -50,6 +50,13 @@ function chunk<T>(rows: T[], size = 250) {
   return chunks;
 }
 
+import {
+  extractFlatGeographyEntries,
+  extractGeographyGroups,
+  geographyGroupComponents,
+  isStandaloneIndiaGroup,
+} from "@/lib/geography-hierarchy";
+
 function normalizeComparable(value: string) {
   return value
     .toLowerCase()
@@ -154,16 +161,7 @@ function matchesArray(rows: string[] | null | undefined, probe: string | undefin
 }
 
 function getTopLevelGeographies(row: any) {
-  const values = [
-    ...(Array.isArray(row?.geographies) ? row.geographies : []),
-    typeof row?.geographies_raw === "string" ? row.geographies_raw : null
-  ]
-    .filter(Boolean)
-    .flatMap((value) => String(value).split(/[;|\n]+/))
-    .map((value) => value.trim())
-    .filter(Boolean);
-
-  return [...new Set(values)];
+  return extractFlatGeographyEntries(row);
 }
 
 function geographyComponents(entry: string) {
@@ -183,20 +181,26 @@ function matchesGeography(row: any, probe: string | undefined) {
 
   const variants = expandProbeVariants(probe);
   const geographyAliases = variants.flatMap((variant) => GEOGRAPHY_ALIASES[variant] || []);
-  const entries = getTopLevelGeographies(row);
-  const hasNationwideIndia = entries.some((entry) => normalizeComparable(entry) === "india");
+  const groups = extractGeographyGroups(row);
+  const hasNationwideIndia = groups.some((group) => isStandaloneIndiaGroup(group));
 
-  if (hasNationwideIndia) {
-    return true;
-  }
-
-  return entries.some((entry) => {
-    const components = geographyComponents(entry);
+  const directMatch = groups.some((group) => {
+    const components = geographyGroupComponents(group);
     return (
       variants.some((variant) => components.some((component) => component.includes(variant) || variant.includes(component))) ||
       geographyAliases.some((alias) => components.some((component) => component.includes(alias)))
     );
   });
+
+  if (directMatch) {
+    return true;
+  }
+
+  if (hasNationwideIndia) {
+    return true;
+  }
+
+  return false;
 }
 
 function matchesScalar(value: string | null | undefined, probe: string | undefined) {

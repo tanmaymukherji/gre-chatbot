@@ -1,3 +1,11 @@
+import {
+  extractGeographyGroups,
+  geographyGroupLabel,
+  geographySpecificity,
+  normalizeGeographyValue,
+  splitGeographyParts,
+} from "@/lib/geography-hierarchy";
+
 type ProviderResult = {
   geographies?: string[] | null;
   geographies_raw?: string | null;
@@ -88,31 +96,6 @@ const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> = {
   rajasthan: { lat: 27.0238, lng: 74.2179 }
 };
 
-const COUNTRY_KEYS = new Set(["india"]);
-const STATE_KEYS = new Set([
-  "karnataka",
-  "madhya pradesh",
-  "odisha",
-  "maharashtra",
-  "telangana",
-  "tamil nadu",
-  "bihar",
-  "uttar pradesh",
-  "jharkhand",
-  "rajasthan"
-]);
-
-function normalize(value: string) {
-  return value.toLowerCase().replace(/[^\p{L}\p{N}, ]+/gu, " ").replace(/\s+/g, " ").trim();
-}
-
-function splitGeographyParts(value: string) {
-  return normalize(value)
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean);
-}
-
 function resolveCoordinate(geography: string) {
   const parts = splitGeographyParts(geography);
 
@@ -125,7 +108,7 @@ function resolveCoordinate(geography: string) {
     }
   }
 
-  const whole = normalize(geography);
+  const whole = normalizeGeographyValue(geography);
   if (LOCATION_COORDINATES[whole]) {
     return {
       ...LOCATION_COORDINATES[whole],
@@ -136,45 +119,6 @@ function resolveCoordinate(geography: string) {
   return null;
 }
 
-function geographySpecificity(geography: string) {
-  const normalized = normalize(geography);
-  if (COUNTRY_KEYS.has(normalized)) return 1;
-  if (STATE_KEYS.has(normalized)) return 2;
-  return 3;
-}
-
-function collectGeographies(result: ProviderResult) {
-  const values = [
-    ...(result.geographies || []),
-    result.geographies_raw || null
-  ]
-    .filter(Boolean)
-    .flatMap((entry) => String(entry).split(/[;|\n]+/))
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-
-  const uniqueValues = [...new Set(values)];
-  const hierarchyFiltered = uniqueValues.filter((candidate) => {
-    const candidateParts = splitGeographyParts(candidate);
-    return !uniqueValues.some((other) => {
-      if (other === candidate) return false;
-      const otherParts = splitGeographyParts(other);
-      if (otherParts.length <= candidateParts.length) return false;
-      return candidateParts.every((part) => otherParts.includes(part));
-    });
-  });
-
-  const hasSpecificLocation = hierarchyFiltered.some((entry) => geographySpecificity(entry) >= 3);
-  const hasStateLocation = hierarchyFiltered.some((entry) => geographySpecificity(entry) >= 2);
-
-  return hierarchyFiltered.filter((entry) => {
-    const specificity = geographySpecificity(entry);
-    if (specificity === 1 && hasStateLocation) return false;
-    if (specificity === 2 && hasSpecificLocation) return false;
-    return true;
-  });
-}
-
 export function buildProviderMarkers(results: ProviderResult[]) {
   const markers = new Map<string, ProviderMarker>();
 
@@ -182,9 +126,12 @@ export function buildProviderMarkers(results: ProviderResult[]) {
     const trader = result.solution?.trader;
     const providerId = trader?.trader_id || `provider-${result.offering_id || Math.random()}`;
     const providerName = trader?.organisation_name || trader?.trader_name || "Unknown provider";
-    const geographies = collectGeographies(result);
-    const resolvedGeographies = geographies
-      .map((geography) => ({ geography, resolved: resolveCoordinate(geography) }))
+    const geographyGroups = extractGeographyGroups(result);
+    const resolvedGeographies = geographyGroups
+      .map((group) => {
+        const label = geographyGroupLabel(group);
+        return { geography: label, resolved: resolveCoordinate(label) };
+      })
       .filter((entry) => entry.resolved);
 
     const targetGeographies = resolvedGeographies.length > 0
@@ -193,7 +140,7 @@ export function buildProviderMarkers(results: ProviderResult[]) {
 
     for (const entry of targetGeographies) {
       const resolved = entry.resolved!;
-      const markerId = `${providerId}::${normalize(entry.geography) || "india"}`;
+      const markerId = `${providerId}::${normalizeGeographyValue(entry.geography) || "india"}`;
 
       if (!markers.has(markerId)) {
         markers.set(markerId, {
