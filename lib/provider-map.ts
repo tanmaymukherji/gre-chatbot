@@ -123,28 +123,6 @@ function resolveCoordinate(geography: string) {
 
 export function buildProviderMarkers(results: ProviderResult[]) {
   const markers = new Map<string, ProviderMarker>();
-  const providerResolvedLocations = new Map<string, Array<{ geography: string; resolved: { lat: number; lng: number; label: string } }>>();
-
-  for (const result of results) {
-    const trader = result.solution?.trader;
-    const providerId = trader?.trader_id || `provider-${result.offering_id || Math.random()}`;
-    const geographyGroups = extractGeographyGroups(result);
-    const resolvedGeographies = geographyGroups
-      .map((group) => {
-        const label = geographyGroupLabel(group);
-        return { geography: label, resolved: resolveCoordinate(label) };
-      })
-      .filter((entry) => entry.resolved) as Array<{ geography: string; resolved: { lat: number; lng: number; label: string } }>;
-
-    if (resolvedGeographies.length > 0) {
-      const existing = providerResolvedLocations.get(providerId) || [];
-      const merged = new Map<string, { geography: string; resolved: { lat: number; lng: number; label: string } }>();
-      [...existing, ...resolvedGeographies].forEach((entry) => {
-        merged.set(`${normalizeGeographyValue(entry.geography)}::${entry.resolved.lat.toFixed(4)}::${entry.resolved.lng.toFixed(4)}`, entry);
-      });
-      providerResolvedLocations.set(providerId, [...merged.values()]);
-    }
-  }
 
   for (const result of results) {
     const trader = result.solution?.trader;
@@ -158,12 +136,9 @@ export function buildProviderMarkers(results: ProviderResult[]) {
       })
       .filter((entry) => entry.resolved);
 
-    const providerLocations = providerResolvedLocations.get(providerId) || [];
     const targetGeographies = resolvedGeographies.length > 0
       ? resolvedGeographies
-      : providerLocations.length > 0
-        ? providerLocations
-        : [{ geography: "India", resolved: LOCATION_COORDINATES.india ? { ...LOCATION_COORDINATES.india, label: "India" } : null }].filter((entry) => entry.resolved);
+      : [{ geography: "India", resolved: LOCATION_COORDINATES.india ? { ...LOCATION_COORDINATES.india, label: "India" } : null }].filter((entry) => entry.resolved);
 
     for (const entry of targetGeographies) {
       const resolved = entry.resolved!;
