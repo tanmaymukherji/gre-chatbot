@@ -51,9 +51,11 @@ const OVERLAP_RADIUS_DEGREES = 0.9;
 
 const LOCATION_COORDINATES: Record<string, { lat: number; lng: number }> = {
   india: { lat: 22.5, lng: 79.0 },
+  goa: { lat: 15.2993, lng: 74.124 },
   karnataka: { lat: 15.3, lng: 75.7 },
   bengaluru: { lat: 12.9716, lng: 77.5946 },
   bangalore: { lat: 12.9716, lng: 77.5946 },
+  "bengaluru south": { lat: 12.9077, lng: 77.5937 },
   "bengaluru rural": { lat: 13.225, lng: 77.575 },
   "bengaluru urban": { lat: 12.9716, lng: 77.5946 },
   mysore: { lat: 12.2958, lng: 76.6394 },
@@ -121,6 +123,28 @@ function resolveCoordinate(geography: string) {
 
 export function buildProviderMarkers(results: ProviderResult[]) {
   const markers = new Map<string, ProviderMarker>();
+  const providerResolvedLocations = new Map<string, Array<{ geography: string; resolved: { lat: number; lng: number; label: string } }>>();
+
+  for (const result of results) {
+    const trader = result.solution?.trader;
+    const providerId = trader?.trader_id || `provider-${result.offering_id || Math.random()}`;
+    const geographyGroups = extractGeographyGroups(result);
+    const resolvedGeographies = geographyGroups
+      .map((group) => {
+        const label = geographyGroupLabel(group);
+        return { geography: label, resolved: resolveCoordinate(label) };
+      })
+      .filter((entry) => entry.resolved) as Array<{ geography: string; resolved: { lat: number; lng: number; label: string } }>;
+
+    if (resolvedGeographies.length > 0) {
+      const existing = providerResolvedLocations.get(providerId) || [];
+      const merged = new Map<string, { geography: string; resolved: { lat: number; lng: number; label: string } }>();
+      [...existing, ...resolvedGeographies].forEach((entry) => {
+        merged.set(`${normalizeGeographyValue(entry.geography)}::${entry.resolved.lat.toFixed(4)}::${entry.resolved.lng.toFixed(4)}`, entry);
+      });
+      providerResolvedLocations.set(providerId, [...merged.values()]);
+    }
+  }
 
   for (const result of results) {
     const trader = result.solution?.trader;
@@ -134,9 +158,12 @@ export function buildProviderMarkers(results: ProviderResult[]) {
       })
       .filter((entry) => entry.resolved);
 
+    const providerLocations = providerResolvedLocations.get(providerId) || [];
     const targetGeographies = resolvedGeographies.length > 0
       ? resolvedGeographies
-      : [{ geography: "India", resolved: LOCATION_COORDINATES.india ? { ...LOCATION_COORDINATES.india, label: "India" } : null }].filter((entry) => entry.resolved);
+      : providerLocations.length > 0
+        ? providerLocations
+        : [{ geography: "India", resolved: LOCATION_COORDINATES.india ? { ...LOCATION_COORDINATES.india, label: "India" } : null }].filter((entry) => entry.resolved);
 
     for (const entry of targetGeographies) {
       const resolved = entry.resolved!;
