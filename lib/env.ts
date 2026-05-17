@@ -19,6 +19,11 @@ export function getServerEnv() {
     deepseekApiKey: optional("DEEPSEEK_API_KEY"),
     openRouterApiKey: optional("OPENROUTER_API_KEY"),
     mapplsPublicKey: optional("MAPPLS_PUBLIC_KEY"),
+    greMailClientId: optional("GRE_MAIL_CLIENT_ID"),
+    greMailClientSecret: optional("GRE_MAIL_CLIENT_SECRET"),
+    greMailRefreshToken: optional("GRE_MAIL_REFRESH_TOKEN"),
+    greMailAccessToken: optional("GRE_MAIL_ACCESS_TOKEN"),
+    greMailSender: optional("GRE_MAIL_SENDER"),
     adminEmails: (optional("ADMIN_EMAILS") || "")
       .split(",")
       .map((entry) => entry.trim().toLowerCase())

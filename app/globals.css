@@ -693,7 +693,20 @@ textarea {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
   margin-bottom: 20px;
+}
+
+.detail-hero-actions-left {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.detail-hero-back {
+  margin-left: auto;
 }
 
 .detail-hero-main {
@@ -753,6 +766,15 @@ textarea {
 .detail-stack {
   display: grid;
   gap: 20px;
+}
+
+.provider-email-action {
+  display: grid;
+  gap: 10px;
+}
+
+.provider-email-panel {
+  width: min(420px, calc(100vw - 48px));
 }
 
 .detail-grid {
@@ -828,6 +850,20 @@ textarea {
   .detail-hero-copy {
     min-height: 0;
     padding: 20px;
+  }
+
+  .detail-hero-top {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .detail-hero-actions-left {
+    width: 100%;
+  }
+
+  .detail-hero-back {
+    margin-left: 0;
+    align-self: flex-end;
   }
 
   .detail-hero-image-wrap {

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { OfferingDetailChat } from "@/components/offering-detail-chat";
+import { ProviderEmailButton } from "@/components/provider-email-button";
 import { getOfferingDetail } from "@/lib/database";
 
 function formatValue(value: unknown) {
@@ -114,19 +115,40 @@ export default async function OfferingDetailPage({ params }: { params: Promise<{
 
   const { primaryRows, secondaryRows } = buildOfferingRows(offering);
   const providerRows = buildProviderRows(offering);
+  const providerName =
+    offering.solution?.trader?.organisation_name ||
+    offering.solution?.trader?.trader_name ||
+    offering.trainer_name ||
+    "Solution Provider";
+  const providerEmail = offering.solution?.trader?.email || offering.trainer_email || "";
+  const solutionTitle = offering.solution?.solution_name || offering.offering_name || "GRE solution";
+  const solutionSummary =
+    offering.solution?.solution_name ||
+    offering.about_offering_text ||
+    offering.solution?.about_solution_text ||
+    offering.offering_name ||
+    "this solution";
 
   return (
     <main className="page-shell">
       <section className="hero">
         <div className="detail-hero-top">
-          <Link className="btn hero-link" href="/">
+          <div className="detail-hero-actions-left">
+            {offering.gre_link ? (
+              <a className="btn hero-link" href={offering.gre_link} target="_blank" rel="noreferrer">
+                View on GRE
+              </a>
+            ) : null}
+            <ProviderEmailButton
+              providerEmail={providerEmail}
+              providerName={providerName}
+              solutionTitle={solutionTitle}
+              solutionSummary={solutionSummary}
+            />
+          </div>
+          <Link className="btn hero-link detail-hero-back" href="/">
             Back to Search
           </Link>
-          {offering.gre_link ? (
-            <a className="btn hero-link" href={offering.gre_link} target="_blank" rel="noreferrer">
-              View on GRE
-            </a>
-          ) : null}
         </div>
         <div className="detail-hero-main">
           <div className="detail-hero-copy">
@@ -160,7 +182,7 @@ export default async function OfferingDetailPage({ params }: { params: Promise<{
         <section className="detail-grid">
           <section className="stack">
             <section className="panel panel-pad">
-              <h2 className="section-title">Offering Details</h2>
+              <h2 className="section-title">Offering Category</h2>
               <p className="section-copy">
                 Only the parameters relevant to this {String(offering.offering_group || "offering").toLowerCase()} offering are shown below.
               </p>
@@ -186,7 +208,7 @@ export default async function OfferingDetailPage({ params }: { params: Promise<{
 
             {secondaryRows.length ? (
               <section className="panel panel-pad">
-                <h2 className="section-title">Additional Offering Details</h2>
+                <h2 className="section-title">Offering Details</h2>
                 <table className="detail-table">
                   <tbody>
                     {secondaryRows.map(([label, value]) => (
