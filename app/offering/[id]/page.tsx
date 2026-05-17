@@ -38,7 +38,7 @@ function buildOfferingRows(offering: any) {
   ];
 
   const secondaryRows = [
-    ["Contact Details", offering.contact_details]
+    ["Contact Details", offering.preferred_contact_details || offering.contact_details]
   ];
 
   const serviceRows = [
@@ -94,10 +94,11 @@ function buildProviderRows(offering: any) {
     ["Solution Name", offering.solution?.solution_name],
     ["Provider", trader?.organisation_name || trader?.trader_name],
     ["Association Status", trader?.association_status],
-    ["Email", trader?.email],
+    ["Email", offering.preferred_contact_email || trader?.email],
     ["Website", trader?.website],
-    ["Phone", trader?.mobile],
-    ["Point of Contact", trader?.poc_name],
+    ["Phone", offering.preferred_contact_phone || trader?.mobile],
+    ["Point of Contact", offering.preferred_contact_name || trader?.poc_name],
+    ["Contact Details", offering.preferred_contact_details || offering.contact_details],
     ["Tagline", trader?.tagline],
     ["Short Description", trader?.short_description]
   ].filter(([, value]) => isPresent(value));
@@ -116,11 +117,12 @@ export default async function OfferingDetailPage({ params }: { params: Promise<{
   const { primaryRows, secondaryRows } = buildOfferingRows(offering);
   const providerRows = buildProviderRows(offering);
   const providerName =
+    offering.preferred_contact_name ||
     offering.solution?.trader?.organisation_name ||
     offering.solution?.trader?.trader_name ||
     offering.trainer_name ||
     "Solution Provider";
-  const providerEmail = offering.solution?.trader?.email || offering.trainer_email || "";
+  const providerEmail = offering.preferred_contact_email || offering.solution?.trader?.email || offering.trainer_email || "";
   const solutionTitle = offering.solution?.solution_name || offering.offering_name || "GRE solution";
   const solutionSummary =
     offering.solution?.solution_name ||

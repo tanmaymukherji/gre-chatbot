@@ -69,6 +69,37 @@ function normalizeLooseComparable(value: string) {
   return normalizeComparable(value).replace(/([aeiou])\1+/g, "$1");
 }
 
+function canonicalizeLanguageLabel(value: string | null | undefined) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  const normalized = normalizeComparable(text);
+  if (["eng", "english"].includes(normalized)) return "English";
+  if (["hin", "hindi"].includes(normalized)) return "Hindi";
+  if (["odia", "oriya", "odiya", "od"].includes(normalized)) return "Odia";
+  return text;
+}
+
+function canonicalizeLanguageArray(values: unknown) {
+  const rows = Array.isArray(values) ? values : typeof values === "string" ? values.split(/[;,|]/) : [];
+  return [...new Set(rows.map((item) => canonicalizeLanguageLabel(String(item || ""))).filter(Boolean))];
+}
+
+function parseContactDetails(value: string | null | undefined) {
+  const text = String(value || "").trim();
+  if (!text) return { text: "", name: "", email: "", phone: "" };
+  const emailMatch = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  const phoneMatch = text.match(/(?:\+?\d[\d\s().-]{7,}\d)/);
+  const lines = text.split(/\r?\n|[,;|]/).map((item) => String(item || "").trim()).filter(Boolean);
+  const firstLine = lines[0] || "";
+  const looksLikeName = firstLine && !/@/.test(firstLine) && !/\d{5,}/.test(firstLine);
+  return {
+    text,
+    name: looksLikeName ? firstLine : "",
+    email: emailMatch ? emailMatch[0] : "",
+    phone: phoneMatch ? phoneMatch[0].trim() : "",
+  };
+}
+
 const GEOGRAPHY_ALIASES: Record<string, string[]> = {
   karnataka: [
     "bengaluru",
@@ -369,12 +400,22 @@ function normalizeOfferingRow(row: any) {
   const normalizedSolutionImage =
     row?.solution?.solution_image_url ||
     fallbackAttachmentUrl(row, ["offering_image_attachment"]);
+  const normalizedLanguages = canonicalizeLanguageArray(row?.languages);
+  const parsedContact = parseContactDetails(row?.contact_details);
+  const preferredContactName = parsedContact.name || row?.trainer_name || row?.solution?.trader?.poc_name || "";
+  const preferredContactEmail = parsedContact.email || row?.trainer_email || row?.solution?.trader?.email || "";
+  const preferredContactPhone = parsedContact.phone || row?.trainer_phone || row?.solution?.trader?.mobile || "";
   return {
     ...row,
     domain_6m: inferDomain6M(row),
+    languages: normalizedLanguages,
     service_brochure_url: normalizedServiceBrochure || null,
     product_brochure_url: normalizedProductBrochure || null,
     knowledge_content_url: normalizedKnowledgeContent || null,
+    preferred_contact_details: parsedContact.text || row?.trainer_details_text || "",
+    preferred_contact_name: preferredContactName || null,
+    preferred_contact_email: preferredContactEmail || null,
+    preferred_contact_phone: preferredContactPhone || null,
     solution: row?.solution
       ? {
           ...row.solution,
