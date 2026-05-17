@@ -24,6 +24,7 @@ type FilterOptions = {
   categories: string[];
   domains6m: string[];
   offeringTypes: string[];
+  offeringTypesByDomain: Record<string, string[]>;
   valueChains: string[];
   applications: string[];
   tags: string[];
@@ -48,6 +49,7 @@ const EMPTY_OPTIONS: FilterOptions = {
   categories: [],
   domains6m: [],
   offeringTypes: [],
+  offeringTypesByDomain: {},
   valueChains: [],
   applications: [],
   tags: [],
@@ -59,7 +61,15 @@ const DEFAULT_FILTER_OPTIONS: FilterOptions = {
   solutionProviders: [],
   categories: CATEGORY_OPTIONS.filter(Boolean),
   domains6m: DOMAIN_OPTIONS.filter(Boolean),
-  offeringTypes: ["Training", "Advisory", "Workshop", "Machine", "Input", "Service"],
+  offeringTypes: ["Blogs", "Consulting", "Financial support", "Machinery", "Market reports", "Market support", "Raw material", "Sop manuals", "Tech transfer", "Training", "Videos"],
+  offeringTypesByDomain: {
+    Manpower: ["Training"],
+    Method: ["Blogs", "Consulting", "Sop manuals", "Tech transfer", "Videos"],
+    Machine: ["Machinery"],
+    Material: ["Raw material"],
+    Market: ["Market reports", "Market support"],
+    Money: ["Financial support"]
+  },
   valueChains: [
     "Livestock",
     "Dairy",
@@ -93,29 +103,7 @@ function normalizeComparable(value: string) {
 }
 
 function offeringTypesForDomain(offeringTypes: string[], domain6m: string) {
-  if (!domain6m) {
-    return offeringTypes;
-  }
-
-  const normalizedDomain = normalizeComparable(domain6m);
-  const predicates: Record<string, (type: string) => boolean> = {
-    manpower: (type) => /\btraining\b/i.test(type),
-    method: (type) =>
-      /(consult|mentoring|tech transfer|technology transfer|video|sop|manual|blog)/i.test(type),
-    machine: (type) => /(plant setup|machinery|machine|equipment)/i.test(type),
-    material: (type) => /(raw material|supply|input)/i.test(type),
-    market: (type) =>
-      /(bought|buyer|product bought|raw material bought|market support|market report|market reports)/i.test(type),
-    money: (type) => /(financial support|finance|financial|credit|loan|funding)/i.test(type)
-  };
-
-  const predicate = predicates[normalizedDomain];
-  if (!predicate) {
-    return offeringTypes;
-  }
-
-  const filtered = offeringTypes.filter((type) => predicate(type));
-  return filtered.length ? filtered : offeringTypes;
+  return offeringTypes;
 }
 
 function renderOptions(options: string[], emptyLabel: string) {
@@ -145,7 +133,9 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
   const [loadedLiveFilters, setLoadedLiveFilters] = useState(false);
   const [loadingLiveFilters, setLoadingLiveFilters] = useState(false);
   const [resultsPage, setResultsPage] = useState(1);
-  const availableOfferingTypes = offeringTypesForDomain(filterOptions.offeringTypes, filters.domain6m);
+  const availableOfferingTypes = filters.domain6m
+    ? (filterOptions.offeringTypesByDomain[filters.domain6m] || filterOptions.offeringTypes)
+    : filterOptions.offeringTypes;
 
   useEffect(() => {
     try {
@@ -183,6 +173,7 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
             categories: data.categories?.length ? data.categories : current.categories,
             domains6m: data.domains6m?.length ? data.domains6m : current.domains6m,
             offeringTypes: data.offeringTypes?.length ? data.offeringTypes : current.offeringTypes,
+            offeringTypesByDomain: Object.keys(data.offeringTypesByDomain || {}).length ? data.offeringTypesByDomain : current.offeringTypesByDomain,
             valueChains: data.valueChains?.length ? data.valueChains : current.valueChains,
             applications: data.applications?.length ? data.applications : current.applications,
             tags: data.tags?.length ? data.tags : current.tags,

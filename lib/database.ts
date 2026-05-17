@@ -9,6 +9,7 @@ type CachedFilterOptions = {
   categories: string[];
   domains6m: string[];
   offeringTypes: string[];
+  offeringTypesByDomain: Record<string, string[]>;
   valueChains: string[];
   applications: string[];
   tags: string[];
@@ -214,15 +215,13 @@ function canonicalizeOfferingType(value: string | null | undefined) {
   const text = normalizeComparable(String(value || ""));
   if (!text) return "";
   if (/(^| )training( |$)/.test(text)) return "training";
-  if (/(consult|consulting|mentoring|advisory)/.test(text)) return "consulting mentoring";
+  if (/(consult|consulting|mentoring)/.test(text)) return "consulting";
   if (/(tech transfer|technology transfer)/.test(text)) return "technology transfer";
   if (/(video|videos)/.test(text)) return "videos";
   if (/(sop|manual|manuals)/.test(text)) return "sop manuals";
   if (/(blog|blogs)/.test(text)) return "blogs";
-  if (/(plant setup)/.test(text)) return "plant setup";
   if (/(machinery|machine)/.test(text)) return "machinery";
-  if (/(raw material supply|raw material|input|supply)/.test(text)) return "raw material supply";
-  if (/(product bought|raw material bought|buyer|bought)/.test(text)) return "product raw material bought";
+  if (/(raw material)/.test(text)) return "raw material";
   if (/(market support)/.test(text)) return "market support";
   if (/(market report|market reports)/.test(text)) return "market reports";
   if (/(financial support|finance|financial)/.test(text)) return "financial support";
@@ -1424,6 +1423,24 @@ export async function getFilterOptions() {
       ),
     ),
     offeringTypes: uniqueSorted(rows.map((row: any) => row.offering_type).filter(Boolean)),
+    offeringTypesByDomain: Object.fromEntries(
+      uniqueSorted(
+        rows.flatMap((row: any) =>
+          String(row.domain_6m || "")
+            .split(/[;,|]/)
+            .map((item) => canonicalize6MValue(item) || item.trim())
+            .filter(Boolean),
+        ),
+      ).map((domain) => [
+        domain,
+        uniqueSorted(
+          rows
+            .filter((row: any) => matchesDomain6M(row.domain_6m, domain))
+            .map((row: any) => row.offering_type)
+            .filter(Boolean),
+        )
+      ])
+    ),
     valueChains: uniqueSorted(rows.map((row: any) => row.primary_valuechain).filter(Boolean)),
     applications: uniqueSorted(rows.map((row: any) => row.primary_application).filter(Boolean)),
     tags: uniqueSorted(rows.flatMap((row: any) => row.tags || [])),
