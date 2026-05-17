@@ -210,6 +210,45 @@ function matchesScalar(value: string | null | undefined, probe: string | undefin
   return (value || "").toLowerCase().includes(probe.toLowerCase());
 }
 
+function canonicalizeOfferingType(value: string | null | undefined) {
+  const text = normalizeComparable(String(value || ""));
+  if (!text) return "";
+  if (/(^| )training( |$)/.test(text)) return "training";
+  if (/(consult|consulting|mentoring|advisory)/.test(text)) return "consulting mentoring";
+  if (/(tech transfer|technology transfer)/.test(text)) return "technology transfer";
+  if (/(video|videos)/.test(text)) return "videos";
+  if (/(sop|manual|manuals)/.test(text)) return "sop manuals";
+  if (/(blog|blogs)/.test(text)) return "blogs";
+  if (/(plant setup)/.test(text)) return "plant setup";
+  if (/(machinery|machine)/.test(text)) return "machinery";
+  if (/(raw material supply|raw material|input|supply)/.test(text)) return "raw material supply";
+  if (/(product bought|raw material bought|buyer|bought)/.test(text)) return "product raw material bought";
+  if (/(market support)/.test(text)) return "market support";
+  if (/(market report|market reports)/.test(text)) return "market reports";
+  if (/(financial support|finance|financial)/.test(text)) return "financial support";
+  return text;
+}
+
+function matchesOfferingType(value: string | null | undefined, probe: string | undefined) {
+  if (!probe) {
+    return true;
+  }
+
+  const normalizedValue = normalizeComparable(String(value || ""));
+  const normalizedProbe = normalizeComparable(String(probe || ""));
+  if (normalizedValue.includes(normalizedProbe) || normalizedProbe.includes(normalizedValue)) {
+    return true;
+  }
+
+  const canonicalValue = canonicalizeOfferingType(value);
+  const canonicalProbe = canonicalizeOfferingType(probe);
+  return (
+    canonicalValue === canonicalProbe ||
+    canonicalValue.includes(canonicalProbe) ||
+    canonicalProbe.includes(canonicalValue)
+  );
+}
+
 function canonicalize6MValue(value: string | null | undefined) {
   const text = normalizeComparable(String(value || ""));
   if (!text) return "";
@@ -1307,7 +1346,7 @@ async function runSearchInternal(filters: SearchFilters) {
       return (
         (!inferredFilters.category || row.offering_group === inferredFilters.category) &&
         matchesDomain6M(row.domain_6m, inferredFilters.domain6m) &&
-        (!inferredFilters.offeringType || String(row.offering_type || "").toLowerCase().includes(String(inferredFilters.offeringType || "").toLowerCase())) &&
+        matchesOfferingType(row.offering_type, inferredFilters.offeringType) &&
         (providerIds.length === 0 || providerIds.includes(row.trader_id))
       );
     });
