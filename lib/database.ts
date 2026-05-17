@@ -1366,7 +1366,7 @@ async function runSearchInternal(filters: SearchFilters) {
       matchScore
     }));
 
-  return filtered;
+  return dedupeOfferingsById(filtered);
 }
 
 export async function getFilterOptions() {
@@ -1520,6 +1520,28 @@ function scoreProviderMatch(providerName: string, row: { organisation_name?: str
   }
 
   return bestScore;
+}
+
+function dedupeOfferingsById<T extends { offering_id?: string | null }>(rows: T[]) {
+  const seen = new Set<string>();
+  const uniqueRows: T[] = [];
+
+  for (const row of rows) {
+    const key = String(row.offering_id || "").trim();
+    if (!key) {
+      uniqueRows.push(row);
+      continue;
+    }
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    uniqueRows.push(row);
+  }
+
+  return uniqueRows;
 }
 
 export async function getProviderDetail(providerName: string) {
