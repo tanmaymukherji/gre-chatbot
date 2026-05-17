@@ -366,14 +366,11 @@ textarea {
 .result-card {
   position: relative;
   overflow: hidden;
+  padding-top: 62px;
 }
 
 .result-card-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-  flex-wrap: wrap;
+  display: block;
 }
 
 .match-score-high {
@@ -394,16 +391,20 @@ textarea {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  white-space: normal;
-  min-width: 0;
-  max-width: 100%;
-  flex: 0 1 180px;
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  white-space: nowrap;
+  min-width: 132px;
+  max-width: calc(100% - 36px);
   padding: 10px 14px;
   border-radius: 999px;
   font-size: 0.92rem;
   font-weight: 700;
   line-height: 1.25;
   text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .match-score-pill.match-score-high {
@@ -787,7 +788,7 @@ textarea {
   }
 
   .result-card-top {
-    flex-direction: column;
+    display: block;
   }
 
   .detail-hero-main {

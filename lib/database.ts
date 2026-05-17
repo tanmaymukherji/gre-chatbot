@@ -711,6 +711,20 @@ function hasExplicitStructuredSearch(filters: SearchFilters) {
   );
 }
 
+function countExplicitStructuredSearch(filters: SearchFilters) {
+  return [
+    filters.solutionProvider,
+    filters.category,
+    filters.domain6m,
+    filters.offeringType,
+    filters.valueChain,
+    filters.application,
+    filters.tag,
+    filters.language,
+    filters.geography
+  ].filter(Boolean).length;
+}
+
 function computeRelevanceScore(row: any, query: string | undefined, inferredFilters: SearchFilters, originalFilters: SearchFilters) {
   const haystack = buildHaystack(row);
   const tokens = tokenizeQuery(query);
@@ -728,6 +742,7 @@ function computeRelevanceScore(row: any, query: string | undefined, inferredFilt
   const geographies = (row.geographies || []).map((item: string) => String(item).toLowerCase());
   const languages = (row.languages || []).map((item: string) => String(item).toLowerCase());
   const offeringKind = getOfferingKind(row);
+  const explicitStructuredCount = countExplicitStructuredSearch(originalFilters);
 
   let score = 0;
 
@@ -779,8 +794,10 @@ function computeRelevanceScore(row: any, query: string | undefined, inferredFilt
   if (inferredFilters.domain6m && matchesScalar(row.domain_6m, inferredFilters.domain6m)) score += 16;
   if (inferredFilters.offeringType && matchesScalar(row.offering_type, inferredFilters.offeringType)) score += 18;
   if (inferredFilters.category && matchesScalar(row.offering_group, inferredFilters.category)) score += 18;
+  if (inferredFilters.domain6m && inferredFilters.offeringType && matchesScalar(row.domain_6m, inferredFilters.domain6m) && matchesScalar(row.offering_type, inferredFilters.offeringType)) score += 72;
+  if (explicitStructuredCount >= 2) score += explicitStructuredCount * 8;
 
-  if (!hasExplicitCategoryIntent(originalFilters) && !inferredFilters.category) {
+  if (!hasExplicitCategoryIntent(originalFilters) && !inferredFilters.category && explicitStructuredCount === 0) {
     if (offeringKind === "service") score += 14;
     else if (offeringKind === "product") score += 5;
     else if (offeringKind === "knowledge") score -= 8;
@@ -789,7 +806,7 @@ function computeRelevanceScore(row: any, query: string | undefined, inferredFilt
     if (offeringKind === preferredKind) score += 12;
   }
 
-  if (hasExplicitStructuredSearch(originalFilters) && !originalFilters.category) {
+  if (hasExplicitStructuredSearch(originalFilters) && !originalFilters.category && explicitStructuredCount <= 1) {
     if (offeringKind === "knowledge" && (inferredFilters.application || inferredFilters.valueChain || inferredFilters.solutionProvider)) {
       score -= 10;
     }

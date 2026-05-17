@@ -92,27 +92,28 @@ function normalizeComparable(value: string) {
     .trim();
 }
 
-function resolveProviderPageName(solutionProviders: string[], filters: Filters) {
-  if (filters.solutionProvider) {
-    return filters.solutionProvider;
+function offeringTypesForDomain(offeringTypes: string[], domain6m: string) {
+  if (!domain6m) {
+    return offeringTypes;
   }
 
-  const keyword = normalizeComparable(filters.q || "");
-  if (!keyword) {
-    return "";
+  const normalizedDomain = normalizeComparable(domain6m);
+  const predicates: Record<string, (type: string) => boolean> = {
+    manpower: (type) => /(training|trainer|workshop|capacity|course|learning)/i.test(type),
+    method: (type) => /(video|advisory|consult|manual|sop|mentoring|guide|blog|knowledge)/i.test(type),
+    machine: (type) => /(machine|machinery|equipment|tool|plant|device)/i.test(type),
+    material: (type) => /(input|material|seed|feed|raw material|supply)/i.test(type),
+    market: (type) => /(market|marketing|branding|packaging|buyer|service|report|linkage)/i.test(type),
+    money: (type) => /(finance|financial|credit|loan|insurance|investment)/i.test(type)
+  };
+
+  const predicate = predicates[normalizedDomain];
+  if (!predicate) {
+    return offeringTypes;
   }
 
-  const exact = solutionProviders.find((provider) => normalizeComparable(provider) === keyword);
-  if (exact) {
-    return exact;
-  }
-
-  const containing = solutionProviders.find((provider) => {
-    const normalizedProvider = normalizeComparable(provider);
-    return normalizedProvider.includes(keyword) || keyword.includes(normalizedProvider);
-  });
-
-  return containing || "";
+  const filtered = offeringTypes.filter((type) => predicate(type));
+  return filtered.length ? filtered : offeringTypes;
 }
 
 function renderOptions(options: string[], emptyLabel: string) {
@@ -142,6 +143,7 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
   const [loadedLiveFilters, setLoadedLiveFilters] = useState(false);
   const [loadingLiveFilters, setLoadingLiveFilters] = useState(false);
   const [resultsPage, setResultsPage] = useState(1);
+  const availableOfferingTypes = offeringTypesForDomain(filterOptions.offeringTypes, filters.domain6m);
 
   useEffect(() => {
     try {
@@ -212,6 +214,12 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
       })
     );
   }, [filters, chatQuery, searchResults, assistantAnswer, notice, activeMode, resultsPage]);
+
+  useEffect(() => {
+    if (filters.offeringType && !availableOfferingTypes.includes(filters.offeringType)) {
+      setFilters((current) => ({ ...current, offeringType: "" }));
+    }
+  }, [availableOfferingTypes, filters.offeringType]);
 
   async function runSearch() {
     ensureLiveFilters();
@@ -297,7 +305,6 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
 
   const totalPages = Math.max(1, Math.ceil(searchResults.length / RESULTS_PAGE_SIZE));
   const paginatedResults = searchResults.slice((resultsPage - 1) * RESULTS_PAGE_SIZE, resultsPage * RESULTS_PAGE_SIZE);
-  const providerPageName = resolveProviderPageName(filterOptions.solutionProviders, filters);
 
   return (
     <div className="stack">
@@ -363,7 +370,7 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
                 <div className="field">
                   <label htmlFor="offeringType">Offering type</label>
                   <select id="offeringType" value={filters.offeringType} onChange={(event) => updateFilter("offeringType", event.target.value)}>
-                    {renderOptions(filterOptions.offeringTypes, "All offering types")}
+                    {renderOptions(availableOfferingTypes, "All offering types")}
                   </select>
                 </div>
 
@@ -400,15 +407,6 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
                 <button className="btn" type="button" disabled={searching} onClick={runSearch}>
                   {searching ? "Searching..." : "Run parameter search"}
                 </button>
-                {providerPageName ? (
-                  <Link className="btn ghost" href={`/provider?name=${encodeURIComponent(providerPageName)}`}>
-                    Solution Provider Page
-                  </Link>
-                ) : (
-                  <button className="btn ghost" type="button" disabled>
-                    Solution Provider Page
-                  </button>
-                )}
                 <button className="btn ghost" type="button" onClick={resetAll}>
                   Reset all
                 </button>
@@ -493,6 +491,7 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
               const scoreTone = matchScore >= 100 ? "match-score-high" : "match-score-medium";
               return (
                 <article className={`card result-card ${scoreTone}`} key={result.offering_id}>
+                  <span className={`match-score-pill ${scoreTone}`}>Relevance Score {matchScore}</span>
                   <div className="result-card-top">
                     <div>
                       <h3>
@@ -508,7 +507,6 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
                         {result.domain_6m || "No 6M domain"}
                       </p>
                     </div>
-                    <span className={`match-score-pill ${scoreTone}`}>Relevance Score {matchScore}</span>
                   </div>
                   <div className="meta-row">
                     {result.primary_valuechain ? <span className="tag">{result.primary_valuechain}</span> : null}
