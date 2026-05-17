@@ -1314,7 +1314,8 @@ async function runSearchInternal(filters: SearchFilters) {
       (primaryKeywordFilter?.field === "geography" ? primaryKeywordFilter.value : undefined) ||
       baseInferredFilters.geography
   };
-  const structuredMatchFromKeyword = !filters.disableKeywordPromotion && [
+  const preserveKeywordForExplicitSearch = hasExplicitNonKeywordFilters(filters);
+  const structuredMatchFromKeyword = !filters.disableKeywordPromotion && !preserveKeywordForExplicitSearch && [
     inferredFilters.solutionProvider,
     inferredFilters.category,
     inferredFilters.domain6m,
