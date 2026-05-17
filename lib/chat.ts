@@ -369,6 +369,22 @@ export function formatGroundedResults(question: string, results: any[]) {
 
 function detectLanguageStyle(text: string) {
   const normalized = text.toLowerCase();
+  const romanBengaliTokens = [
+    "amaye",
+    "amay",
+    "amar",
+    "bhutta",
+    "vutta",
+    "makai",
+    "janar",
+    "ache",
+    "bishoye",
+    "toiri",
+    "pari",
+    "ki ki",
+    "ki",
+    "diye"
+  ];
   const romanHindiTokens = [
     "mujhe",
     "mujhko",
@@ -393,7 +409,34 @@ function detectLanguageStyle(text: string) {
     "bakri",
     "palan"
   ];
+  const romanBengaliScore = romanBengaliTokens.filter((token) => normalized.includes(token)).length;
   const romanHindiScore = romanHindiTokens.filter((token) => normalized.includes(token)).length;
+
+  if (romanBengaliScore >= 2 || normalized.includes("bangla") || normalized.includes("bengali")) {
+    return {
+      name: "Bengali",
+      outputStyle: "Bengali written in Roman script",
+      summaryIntro: "Ami GRE dataset-e ei matching offerings peyechi.",
+      noMatch: "Ei offering-er jonne database-e aro tothyo khuje pelam na.",
+      matchSuffixSingular: "matching offering peyechi.",
+      matchSuffixPlural: "matching offerings peyechi.",
+      byLabel: "dwara",
+      offeringLabel: "offering"
+    };
+  }
+
+  if (/[\u0980-\u09ff]/.test(text)) {
+    return {
+      name: "Bengali",
+      outputStyle: "Bengali in Bengali script",
+      summaryIntro: "আমি GRE dataset-এ এই matching offerings পেয়েছি।",
+      noMatch: "এই offering-এর জন্য database-এ আরও তথ্য খুঁজে পেলাম না।",
+      matchSuffixSingular: "matching offering পেয়েছি।",
+      matchSuffixPlural: "matching offerings পেয়েছি।",
+      byLabel: "দ্বারা",
+      offeringLabel: "offering"
+    };
+  }
 
   if (romanHindiScore >= 2 || normalized.includes("hindi")) {
     return {
@@ -811,10 +854,17 @@ function buildHeuristicIntent(question: string, options: FilterOptions) {
   if (
     normalized.includes("maize") ||
     normalized.includes("corn") ||
+    normalized.includes("bhutta") ||
+    normalized.includes("vutta") ||
+    normalized.includes("makai") ||
     normalized.includes("jowar") ||
-    question.includes("\u0C9C\u0CCB\u0CB3")
+    question.includes("\u0C9C\u0CCB\u0CB3") ||
+    question.includes("\u09AD\u09C1\u099F\u09CD\u099F\u09BE") ||
+    question.includes("\u09AE\u0995\u09BE\u0987")
   ) {
     addKeyword("maize");
+    intent.application = intent.application || "Maize";
+    intent.valueChain = intent.valueChain || "Cereals";
   }
 
   if (
