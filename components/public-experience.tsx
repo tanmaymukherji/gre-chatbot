@@ -99,12 +99,14 @@ function offeringTypesForDomain(offeringTypes: string[], domain6m: string) {
 
   const normalizedDomain = normalizeComparable(domain6m);
   const predicates: Record<string, (type: string) => boolean> = {
-    manpower: (type) => /(training|trainer|workshop|capacity|course|learning)/i.test(type),
-    method: (type) => /(video|advisory|consult|manual|sop|mentoring|guide|blog|knowledge)/i.test(type),
-    machine: (type) => /(machine|machinery|equipment|tool|plant|device)/i.test(type),
-    material: (type) => /(input|material|seed|feed|raw material|supply)/i.test(type),
-    market: (type) => /(market|marketing|branding|packaging|buyer|service|report|linkage)/i.test(type),
-    money: (type) => /(finance|financial|credit|loan|insurance|investment)/i.test(type)
+    manpower: (type) => /\btraining\b/i.test(type),
+    method: (type) =>
+      /(consult|mentoring|tech transfer|technology transfer|video|sop|manual|blog)/i.test(type),
+    machine: (type) => /(plant setup|machinery|machine|equipment)/i.test(type),
+    material: (type) => /(raw material|supply|input)/i.test(type),
+    market: (type) =>
+      /(bought|buyer|product bought|raw material bought|market support|market report|market reports)/i.test(type),
+    money: (type) => /(financial support|finance|financial|credit|loan|funding)/i.test(type)
   };
 
   const predicate = predicates[normalizedDomain];
