@@ -1268,7 +1268,8 @@ async function runSearchInternal(filters: SearchFilters) {
   const { offerings, traders } = await getCachedSearchData();
   const limit = Math.min(filters.limit || 100, 500);
   const filterOptions = await getFilterOptions();
-  const primaryKeywordFilter = filters.disableKeywordPromotion
+  const preserveKeywordForExplicitSearch = hasExplicitNonKeywordFilters(filters);
+  const primaryKeywordFilter = filters.disableKeywordPromotion || preserveKeywordForExplicitSearch
     ? null
     : resolvePrimaryKeywordFilter(filters.q, filterOptions);
   const baseInferredFilters = filters.disableKeywordPromotion
@@ -1314,7 +1315,6 @@ async function runSearchInternal(filters: SearchFilters) {
       (primaryKeywordFilter?.field === "geography" ? primaryKeywordFilter.value : undefined) ||
       baseInferredFilters.geography
   };
-  const preserveKeywordForExplicitSearch = hasExplicitNonKeywordFilters(filters);
   const structuredMatchFromKeyword = !filters.disableKeywordPromotion && !preserveKeywordForExplicitSearch && [
     inferredFilters.solutionProvider,
     inferredFilters.category,
