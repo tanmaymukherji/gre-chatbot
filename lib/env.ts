@@ -5,6 +5,7 @@ function optional(name: string) {
 
 export function getPublicEnv() {
   return {
+    appUrl: optional("NEXT_PUBLIC_APP_URL"),
     supabaseUrl: optional("NEXT_PUBLIC_SUPABASE_URL"),
     supabaseAnonKey: optional("NEXT_PUBLIC_SUPABASE_ANON_KEY")
   };
@@ -12,6 +13,7 @@ export function getPublicEnv() {
 
 export function getServerEnv() {
   return {
+    appUrl: optional("NEXT_PUBLIC_APP_URL") || optional("APP_URL"),
     supabaseUrl: optional("NEXT_PUBLIC_SUPABASE_URL"),
     supabaseAnonKey: optional("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
     supabaseServiceRoleKey: optional("SUPABASE_SERVICE_ROLE_KEY"),

@@ -65,14 +65,12 @@ export async function POST(request: NextRequest) {
   try {
     const body = requestSchema.parse(await request.json());
     const env = getServerEnv();
-
-    if (!env.greMailSender) {
-      throw new Error("Provider email sender is not configured.");
-    }
+    const senderEmail = env.greMailSender || "help@greenruraleconomy.in";
+    const appBaseUrl = env.appUrl || "https://askgre.grameee.org";
 
     const subject = `GRE introduction for ${body.solutionTitle}`;
     const summary = body.solutionSummary.trim();
-    const detailUrl = new URL(`/offering/${body.offeringId}`, request.nextUrl.origin).toString();
+    const detailUrl = new URL(`/offering/${body.offeringId}`, appBaseUrl).toString();
     const mailBody = [
       `Hello ${body.providerName},`,
       "",
@@ -87,7 +85,7 @@ export async function POST(request: NextRequest) {
 
     const raw = toBase64Url(
       [
-        `From: Team GRE <${env.greMailSender}>`,
+        `From: Team GRE <${senderEmail}>`,
         `To: ${body.providerEmail}`,
         `Cc: ${body.seekerEmail}`,
         `Reply-To: ${body.seekerEmail}`,
