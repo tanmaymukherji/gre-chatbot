@@ -73,10 +73,10 @@ function canonicalizeLanguageLabel(value: string | null | undefined) {
   const text = String(value || "").trim();
   if (!text) return "";
   const normalized = normalizeComparable(text);
-  if (["eng", "english"].includes(normalized)) return "English";
-  if (["hin", "hindi"].includes(normalized)) return "Hindi";
-  if (["odia", "oriya", "odiya", "od"].includes(normalized)) return "Odia";
-  return text;
+  if (["eng", "english"].includes(normalized)) return "ENGLISH";
+  if (["hin", "hindi"].includes(normalized)) return "HINDI";
+  if (["odia", "oriya", "odiya", "od"].includes(normalized)) return "ODIA";
+  return text.toUpperCase();
 }
 
 function canonicalizeLanguageArray(values: unknown) {
