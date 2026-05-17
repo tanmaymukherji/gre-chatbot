@@ -1206,14 +1206,6 @@ export async function runSearch(filters: SearchFilters) {
     return results;
   }
 
-  if (filters.q && hasExplicitNonKeywordFilters(filters)) {
-    return runSearchInternal({
-      ...filters,
-      strictKeyword: false,
-      disableKeywordPromotion: true
-    });
-  }
-
   if (filters.q && !hasExplicitNonKeywordFilters(filters)) {
     return runSearchInternal({
       ...filters,
