@@ -101,6 +101,7 @@ function renderOptions(options: string[], emptyLabel: string) {
 export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string | null }) {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [chatQuery, setChatQuery] = useState("");
+  const [activeTab, setActiveTab] = useState<"parameters" | "chat">("parameters");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [assistantAnswer, setAssistantAnswer] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
@@ -269,218 +270,149 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
 
   return (
     <div className="stack">
-      <div className="query-grid">
-        <section className="panel panel-pad query-panel">
-          <h2 className="section-title">Chatbot</h2>
-          <p className="section-copy">
-            Ask a natural-language question here. This mode ignores the parameter form and searches the GRE dataset as a chat request.
-          </p>
-
-          <div className="stack query-panel-body">
-            <div className="field">
-              <label htmlFor="chatQuery">Question for GRE Copilot</label>
-              <textarea
-                className="chat-query"
-                id="chatQuery"
-                placeholder='Example: Show knowledge offerings for goat farming in Hindi.'
-                value={chatQuery}
-                onChange={(event) => setChatQuery(event.target.value)}
-              />
-            </div>
-
-            <div className="actions query-actions">
-              <button className="btn" type="button" disabled={chatting} onClick={askChat}>
-                {chatting ? "Thinking..." : "Ask chatbot"}
-              </button>
-              <button className="btn ghost" type="button" onClick={resetAll}>
-                Reset all
-              </button>
-            </div>
-          </div>
-        </section>
-
-        <section className="panel panel-pad query-panel">
-          <h2 className="section-title">Parameter Search</h2>
-          <p className="section-copy">
-            Use filters only. This mode does not need a chatbot question and works independently of the chat box.
-          </p>
-
-          <div className="filter-grid query-panel-body" onFocusCapture={ensureLiveFilters} onMouseEnter={ensureLiveFilters}>
-            <div className="field">
-              <label htmlFor="keywordSearch">Keyword search</label>
-              <input
-                id="keywordSearch"
-                type="text"
-                placeholder="Search tags, offering text, provider, value chain..."
-                value={filters.q}
-                onChange={(event) => updateFilter("q", event.target.value)}
-              />
-            </div>
-
-            <div className="field">
-              <label htmlFor="solutionProvider">Solution provider</label>
-              <select id="solutionProvider" value={filters.solutionProvider} onChange={(event) => updateFilter("solutionProvider", event.target.value)}>
-                {renderOptions(filterOptions.solutionProviders, "All solution providers")}
-              </select>
-            </div>
-
-            <div className="field">
-              <label htmlFor="category">Category</label>
-              <select id="category" value={filters.category} onChange={(event) => updateFilter("category", event.target.value)}>
-                {renderOptions(filterOptions.categories.length ? filterOptions.categories : CATEGORY_OPTIONS.filter(Boolean), "All categories")}
-              </select>
-            </div>
-
-            <div className="field">
-              <label htmlFor="domain6m">6M domain</label>
-              <select id="domain6m" value={filters.domain6m} onChange={(event) => updateFilter("domain6m", event.target.value)}>
-                {renderOptions(filterOptions.domains6m.length ? filterOptions.domains6m : DOMAIN_OPTIONS.filter(Boolean), "All 6M domains")}
-              </select>
-            </div>
-
-            <div className="field">
-              <label htmlFor="offeringType">Offering type</label>
-              <select id="offeringType" value={filters.offeringType} onChange={(event) => updateFilter("offeringType", event.target.value)}>
-                {renderOptions(filterOptions.offeringTypes, "All offering types")}
-              </select>
-            </div>
-
-            <div className="field">
-              <label htmlFor="valueChain">Value chain</label>
-              <select id="valueChain" value={filters.valueChain} onChange={(event) => updateFilter("valueChain", event.target.value)}>
-                {renderOptions(filterOptions.valueChains, "All value chains")}
-              </select>
-            </div>
-
-            <div className="field">
-              <label htmlFor="application">Application</label>
-              <select id="application" value={filters.application} onChange={(event) => updateFilter("application", event.target.value)}>
-                {renderOptions(filterOptions.applications, "All applications")}
-              </select>
-            </div>
-
-            <div className="field">
-              <label htmlFor="language">Language</label>
-              <select id="language" value={filters.language} onChange={(event) => updateFilter("language", event.target.value)}>
-                {renderOptions(filterOptions.languages, "All languages")}
-              </select>
-            </div>
-
-            <div className="field">
-              <label htmlFor="geography">Geography</label>
-              <select id="geography" value={filters.geography} onChange={(event) => updateFilter("geography", event.target.value)}>
-                {renderOptions(filterOptions.geographies, "All geographies")}
-              </select>
-            </div>
-          </div>
-
-          <div className="actions query-actions" style={{ marginTop: 18 }}>
-            <button className="btn" type="button" disabled={searching} onClick={runSearch}>
-              {searching ? "Searching..." : "Run parameter search"}
+      <div className="home-top-grid">
+        <section className="panel panel-pad query-panel query-tabs-panel">
+          <div className="tab-header">
+            <button
+              className={`tab-btn ${activeTab === "parameters" ? "active" : ""}`}
+              type="button"
+              onClick={() => setActiveTab("parameters")}
+            >
+              Parameter Search
             </button>
-            {filters.solutionProvider ? (
-              <Link className="btn ghost" href={`/provider?name=${encodeURIComponent(filters.solutionProvider)}`}>
-                Solution Provider Page
-              </Link>
-            ) : (
-              <button className="btn ghost" type="button" disabled>
-                Solution Provider Page
-              </button>
-            )}
-            <button className="btn ghost" type="button" onClick={resetAll}>
-              Reset all
+            <button
+              className={`tab-btn ${activeTab === "chat" ? "active" : ""}`}
+              type="button"
+              onClick={() => setActiveTab("chat")}
+            >
+              Chatbot
             </button>
           </div>
-        </section>
-      </div>
 
-      {notice ? <div className="notice warn">{notice}</div> : null}
-
-      <div className="results-grid">
-        <section className="panel panel-pad">
-          <div className="split">
-            <div>
-              <h2 className="section-title">Results</h2>
+          {activeTab === "parameters" ? (
+            <>
+              <h2 className="section-title">Parameter Search</h2>
               <p className="section-copy">
-                {activeMode === "chat"
-                  ? "Chatbot answer and matching offerings."
-                  : activeMode === "parameters"
-                    ? "Matches from the selected parameters."
-                    : "Results from either the chatbot or the parameter search will appear here."}
+                Use structured filters first. Explicit choices here override the default relevance ordering used for ranking.
               </p>
-            </div>
-            <span className="pill">{searchResults.length} offerings total</span>
-          </div>
 
-          {assistantAnswer ? (
-            <div className="chat-bubble assistant" style={{ marginBottom: 18 }}>
-              <strong>GRE Copilot</strong>
-              <div style={{ whiteSpace: "pre-wrap", marginTop: 8 }}>{assistantAnswer}</div>
-            </div>
-          ) : null}
+              <div className="filter-grid query-panel-body" onFocusCapture={ensureLiveFilters} onMouseEnter={ensureLiveFilters}>
+                <div className="field">
+                  <label htmlFor="keywordSearch">Keyword search</label>
+                  <input
+                    id="keywordSearch"
+                    type="text"
+                    placeholder="Search tags, offering text, provider, value chain..."
+                    value={filters.q}
+                    onChange={(event) => updateFilter("q", event.target.value)}
+                  />
+                </div>
 
-          <div className="results-list">
-            {searchResults.length === 0 ? (
-              <div className="notice">
-                Use either the chatbot or the parameter search above. The matching GRE offerings will show up here.
+                <div className="field">
+                  <label htmlFor="solutionProvider">Solution provider</label>
+                  <select id="solutionProvider" value={filters.solutionProvider} onChange={(event) => updateFilter("solutionProvider", event.target.value)}>
+                    {renderOptions(filterOptions.solutionProviders, "All solution providers")}
+                  </select>
+                </div>
+
+                <div className="field">
+                  <label htmlFor="category">Category</label>
+                  <select id="category" value={filters.category} onChange={(event) => updateFilter("category", event.target.value)}>
+                    {renderOptions(filterOptions.categories.length ? filterOptions.categories : CATEGORY_OPTIONS.filter(Boolean), "All categories")}
+                  </select>
+                </div>
+
+                <div className="field">
+                  <label htmlFor="domain6m">6M domain</label>
+                  <select id="domain6m" value={filters.domain6m} onChange={(event) => updateFilter("domain6m", event.target.value)}>
+                    {renderOptions(filterOptions.domains6m.length ? filterOptions.domains6m : DOMAIN_OPTIONS.filter(Boolean), "All 6M domains")}
+                  </select>
+                </div>
+
+                <div className="field">
+                  <label htmlFor="offeringType">Offering type</label>
+                  <select id="offeringType" value={filters.offeringType} onChange={(event) => updateFilter("offeringType", event.target.value)}>
+                    {renderOptions(filterOptions.offeringTypes, "All offering types")}
+                  </select>
+                </div>
+
+                <div className="field">
+                  <label htmlFor="valueChain">Value chain</label>
+                  <select id="valueChain" value={filters.valueChain} onChange={(event) => updateFilter("valueChain", event.target.value)}>
+                    {renderOptions(filterOptions.valueChains, "All value chains")}
+                  </select>
+                </div>
+
+                <div className="field">
+                  <label htmlFor="application">Application</label>
+                  <select id="application" value={filters.application} onChange={(event) => updateFilter("application", event.target.value)}>
+                    {renderOptions(filterOptions.applications, "All applications")}
+                  </select>
+                </div>
+
+                <div className="field">
+                  <label htmlFor="language">Language</label>
+                  <select id="language" value={filters.language} onChange={(event) => updateFilter("language", event.target.value)}>
+                    {renderOptions(filterOptions.languages, "All languages")}
+                  </select>
+                </div>
+
+                <div className="field">
+                  <label htmlFor="geography">Geography</label>
+                  <select id="geography" value={filters.geography} onChange={(event) => updateFilter("geography", event.target.value)}>
+                    {renderOptions(filterOptions.geographies, "All geographies")}
+                  </select>
+                </div>
               </div>
-            ) : (
-              paginatedResults.map((result) => {
-                const trader =
-                  result.solution?.trader?.organisation_name || result.solution?.trader?.trader_name || "Unknown provider";
-                return (
-                  <article className="card" key={result.offering_id}>
-                    <h3>
-                      <Link className="result-title-link" href={`/offering/${result.offering_id}`}>
-                        {result.offering_name}
-                      </Link>
-                    </h3>
-                    <p>
-                      {trader}
-                      {" | "}
-                      {result.offering_group || "Uncategorized"}
-                      {" | "}
-                      {result.domain_6m || "No 6M domain"}
-                    </p>
-                    <div className="meta-row">
-                      {result.primary_valuechain ? <span className="tag">{result.primary_valuechain}</span> : null}
-                      {result.primary_application ? <span className="tag">{result.primary_application}</span> : null}
-                      {(result.languages || []).slice(0, 3).map((language: string) => (
-                        <span className="tag" key={language}>
-                          {language}
-                        </span>
-                      ))}
-                    </div>
-                    {result.about_offering_text ? <p style={{ marginTop: 14 }}>{result.about_offering_text}</p> : null}
-                    <div className="provider-offering-links" style={{ marginTop: 14 }}>
-                      <Link className="result-link" href={`/offering/${result.offering_id}`}>
-                        View details
-                      </Link>
-                      {result.gre_link ? (
-                        <a className="result-link" href={result.gre_link} target="_blank" rel="noreferrer">
-                          View on GRE
-                        </a>
-                      ) : null}
-                    </div>
-                  </article>
-                );
-              })
-            )}
-          </div>
 
-          {searchResults.length > RESULTS_PAGE_SIZE ? (
-            <div className="results-pagination">
-              <button className="btn ghost" type="button" disabled={resultsPage === 1} onClick={() => setResultsPage((page) => Math.max(1, page - 1))}>
-                Previous
-              </button>
-              <span className="pill">
-                Page {resultsPage} of {totalPages}
-              </span>
-              <button className="btn ghost" type="button" disabled={resultsPage === totalPages} onClick={() => setResultsPage((page) => Math.min(totalPages, page + 1))}>
-                Next
-              </button>
-            </div>
-          ) : null}
+              <div className="actions query-actions" style={{ marginTop: 18 }}>
+                <button className="btn" type="button" disabled={searching} onClick={runSearch}>
+                  {searching ? "Searching..." : "Run parameter search"}
+                </button>
+                {filters.solutionProvider ? (
+                  <Link className="btn ghost" href={`/provider?name=${encodeURIComponent(filters.solutionProvider)}`}>
+                    Solution Provider Page
+                  </Link>
+                ) : (
+                  <button className="btn ghost" type="button" disabled>
+                    Solution Provider Page
+                  </button>
+                )}
+                <button className="btn ghost" type="button" onClick={resetAll}>
+                  Reset all
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2 className="section-title">Chatbot</h2>
+              <p className="section-copy">
+                Ask a natural-language question. The chatbot can translate, interpret, and then rank matching offerings against the GRE dataset.
+              </p>
+
+              <div className="stack query-panel-body">
+                <div className="field">
+                  <label htmlFor="chatQuery">Question for GRE Copilot</label>
+                  <textarea
+                    className="chat-query"
+                    id="chatQuery"
+                    placeholder='Example: Show knowledge offerings for goat farming in Hindi.'
+                    value={chatQuery}
+                    onChange={(event) => setChatQuery(event.target.value)}
+                  />
+                </div>
+
+                <div className="actions query-actions">
+                  <button className="btn" type="button" disabled={chatting} onClick={askChat}>
+                    {chatting ? "Thinking..." : "Ask chatbot"}
+                  </button>
+                  <button className="btn ghost" type="button" onClick={resetAll}>
+                    Reset all
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </section>
 
         <div className="stack">
@@ -492,6 +424,101 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
           </div>
         </div>
       </div>
+
+      {notice ? <div className="notice warn">{notice}</div> : null}
+
+      <section className="panel panel-pad results-panel">
+        <div className="split">
+          <div>
+            <h2 className="section-title">Results</h2>
+            <p className="section-copy">
+              {activeMode === "chat"
+                ? "Chatbot answer and matching offerings."
+                : activeMode === "parameters"
+                  ? "Matches from the selected parameters."
+                  : "Results from either the chatbot or the parameter search will appear here."}
+            </p>
+          </div>
+          <span className="pill">{searchResults.length} offerings total</span>
+        </div>
+
+        {assistantAnswer ? (
+          <div className="chat-bubble assistant" style={{ marginBottom: 18 }}>
+            <strong>GRE Copilot</strong>
+            <div style={{ whiteSpace: "pre-wrap", marginTop: 8 }}>{assistantAnswer}</div>
+          </div>
+        ) : null}
+
+        <div className="results-list results-list-two-col">
+          {searchResults.length === 0 ? (
+            <div className="notice">
+              Use either the chatbot or the parameter search above. The matching GRE offerings will show up here.
+            </div>
+          ) : (
+            paginatedResults.map((result) => {
+              const trader =
+                result.solution?.trader?.organisation_name || result.solution?.trader?.trader_name || "Unknown provider";
+              const matchScore = Number(result.matchScore || 0);
+              const scoreTone = matchScore >= 100 ? "match-score-high" : "match-score-medium";
+              return (
+                <article className={`card result-card ${scoreTone}`} key={result.offering_id}>
+                  <div className="result-card-top">
+                    <div>
+                      <h3>
+                        <Link className="result-title-link" href={`/offering/${result.offering_id}`}>
+                          {result.offering_name}
+                        </Link>
+                      </h3>
+                      <p>
+                        {trader}
+                        {" | "}
+                        {result.offering_group || "Uncategorized"}
+                        {" | "}
+                        {result.domain_6m || "No 6M domain"}
+                      </p>
+                    </div>
+                    <span className={`match-score-pill ${scoreTone}`}>Relevance Score {matchScore}</span>
+                  </div>
+                  <div className="meta-row">
+                    {result.primary_valuechain ? <span className="tag">{result.primary_valuechain}</span> : null}
+                    {result.primary_application ? <span className="tag">{result.primary_application}</span> : null}
+                    {(result.languages || []).slice(0, 3).map((language: string) => (
+                      <span className="tag" key={language}>
+                        {language}
+                      </span>
+                    ))}
+                  </div>
+                  {result.about_offering_text ? <p style={{ marginTop: 14 }}>{result.about_offering_text}</p> : null}
+                  <div className="provider-offering-links" style={{ marginTop: 14 }}>
+                    <Link className="result-link" href={`/offering/${result.offering_id}`}>
+                      View details
+                    </Link>
+                    {result.gre_link ? (
+                      <a className="result-link" href={result.gre_link} target="_blank" rel="noreferrer">
+                        View on GRE
+                      </a>
+                    ) : null}
+                  </div>
+                </article>
+              );
+            })
+          )}
+        </div>
+
+        {searchResults.length > RESULTS_PAGE_SIZE ? (
+          <div className="results-pagination">
+            <button className="btn ghost" type="button" disabled={resultsPage === 1} onClick={() => setResultsPage((page) => Math.max(1, page - 1))}>
+              Previous
+            </button>
+            <span className="pill">
+              Page {resultsPage} of {totalPages}
+            </span>
+            <button className="btn ghost" type="button" disabled={resultsPage === totalPages} onClick={() => setResultsPage((page) => Math.min(totalPages, page + 1))}>
+              Next
+            </button>
+          </div>
+        ) : null}
+      </section>
     </div>
   );
 }

@@ -679,6 +679,114 @@ function matchesTokenVariant(haystack: string, token: string) {
   return variants.some((variant) => haystack.includes(variant));
 }
 
+function getOfferingKind(row: any) {
+  const offeringGroup = normalizeComparable(String(row?.offering_group || ""));
+  const offeringType = normalizeComparable(String(row?.offering_type || ""));
+  const category = normalizeComparable(String(row?.offering_category || ""));
+  if (offeringGroup.includes("service")) return "service";
+  if (offeringGroup.includes("product")) return "product";
+  if (offeringGroup.includes("knowledge")) return "knowledge";
+  if (offeringType.includes("manual") || offeringType.includes("video") || offeringType.includes("sop")) return "knowledge";
+  if (category.includes("service")) return "service";
+  if (category.includes("product")) return "product";
+  if (category.includes("knowledge")) return "knowledge";
+  return "";
+}
+
+function hasExplicitCategoryIntent(filters: SearchFilters) {
+  return Boolean(filters.category);
+}
+
+function hasExplicitStructuredSearch(filters: SearchFilters) {
+  return Boolean(
+    filters.solutionProvider ||
+      filters.category ||
+      filters.domain6m ||
+      filters.offeringType ||
+      filters.valueChain ||
+      filters.application ||
+      filters.tag ||
+      filters.language ||
+      filters.geography
+  );
+}
+
+function computeRelevanceScore(row: any, query: string | undefined, inferredFilters: SearchFilters, originalFilters: SearchFilters) {
+  const haystack = buildHaystack(row);
+  const tokens = tokenizeQuery(query);
+  const normalizedQuery = normalizeComparable(query || "");
+  const offeringName = String(row.offering_name || "").toLowerCase();
+  const application = String(row.primary_application || "").toLowerCase();
+  const valueChain = String(row.primary_valuechain || "").toLowerCase();
+  const about = String(row.about_offering_text || row.solution?.about_solution_text || "").toLowerCase();
+  const tags = (row.tags || []).map((tag: string) => String(tag).toLowerCase());
+  const applications = (row.applications || []).map((item: string) => String(item).toLowerCase());
+  const valueChains = (row.valuechains || []).map((item: string) => String(item).toLowerCase());
+  const geographies = (row.geographies || []).map((item: string) => String(item).toLowerCase());
+  const languages = (row.languages || []).map((item: string) => String(item).toLowerCase());
+  const offeringKind = getOfferingKind(row);
+
+  let score = 0;
+
+  if (normalizedQuery && offeringName.includes(normalizedQuery)) score += 60;
+  else if (normalizedQuery && application.includes(normalizedQuery)) score += 52;
+  else if (normalizedQuery && valueChain.includes(normalizedQuery)) score += 44;
+  else if (normalizedQuery && haystack.includes(normalizedQuery)) score += 28;
+
+  if (
+    tokens.length > 1 &&
+    tokens.every((token) => matchesTokenVariant(offeringName, token))
+  ) {
+    score += 40;
+  }
+
+  if (
+    tokens.length > 1 &&
+    tokens.every((token) => matchesTokenVariant(application, token))
+  ) {
+    score += 36;
+  }
+
+  tokens.forEach((token) => {
+    if (tags.some((tag) => matchesTokenVariant(tag, token))) score += 16;
+    else if (matchesTokenVariant(application, token) || applications.some((item) => matchesTokenVariant(item, token))) score += 18;
+    else if (matchesTokenVariant(valueChain, token) || valueChains.some((item) => matchesTokenVariant(item, token))) score += 16;
+    else if (matchesTokenVariant(offeringName, token)) score += 12;
+    else if (about.includes(token)) score += 5;
+  });
+
+  if (inferredFilters.solutionProvider && matchesProvider(row, inferredFilters.solutionProvider)) score += 55;
+  if (inferredFilters.valueChain && matchesScalar(row.primary_valuechain, inferredFilters.valueChain)) score += 24;
+  if (inferredFilters.application && matchesScalar(row.primary_application, inferredFilters.application)) score += 28;
+  if (inferredFilters.tag && matchesArray(row.tags, inferredFilters.tag)) score += 20;
+  if (inferredFilters.language && languages.some((item) => matchesTokenVariant(item, inferredFilters.language!))) score += 10;
+  if (inferredFilters.geography && (matchesGeography(row, inferredFilters.geography) || geographies.some((item) => matchesTokenVariant(item, inferredFilters.geography!)))) score += 10;
+  if (inferredFilters.domain6m && matchesScalar(row.domain_6m, inferredFilters.domain6m)) score += 16;
+  if (inferredFilters.offeringType && matchesScalar(row.offering_type, inferredFilters.offeringType)) score += 18;
+  if (inferredFilters.category && matchesScalar(row.offering_group, inferredFilters.category)) score += 18;
+
+  if (!hasExplicitCategoryIntent(originalFilters) && !inferredFilters.category) {
+    if (offeringKind === "service") score += 14;
+    else if (offeringKind === "product") score += 5;
+    else if (offeringKind === "knowledge") score -= 8;
+  } else if (inferredFilters.category) {
+    const preferredKind = normalizeComparable(inferredFilters.category);
+    if (offeringKind === preferredKind) score += 12;
+  }
+
+  if (hasExplicitStructuredSearch(originalFilters) && !originalFilters.category) {
+    if (offeringKind === "knowledge" && (inferredFilters.application || inferredFilters.valueChain || inferredFilters.solutionProvider)) {
+      score -= 10;
+    }
+  }
+
+  if (!tokens.length && !hasExplicitStructuredSearch(inferredFilters)) {
+    score += 1;
+  }
+
+  return Math.round(score);
+}
+
 function simplifyQueryText(query: string | undefined, filters: SearchFilters) {
   if (!query) {
     return "";
@@ -1194,7 +1302,8 @@ async function runSearchInternal(filters: SearchFilters) {
     })
     .map((row: any) => ({
       row,
-      score: scoreRow(row, q) + providerScore(row, inferredFilters.solutionProvider)
+      score: scoreRow(row, q) + providerScore(row, inferredFilters.solutionProvider),
+      matchScore: computeRelevanceScore(row, q || inferredFilters.q, inferredFilters, filters)
     }));
 
   const positiveScoreRows = scored.filter(({ score }) => !q || score > 0);
@@ -1206,17 +1315,24 @@ async function runSearchInternal(filters: SearchFilters) {
     : scored;
 
   const ranked = scoredForRanking
-    .sort((left, right) => right.score - left.score || String(left.row.offering_name || "").localeCompare(String(right.row.offering_name || "")));
+    .sort((left, right) =>
+      right.matchScore - left.matchScore ||
+      right.score - left.score ||
+      String(left.row.offering_name || "").localeCompare(String(right.row.offering_name || ""))
+    );
 
-  const topScore = ranked[0]?.score || 0;
+  const topScore = ranked[0]?.matchScore || ranked[0]?.score || 0;
   const relevanceFloor = q && topScore > 0
     ? Math.max(4, Math.ceil(topScore * 0.55), topScore - 4)
     : 0;
 
   const filtered = ranked
-    .filter(({ score }) => inferredFilters.solutionProvider || !q || structuredFilterCount > 0 || score >= relevanceFloor)
+    .filter(({ score, matchScore }) => inferredFilters.solutionProvider || !q || structuredFilterCount > 0 || matchScore >= relevanceFloor || score >= relevanceFloor)
     .slice(0, limit)
-    .map(({ row }) => row);
+    .map(({ row, matchScore }) => ({
+      ...row,
+      matchScore
+    }));
 
   return filtered;
 }
