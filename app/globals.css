@@ -775,6 +775,39 @@ textarea {
 
 .provider-email-panel {
   width: min(420px, calc(100vw - 48px));
+  border: 1px solid rgba(40, 84, 60, 0.18);
+  background: linear-gradient(180deg, rgba(255, 251, 242, 0.98), rgba(243, 248, 239, 0.96));
+  box-shadow: 0 18px 40px rgba(27, 56, 40, 0.14);
+}
+
+.provider-email-panel .section-title {
+  color: #173121;
+}
+
+.provider-email-panel .section-copy,
+.provider-email-panel .field label {
+  color: #2a3d31;
+}
+
+.provider-email-status {
+  border: 0;
+  border-radius: 16px;
+  padding: 12px 14px;
+  text-align: left;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.provider-email-status-success {
+  background: #dff4e5;
+  color: #174f2c;
+  border: 1px solid #9ed1ac;
+}
+
+.provider-email-status-error {
+  background: #fff0ea;
+  color: #8f3c1f;
+  border: 1px solid #e3b19b;
 }
 
 .detail-grid {

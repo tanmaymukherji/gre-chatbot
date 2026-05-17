@@ -69,15 +69,31 @@ export function ProviderEmailButton({ providerEmail, providerName, solutionTitle
         onClick={() => {
           setOpen((current) => !current);
           setError(null);
-          setMessage(null);
         }}
         title={disabled ? "Provider email is not available for this solution." : "Email Provider"}
       >
         Email Provider
       </button>
 
-      {message ? <div className="notice" style={{ marginTop: 10 }}>{message}</div> : null}
-      {error ? <div className="notice warn" style={{ marginTop: 10 }}>{error}</div> : null}
+      {message ? (
+        <button
+          className="provider-email-status provider-email-status-success"
+          type="button"
+          onClick={() => {
+            setMessage(null);
+            setOpen(false);
+          }}
+        >
+          Mail Sent. Click to close.
+        </button>
+      ) : null}
+
+      {error ? (
+        <div className="provider-email-status provider-email-status-error">
+          <strong>Could not send email.</strong>
+          <div style={{ marginTop: 6 }}>{error}</div>
+        </div>
+      ) : null}
 
       {open ? (
         <div className="panel panel-pad provider-email-panel">
@@ -115,6 +131,17 @@ export function ProviderEmailButton({ providerEmail, providerName, solutionTitle
                 disabled={sending || !seekerName.trim() || !seekerEmail.trim()}
               >
                 {sending ? "Sending..." : "Send Email"}
+              </button>
+              <button
+                className="btn secondary"
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  setError(null);
+                }}
+                disabled={sending}
+              >
+                Close
               </button>
             </div>
           </div>
