@@ -5,11 +5,12 @@ import { useState } from "react";
 type Props = {
   providerEmail: string;
   providerName: string;
+  offeringId: string;
   solutionTitle: string;
   solutionSummary: string;
 };
 
-export function ProviderEmailButton({ providerEmail, providerName, solutionTitle, solutionSummary }: Props) {
+export function ProviderEmailButton({ providerEmail, providerName, offeringId, solutionTitle, solutionSummary }: Props) {
   const [open, setOpen] = useState(false);
   const [seekerName, setSeekerName] = useState("");
   const [seekerEmail, setSeekerEmail] = useState("");
@@ -39,6 +40,7 @@ export function ProviderEmailButton({ providerEmail, providerName, solutionTitle
           providerName,
           seekerName,
           seekerEmail,
+          offeringId,
           solutionTitle,
           solutionSummary
         })

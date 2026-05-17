@@ -7,6 +7,7 @@ const requestSchema = z.object({
   providerName: z.string().min(1),
   seekerName: z.string().min(1),
   seekerEmail: z.string().email(),
+  offeringId: z.string().min(1),
   solutionTitle: z.string().min(1),
   solutionSummary: z.string().min(1)
 });
@@ -71,10 +72,14 @@ export async function POST(request: NextRequest) {
 
     const subject = `GRE introduction for ${body.solutionTitle}`;
     const summary = body.solutionSummary.trim();
+    const detailUrl = new URL(`/offering/${body.offeringId}`, request.nextUrl.origin).toString();
     const mailBody = [
       `Hello ${body.providerName},`,
       "",
       `${body.seekerName} is interested in knowing more about your solution of ${summary}. We are reaching out to you so that you connect with them and help attend to their need.`,
+      "",
+      `You can view the solution details here: ${detailUrl}`,
+      `The seeker, ${body.seekerName}, is marked in copy of this email at ${body.seekerEmail}.`,
       "",
       "Warm Regards,",
       "Team GRE"

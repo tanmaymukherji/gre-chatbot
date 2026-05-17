@@ -142,6 +142,7 @@ export default async function OfferingDetailPage({ params }: { params: Promise<{
             <ProviderEmailButton
               providerEmail={providerEmail}
               providerName={providerName}
+              offeringId={offering.offering_id}
               solutionTitle={solutionTitle}
               solutionSummary={solutionSummary}
             />
