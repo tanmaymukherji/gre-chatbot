@@ -1042,12 +1042,12 @@ function buildKeywordHaystack(row: any) {
     .toLowerCase();
 }
 
-function strictKeywordMatch(row: any, query: string | undefined) {
+function strictKeywordMatch(row: any, query: string | undefined, useBroadHaystack = false) {
   if (!query) {
     return true;
   }
 
-  const haystack = buildKeywordHaystack(row);
+  const haystack = useBroadHaystack ? buildHaystack(row) : buildKeywordHaystack(row);
   const normalizedQuery = query.toLowerCase().trim();
   if (normalizedQuery && haystack.includes(normalizedQuery)) {
     return true;
@@ -1272,7 +1272,7 @@ async function runSearchInternal(filters: SearchFilters) {
   const primaryKeywordFilter = filters.disableKeywordPromotion || preserveKeywordForExplicitSearch
     ? null
     : resolvePrimaryKeywordFilter(filters.q, filterOptions);
-  const baseInferredFilters = filters.disableKeywordPromotion
+  const baseInferredFilters = filters.disableKeywordPromotion || preserveKeywordForExplicitSearch
     ? { ...filters }
     : inferSearchFilters(filters, filters.q);
   const inferredFilters = {
@@ -1281,7 +1281,9 @@ async function runSearchInternal(filters: SearchFilters) {
       filters.solutionProvider ||
       (primaryKeywordFilter?.field === "solutionProvider" ? primaryKeywordFilter.value : undefined) ||
       baseInferredFilters.solutionProvider ||
-      (filters.disableKeywordPromotion ? undefined : inferSolutionProvider(filters.q, filterOptions.solutionProviders)),
+      (filters.disableKeywordPromotion || preserveKeywordForExplicitSearch
+        ? undefined
+        : inferSolutionProvider(filters.q, filterOptions.solutionProviders)),
     category:
       filters.category ||
       (primaryKeywordFilter?.field === "category" ? primaryKeywordFilter.value : undefined) ||
@@ -1354,7 +1356,7 @@ async function runSearchInternal(filters: SearchFilters) {
   const scored = baseRows
     .filter((row: any) => {
       return (
-        (!filters.strictKeyword || strictKeywordMatch(row, q)) &&
+        (!filters.strictKeyword || strictKeywordMatch(row, q, preserveKeywordForExplicitSearch)) &&
         matchesProvider(row, inferredFilters.solutionProvider) &&
         matchesArray(row.tags, inferredFilters.tag) &&
         matchesArray(row.languages, inferredFilters.language) &&
