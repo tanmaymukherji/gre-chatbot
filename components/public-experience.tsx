@@ -85,6 +85,36 @@ const DEFAULT_FILTER_OPTIONS: FilterOptions = {
 const SEARCH_STATE_KEY = "gre-public-search-state";
 const RESULTS_PAGE_SIZE = 12;
 
+function normalizeComparable(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
+function resolveProviderPageName(solutionProviders: string[], filters: Filters) {
+  if (filters.solutionProvider) {
+    return filters.solutionProvider;
+  }
+
+  const keyword = normalizeComparable(filters.q || "");
+  if (!keyword) {
+    return "";
+  }
+
+  const exact = solutionProviders.find((provider) => normalizeComparable(provider) === keyword);
+  if (exact) {
+    return exact;
+  }
+
+  const containing = solutionProviders.find((provider) => {
+    const normalizedProvider = normalizeComparable(provider);
+    return normalizedProvider.includes(keyword) || keyword.includes(normalizedProvider);
+  });
+
+  return containing || "";
+}
+
 function renderOptions(options: string[], emptyLabel: string) {
   return [
     <option key="all" value="">
@@ -267,6 +297,7 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
 
   const totalPages = Math.max(1, Math.ceil(searchResults.length / RESULTS_PAGE_SIZE));
   const paginatedResults = searchResults.slice((resultsPage - 1) * RESULTS_PAGE_SIZE, resultsPage * RESULTS_PAGE_SIZE);
+  const providerPageName = resolveProviderPageName(filterOptions.solutionProviders, filters);
 
   return (
     <div className="stack">
@@ -369,8 +400,8 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
                 <button className="btn" type="button" disabled={searching} onClick={runSearch}>
                   {searching ? "Searching..." : "Run parameter search"}
                 </button>
-                {filters.solutionProvider ? (
-                  <Link className="btn ghost" href={`/provider?name=${encodeURIComponent(filters.solutionProvider)}`}>
+                {providerPageName ? (
+                  <Link className="btn ghost" href={`/provider?name=${encodeURIComponent(providerPageName)}`}>
                     Solution Provider Page
                   </Link>
                 ) : (

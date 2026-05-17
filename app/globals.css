@@ -373,6 +373,7 @@ textarea {
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
+  flex-wrap: wrap;
 }
 
 .match-score-high {
@@ -393,12 +394,16 @@ textarea {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  white-space: nowrap;
-  min-width: 132px;
+  white-space: normal;
+  min-width: 0;
+  max-width: 100%;
+  flex: 0 1 180px;
   padding: 10px 14px;
   border-radius: 999px;
   font-size: 0.92rem;
   font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
 }
 
 .match-score-pill.match-score-high {

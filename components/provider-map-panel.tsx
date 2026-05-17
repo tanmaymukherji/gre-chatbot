@@ -14,6 +14,53 @@ const MAPPLS_SCRIPT_URLS = (accessToken: string) => [
   `https://apis.mappls.com/advancedmaps/api/${accessToken}/map_sdk?layer=vector&v=3.0`
 ];
 
+function fitMapToMarkers(map: any, markers: Array<{ lat: number; lng: number }>) {
+  if (!map || markers.length === 0) {
+    return;
+  }
+
+  if (markers.length === 1) {
+    map.setCenter?.({ lat: markers[0].lat, lng: markers[0].lng });
+    map.setZoom?.(7);
+    return;
+  }
+
+  const lats = markers.map((marker) => marker.lat);
+  const lngs = markers.map((marker) => marker.lng);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+  const center = { lat: (minLat + maxLat) / 2, lng: (minLng + maxLng) / 2 };
+
+  try {
+    map.fitBounds?.(
+      [
+        [minLat, minLng],
+        [maxLat, maxLng]
+      ],
+      { padding: 48 }
+    );
+    return;
+  } catch {
+    // Fall back to an approximate center/zoom when fitBounds is unavailable.
+  }
+
+  const latSpan = Math.max(0.4, maxLat - minLat);
+  const lngSpan = Math.max(0.4, maxLng - minLng);
+  const span = Math.max(latSpan, lngSpan);
+  let zoom = 4.8;
+
+  if (span <= 0.6) zoom = 8;
+  else if (span <= 1.5) zoom = 7;
+  else if (span <= 3) zoom = 6;
+  else if (span <= 6) zoom = 5.4;
+  else if (span <= 10) zoom = 5;
+
+  map.setCenter?.(center);
+  map.setZoom?.(zoom);
+}
+
 function ensureMapplsCss() {
   if (document.getElementById(MAPPLS_CSS_ID)) {
     return;
@@ -171,10 +218,7 @@ export function ProviderMapPanel({ results, mapplsPublicKey }: { results: any[];
       markerRefs.current.push(markerInstance);
     });
 
-    if (markers.length === 1) {
-      map.setCenter?.({ lat: markers[0].lat, lng: markers[0].lng });
-      map.setZoom?.(7);
-    }
+    fitMapToMarkers(map, markers);
   }, [markers, mapReady]);
 
   return (
