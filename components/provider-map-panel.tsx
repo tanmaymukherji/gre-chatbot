@@ -31,20 +31,10 @@ function fitMapToMarkers(map: any, markers: Array<{ lat: number; lng: number }>)
   const maxLat = Math.max(...lats);
   const minLng = Math.min(...lngs);
   const maxLng = Math.max(...lngs);
-  const center = { lat: (minLat + maxLat) / 2, lng: (minLng + maxLng) / 2 };
-
-  try {
-    map.fitBounds?.(
-      [
-        [minLat, minLng],
-        [maxLat, maxLng]
-      ],
-      { padding: 48 }
-    );
-    return;
-  } catch {
-    // Fall back to an approximate center/zoom when fitBounds is unavailable.
-  }
+  const center = {
+    lat: Math.min(35.5, Math.max(6, (minLat + maxLat) / 2)),
+    lng: Math.min(97.5, Math.max(67, (minLng + maxLng) / 2))
+  };
 
   const latSpan = Math.max(0.4, maxLat - minLat);
   const lngSpan = Math.max(0.4, maxLng - minLng);
@@ -56,6 +46,7 @@ function fitMapToMarkers(map: any, markers: Array<{ lat: number; lng: number }>)
   else if (span <= 3) zoom = 6;
   else if (span <= 6) zoom = 5.4;
   else if (span <= 10) zoom = 5;
+  else zoom = 4.8;
 
   map.setCenter?.(center);
   map.setZoom?.(zoom);
