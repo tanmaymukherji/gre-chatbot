@@ -716,6 +716,15 @@ textarea {
   background: rgba(255, 255, 255, 0.76);
 }
 
+.detail-hero-copy h1 {
+  color: #182717;
+}
+
+.detail-hero-copy .hero-copy {
+  color: #2d3b2c;
+  line-height: 1.7;
+}
+
 .detail-hero-image-wrap {
   flex: 0 0 300px;
   width: 300px;
@@ -741,10 +750,19 @@ textarea {
   display: block;
 }
 
+.detail-stack {
+  display: grid;
+  gap: 20px;
+}
+
 .detail-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
   gap: 20px;
+}
+
+.detail-panel-copy {
+  color: var(--ink);
 }
 
 .detail-table {

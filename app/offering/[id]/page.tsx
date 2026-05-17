@@ -20,7 +20,7 @@ function isLinkValue(value: unknown) {
 }
 
 function buildOfferingRows(offering: any) {
-  const commonRows = [
+  const primaryRows = [
     ["Offering Category", offering.offering_category],
     ["Offering Group", offering.offering_group],
     ["Offering Type", offering.offering_type],
@@ -33,7 +33,10 @@ function buildOfferingRows(offering: any) {
     ["Languages", offering.languages],
     ["Geography", offering.geographies],
     ["Location Availability", offering.location_availability],
-    ["Audience", offering.audience],
+    ["Audience", offering.audience]
+  ];
+
+  const secondaryRows = [
     ["Contact Details", offering.contact_details]
   ];
 
@@ -78,7 +81,10 @@ function buildOfferingRows(offering: any) {
     (group === "knowledge" || category.includes("knowledge")) ? knowledgeRows :
     [];
 
-  return [...commonRows, ...relevantRows].filter(([, value]) => isPresent(value));
+  return {
+    primaryRows: primaryRows.filter(([, value]) => isPresent(value)),
+    secondaryRows: [...secondaryRows, ...relevantRows].filter(([, value]) => isPresent(value))
+  };
 }
 
 function buildProviderRows(offering: any) {
@@ -106,7 +112,7 @@ export default async function OfferingDetailPage({ params }: { params: Promise<{
     notFound();
   }
 
-  const detailRows = buildOfferingRows(offering);
+  const { primaryRows, secondaryRows } = buildOfferingRows(offering);
   const providerRows = buildProviderRows(offering);
 
   return (
@@ -141,64 +147,93 @@ export default async function OfferingDetailPage({ params }: { params: Promise<{
         </div>
       </section>
 
-      <section className="detail-grid" style={{ marginTop: 24 }}>
-        <section className="panel panel-pad">
-          <h2 className="section-title">Offering Details</h2>
-          <p className="section-copy">
-            Only the parameters relevant to this {String(offering.offering_group || "offering").toLowerCase()} offering are shown below.
-          </p>
-          <table className="detail-table">
-            <tbody>
-              {detailRows.map(([label, value]) => (
-                <tr key={label}>
-                  <th>{label}</th>
-                  <td>
-                    {isLinkValue(value) ? (
-                      <a className="result-link" href={String(value)} target="_blank" rel="noreferrer">
-                        Open link
-                      </a>
-                    ) : (
-                      formatValue(value)
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-
-        <section className="stack">
+      <section className="detail-stack" style={{ marginTop: 24 }}>
+        {isPresent(offering.solution?.about_solution_text) ? (
           <section className="panel panel-pad">
-            <h2 className="section-title">Provider and Solution</h2>
-            <table className="detail-table">
-              <tbody>
-                {providerRows.map(([label, value]) => (
-                  <tr key={label}>
-                    <th>{label}</th>
-                    <td>
-                      {isLinkValue(value) ? (
-                        <a className="result-link" href={String(value)} target="_blank" rel="noreferrer">
-                          Open link
-                        </a>
-                      ) : (
-                        formatValue(value)
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {isPresent(offering.solution?.about_solution_text) ? (
-              <div style={{ marginTop: 18 }}>
-                <h3 className="section-title">About the Solution</h3>
-                <p className="section-copy" style={{ marginBottom: 0 }}>
-                  {offering.solution?.about_solution_text}
-                </p>
-              </div>
+            <h2 className="section-title">About the Solution</h2>
+            <p className="section-copy detail-panel-copy" style={{ marginBottom: 0 }}>
+              {offering.solution?.about_solution_text}
+            </p>
+          </section>
+        ) : null}
+
+        <section className="detail-grid">
+          <section className="stack">
+            <section className="panel panel-pad">
+              <h2 className="section-title">Offering Details</h2>
+              <p className="section-copy">
+                Only the parameters relevant to this {String(offering.offering_group || "offering").toLowerCase()} offering are shown below.
+              </p>
+              <table className="detail-table">
+                <tbody>
+                  {primaryRows.map(([label, value]) => (
+                    <tr key={label}>
+                      <th>{label}</th>
+                      <td>
+                        {isLinkValue(value) ? (
+                          <a className="result-link" href={String(value)} target="_blank" rel="noreferrer">
+                            Open link
+                          </a>
+                        ) : (
+                          formatValue(value)
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+
+            {secondaryRows.length ? (
+              <section className="panel panel-pad">
+                <h2 className="section-title">Additional Offering Details</h2>
+                <table className="detail-table">
+                  <tbody>
+                    {secondaryRows.map(([label, value]) => (
+                      <tr key={label}>
+                        <th>{label}</th>
+                        <td>
+                          {isLinkValue(value) ? (
+                            <a className="result-link" href={String(value)} target="_blank" rel="noreferrer">
+                              Open link
+                            </a>
+                          ) : (
+                            formatValue(value)
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </section>
             ) : null}
           </section>
 
-          <OfferingDetailChat offeringId={offering.offering_id} offeringName={offering.offering_name || "this offering"} />
+          <section className="stack">
+            <section className="panel panel-pad">
+              <h2 className="section-title">Provider and Solution</h2>
+              <table className="detail-table">
+                <tbody>
+                  {providerRows.map(([label, value]) => (
+                    <tr key={label}>
+                      <th>{label}</th>
+                      <td>
+                        {isLinkValue(value) ? (
+                          <a className="result-link" href={String(value)} target="_blank" rel="noreferrer">
+                            Open link
+                          </a>
+                        ) : (
+                          formatValue(value)
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+
+            <OfferingDetailChat offeringId={offering.offering_id} offeringName={offering.offering_name || "this offering"} />
+          </section>
         </section>
       </section>
 
