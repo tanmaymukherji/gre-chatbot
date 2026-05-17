@@ -715,7 +715,10 @@ function computeRelevanceScore(row: any, query: string | undefined, inferredFilt
   const haystack = buildHaystack(row);
   const tokens = tokenizeQuery(query);
   const normalizedQuery = normalizeComparable(query || "");
+  const looseQuery = normalizeLooseComparable(query || "");
   const offeringName = String(row.offering_name || "").toLowerCase();
+  const normalizedOfferingName = normalizeComparable(String(row.offering_name || ""));
+  const looseOfferingName = normalizeLooseComparable(String(row.offering_name || ""));
   const application = String(row.primary_application || "").toLowerCase();
   const valueChain = String(row.primary_valuechain || "").toLowerCase();
   const about = String(row.about_offering_text || row.solution?.about_solution_text || "").toLowerCase();
@@ -728,6 +731,11 @@ function computeRelevanceScore(row: any, query: string | undefined, inferredFilt
 
   let score = 0;
 
+  if (looseQuery && looseOfferingName === looseQuery) score += 130;
+  else if (looseQuery && looseOfferingName.includes(looseQuery)) score += 105;
+  else if (normalizedQuery && normalizedOfferingName === normalizedQuery) score += 120;
+  else if (normalizedQuery && normalizedOfferingName.includes(normalizedQuery)) score += 90;
+
   if (normalizedQuery && offeringName.includes(normalizedQuery)) score += 60;
   else if (normalizedQuery && application.includes(normalizedQuery)) score += 52;
   else if (normalizedQuery && valueChain.includes(normalizedQuery)) score += 44;
@@ -738,6 +746,13 @@ function computeRelevanceScore(row: any, query: string | undefined, inferredFilt
     tokens.every((token) => matchesTokenVariant(offeringName, token))
   ) {
     score += 40;
+  }
+
+  if (
+    tokens.length > 1 &&
+    tokens.every((token) => matchesTokenVariant(looseOfferingName, normalizeLooseComparable(token)))
+  ) {
+    score += 45;
   }
 
   if (
