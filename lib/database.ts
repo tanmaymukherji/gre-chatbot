@@ -1366,7 +1366,7 @@ async function runSearchInternal(filters: SearchFilters) {
       matchScore
     }));
 
-  return dedupeOfferingsById(filtered);
+  return dedupeOfferingsByContent(dedupeOfferingsById(filtered));
 }
 
 export async function getFilterOptions() {
@@ -1538,6 +1538,66 @@ function dedupeOfferingsById<T extends { offering_id?: string | null }>(rows: T[
     }
 
     seen.add(key);
+    uniqueRows.push(row);
+  }
+
+  return uniqueRows;
+}
+
+function canonicalGreLink(link: string | null | undefined) {
+  const value = String(link || "").trim();
+  if (!value) {
+    return "";
+  }
+
+  try {
+    const url = new URL(value);
+    url.searchParams.delete("productSkuId");
+    return url.toString();
+  } catch {
+    return value;
+  }
+}
+
+function dedupeOfferingsByContent<T extends {
+  trader_id?: string | null;
+  offering_name?: string | null;
+  offering_type?: string | null;
+  offering_group?: string | null;
+  domain_6m?: string | null;
+  primary_valuechain?: string | null;
+  primary_application?: string | null;
+  about_offering_text?: string | null;
+  gre_link?: string | null;
+  solution?: { solution_id?: string | null } | null;
+}>(rows: T[]) {
+  const seen = new Set<string>();
+  const uniqueRows: T[] = [];
+
+  for (const row of rows) {
+    const signature = [
+      String(row.trader_id || "").trim(),
+      String(row.solution?.solution_id || "").trim(),
+      normalizeComparable(String(row.offering_name || "")),
+      normalizeComparable(String(row.offering_type || "")),
+      normalizeComparable(String(row.offering_group || "")),
+      normalizeComparable(String(row.domain_6m || "")),
+      normalizeComparable(String(row.primary_valuechain || "")),
+      normalizeComparable(String(row.primary_application || "")),
+      normalizeComparable(String(row.about_offering_text || "")),
+      canonicalGreLink(row.gre_link)
+    ].join("::");
+
+    if (signature.replace(/[:]/g, "").length === 0) {
+      uniqueRows.push(row);
+      continue;
+    }
+
+    if (seen.has(signature)) {
+      continue;
+    }
+
+    seen.add(signature);
     uniqueRows.push(row);
   }
 
