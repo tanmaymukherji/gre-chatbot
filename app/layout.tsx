@@ -16,6 +16,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Script src="https://grameee.org/auth.js" strategy="beforeInteractive" />
       </head>
       <body>
+        <div id="grameeeShellSlot" suppressHydrationWarning />
         {children}
       </body>
     </html>
