@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ImpactOnLoad } from "@/components/impact-on-load";
 import { OfferingDetailChat } from "@/components/offering-detail-chat";
 import { ProviderEmailButton } from "@/components/provider-email-button";
 import { TrackedAnchor } from "@/components/tracked-links";
 import { getOfferingDetail } from "@/lib/database";
+import { incrementImpactCounterOnServer } from "@/lib/server-impact";
 
 function formatValue(value: unknown) {
   if (Array.isArray(value)) {
@@ -120,6 +120,10 @@ export default async function OfferingDetailPage({
     : resolvedSearchParams?.impact;
   const shouldTrackView = String(impactParam || "").toLowerCase() === "view";
 
+  if (shouldTrackView) {
+    await incrementImpactCounterOnServer("solutions_discovered");
+  }
+
   let offering: any;
   try {
     offering = await getOfferingDetail(id);
@@ -146,7 +150,6 @@ export default async function OfferingDetailPage({
 
   return (
     <main className="page-shell">
-      <ImpactOnLoad enabled={shouldTrackView} />
       <section className="hero">
         <div className="detail-hero-top">
           <div className="detail-hero-actions-left">

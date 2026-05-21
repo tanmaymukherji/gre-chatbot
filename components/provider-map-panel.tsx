@@ -262,7 +262,7 @@ export function ProviderMapPanel({ results, mapplsPublicKey }: { results: any[];
                           <span>{[offering.offeringGroup || "Offering", offering.valueChain || "No value chain", offering.application || "No application"].join(" | ")}</span>
                           <div className="provider-offering-links">
                             {offering.offeringId ? (
-                              <Link className="result-link" href={`/offering/${offering.offeringId}?impact=view`}>
+                              <Link className="result-link" href={`/offering/${offering.offeringId}?impact=view`} prefetch={false}>
                                 View details
                               </Link>
                             ) : null}

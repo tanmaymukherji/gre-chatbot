@@ -489,7 +489,7 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
                   <div className="result-card-top">
                     <div>
                       <h3>
-                        <Link className="result-title-link" href={`/offering/${result.offering_id}?impact=view`}>
+                        <Link className="result-title-link" href={`/offering/${result.offering_id}?impact=view`} prefetch={false}>
                           {result.offering_name}
                         </Link>
                       </h3>
@@ -513,7 +513,7 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
                   </div>
                   {result.about_offering_text ? <p style={{ marginTop: 14 }}>{result.about_offering_text}</p> : null}
                   <div className="provider-offering-links" style={{ marginTop: 14 }}>
-                    <Link className="result-link" href={`/offering/${result.offering_id}?impact=view`}>
+                    <Link className="result-link" href={`/offering/${result.offering_id}?impact=view`} prefetch={false}>
                       View details
                     </Link>
                     {result.gre_link ? (
