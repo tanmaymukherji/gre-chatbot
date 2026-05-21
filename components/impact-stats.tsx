@@ -37,13 +37,21 @@ export function ImpactStats() {
       }
     }
 
+    function handlePageReturn() {
+      void load();
+    }
+
     load();
     window.addEventListener("grameee-impact-updated", handleUpdate as EventListener);
+    window.addEventListener("pageshow", handlePageReturn);
+    window.addEventListener("focus", handlePageReturn);
     const intervalId = window.setInterval(load, 30000);
 
     return () => {
       disposed = true;
       window.removeEventListener("grameee-impact-updated", handleUpdate as EventListener);
+      window.removeEventListener("pageshow", handlePageReturn);
+      window.removeEventListener("focus", handlePageReturn);
       window.clearInterval(intervalId);
     };
   }, []);
