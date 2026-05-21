@@ -323,10 +323,31 @@ textarea {
   border: 1px solid rgba(31, 43, 30, 0.08);
 }
 
+.stat-centered {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+}
+
 .stat strong {
   display: block;
   font-size: 1.65rem;
   margin-top: 8px;
+}
+
+.stat-centered strong {
+  margin-top: 2px;
+}
+
+.stat-impact {
+  background:
+    linear-gradient(135deg, rgba(232, 245, 234, 0.96), rgba(219, 239, 223, 0.92)),
+    rgba(255, 253, 248, 0.9);
+  border-color: rgba(45, 106, 79, 0.18);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
 }
 
 .card {

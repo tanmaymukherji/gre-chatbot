@@ -58,35 +58,35 @@ export function ImpactStats() {
 
   return (
     <>
-      <div className="stat">
+      <div className="stat stat-centered">
         Current Source
         <strong>1,659</strong>
         Solution Offerings
       </div>
-      <div className="stat">
+      <div className="stat stat-centered">
         Solution Providers
         <strong>233</strong>
         Providers
       </div>
-      <div className="stat">
+      <div className="stat stat-centered">
         Main groups
         <strong>3</strong>
         Product, Knowledge, Service
       </div>
-      <div className="stat">
+      <div className="stat stat-centered">
         Frameworks
         <strong>6</strong>
         Manpower, Method, Material, Machine, Money and Market
       </div>
-      <div className="stat">
+      <div className="stat stat-centered stat-impact">
         Solutions Discovered
         <strong>{counters.solutions_discovered.toLocaleString("en-IN")}</strong>
-        View-driven discoveries
+        View-Driven Discoveries
       </div>
-      <div className="stat">
+      <div className="stat stat-centered stat-impact">
         Connections Made
         <strong>{counters.connections_made.toLocaleString("en-IN")}</strong>
-        Outreach actions triggered
+        Outreach Actions Triggered
       </div>
     </>
   );
