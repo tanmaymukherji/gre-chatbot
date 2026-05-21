@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { buildProviderMarkers } from "@/lib/provider-map";
-import { TrackedAnchor, TrackedLink } from "@/components/tracked-links";
+import { TrackedAnchor } from "@/components/tracked-links";
 
 const MAP_CONTAINER_ID = "provider-mappls-canvas";
 const MAPPLS_CSS_ID = "mappls-web-sdk-css";
@@ -261,9 +262,9 @@ export function ProviderMapPanel({ results, mapplsPublicKey }: { results: any[];
                           <span>{[offering.offeringGroup || "Offering", offering.valueChain || "No value chain", offering.application || "No application"].join(" | ")}</span>
                           <div className="provider-offering-links">
                             {offering.offeringId ? (
-                              <TrackedLink className="result-link" href={`/offering/${offering.offeringId}?impact=view`}>
+                              <Link className="result-link" href={`/offering/${offering.offeringId}?impact=view`}>
                                 View details
-                              </TrackedLink>
+                              </Link>
                             ) : null}
                             {offering.greLink ? (
                               <TrackedAnchor className="result-link" href={offering.greLink} target="_blank" rel="noreferrer">

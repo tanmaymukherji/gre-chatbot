@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
-import { TrackedAnchor, TrackedLink } from "@/components/tracked-links";
+import { TrackedAnchor } from "@/components/tracked-links";
 
 const PROVIDER_PAGE_SIZE = 12;
 
@@ -125,9 +126,9 @@ export function ProviderDetailBrowser({ offerings }: { offerings: any[] }) {
                     {items.map((offering) => (
                       <article className="card" key={offering.offering_id}>
                         <h3>
-                          <TrackedLink className="result-title-link" href={`/offering/${offering.offering_id}?impact=view`}>
+                          <Link className="result-title-link" href={`/offering/${offering.offering_id}?impact=view`}>
                             {offering.offering_name || "Untitled offering"}
-                          </TrackedLink>
+                          </Link>
                         </h3>
                         <p>
                           {offering.offering_group || "Uncategorized"}
@@ -150,9 +151,9 @@ export function ProviderDetailBrowser({ offerings }: { offerings: any[] }) {
                           </div>
                         ) : null}
                         <div className="provider-offering-links" style={{ marginTop: 14 }}>
-                          <TrackedLink className="result-link" href={`/offering/${offering.offering_id}?impact=view`}>
+                          <Link className="result-link" href={`/offering/${offering.offering_id}?impact=view`}>
                             View details
-                          </TrackedLink>
+                          </Link>
                           {offering.gre_link ? (
                             <TrackedAnchor className="result-link" href={offering.gre_link} target="_blank" rel="noreferrer">
                               View on GRE

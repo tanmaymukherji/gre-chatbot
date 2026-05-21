@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ProviderMapPanel } from "@/components/provider-map-panel";
-import { TrackedAnchor, TrackedLink } from "@/components/tracked-links";
+import { TrackedAnchor } from "@/components/tracked-links";
 
 const CATEGORY_OPTIONS = ["", "Knowledge", "Service", "Product"];
 const DOMAIN_OPTIONS = ["", "Manpower", "Method", "Machine", "Material", "Market", "Money"];
@@ -489,9 +489,9 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
                   <div className="result-card-top">
                     <div>
                       <h3>
-                        <TrackedLink className="result-title-link" href={`/offering/${result.offering_id}?impact=view`}>
+                        <Link className="result-title-link" href={`/offering/${result.offering_id}?impact=view`}>
                           {result.offering_name}
-                        </TrackedLink>
+                        </Link>
                       </h3>
                       <p>
                         {trader}
@@ -513,9 +513,9 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
                   </div>
                   {result.about_offering_text ? <p style={{ marginTop: 14 }}>{result.about_offering_text}</p> : null}
                   <div className="provider-offering-links" style={{ marginTop: 14 }}>
-                    <TrackedLink className="result-link" href={`/offering/${result.offering_id}?impact=view`}>
+                    <Link className="result-link" href={`/offering/${result.offering_id}?impact=view`}>
                       View details
-                    </TrackedLink>
+                    </Link>
                     {result.gre_link ? (
                       <TrackedAnchor className="result-link" href={result.gre_link} target="_blank" rel="noreferrer">
                         View on GRE
