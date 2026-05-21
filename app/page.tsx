@@ -1,4 +1,5 @@
 import { PublicExperience } from "@/components/public-experience";
+import { ImpactStats } from "@/components/impact-stats";
 
 export default function HomePage() {
   const mapplsPublicKey = process.env.MAPPLS_PUBLIC_KEY || null;
@@ -14,26 +15,7 @@ export default function HomePage() {
 
       <section style={{ marginTop: 24 }}>
         <div className="stats-grid">
-          <div className="stat">
-            Current Source
-            <strong>1,659</strong>
-            Solution Offerings
-          </div>
-          <div className="stat">
-            Solution Providers
-            <strong>233</strong>
-            Providers
-          </div>
-          <div className="stat">
-            Main groups
-            <strong>3</strong>
-            Product, Knowledge, Service
-          </div>
-          <div className="stat">
-            Frameworks
-            <strong>6</strong>
-            Manpower, Method, Material, Machine, Money and Market
-          </div>
+          <ImpactStats />
         </div>
       </section>
 

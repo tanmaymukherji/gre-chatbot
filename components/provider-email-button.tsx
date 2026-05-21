@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { trackImpactCounter } from "@/lib/impact";
 
 type Props = {
   providerEmail: string;
@@ -52,6 +53,7 @@ export function ProviderEmailButton({ providerEmail, providerName, offeringId, s
       }
 
       setMessage("Introduction email sent to the provider.");
+      trackImpactCounter("connections_made");
       setOpen(false);
       setSeekerName("");
       setSeekerEmail("");

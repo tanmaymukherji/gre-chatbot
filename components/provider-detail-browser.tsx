@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
+import { TrackedAnchor, TrackedLink } from "@/components/tracked-links";
 
 const PROVIDER_PAGE_SIZE = 12;
 
@@ -125,9 +125,9 @@ export function ProviderDetailBrowser({ offerings }: { offerings: any[] }) {
                     {items.map((offering) => (
                       <article className="card" key={offering.offering_id}>
                         <h3>
-                          <Link className="result-title-link" href={`/offering/${offering.offering_id}`}>
+                          <TrackedLink className="result-title-link" href={`/offering/${offering.offering_id}`}>
                             {offering.offering_name || "Untitled offering"}
-                          </Link>
+                          </TrackedLink>
                         </h3>
                         <p>
                           {offering.offering_group || "Uncategorized"}
@@ -150,13 +150,13 @@ export function ProviderDetailBrowser({ offerings }: { offerings: any[] }) {
                           </div>
                         ) : null}
                         <div className="provider-offering-links" style={{ marginTop: 14 }}>
-                          <Link className="result-link" href={`/offering/${offering.offering_id}`}>
+                          <TrackedLink className="result-link" href={`/offering/${offering.offering_id}`}>
                             View details
-                          </Link>
+                          </TrackedLink>
                           {offering.gre_link ? (
-                            <a className="result-link" href={offering.gre_link} target="_blank" rel="noreferrer">
+                            <TrackedAnchor className="result-link" href={offering.gre_link} target="_blank" rel="noreferrer">
                               View on GRE
-                            </a>
+                            </TrackedAnchor>
                           ) : null}
                         </div>
                       </article>

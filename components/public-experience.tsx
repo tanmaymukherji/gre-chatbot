@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ProviderMapPanel } from "@/components/provider-map-panel";
+import { TrackedAnchor, TrackedLink } from "@/components/tracked-links";
 
 const CATEGORY_OPTIONS = ["", "Knowledge", "Service", "Product"];
 const DOMAIN_OPTIONS = ["", "Manpower", "Method", "Machine", "Material", "Market", "Money"];
@@ -488,9 +489,9 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
                   <div className="result-card-top">
                     <div>
                       <h3>
-                        <Link className="result-title-link" href={`/offering/${result.offering_id}`}>
+                        <TrackedLink className="result-title-link" href={`/offering/${result.offering_id}`}>
                           {result.offering_name}
-                        </Link>
+                        </TrackedLink>
                       </h3>
                       <p>
                         {trader}
@@ -512,13 +513,13 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
                   </div>
                   {result.about_offering_text ? <p style={{ marginTop: 14 }}>{result.about_offering_text}</p> : null}
                   <div className="provider-offering-links" style={{ marginTop: 14 }}>
-                    <Link className="result-link" href={`/offering/${result.offering_id}`}>
+                    <TrackedLink className="result-link" href={`/offering/${result.offering_id}`}>
                       View details
-                    </Link>
+                    </TrackedLink>
                     {result.gre_link ? (
-                      <a className="result-link" href={result.gre_link} target="_blank" rel="noreferrer">
+                      <TrackedAnchor className="result-link" href={result.gre_link} target="_blank" rel="noreferrer">
                         View on GRE
-                      </a>
+                      </TrackedAnchor>
                     ) : null}
                   </div>
                 </article>

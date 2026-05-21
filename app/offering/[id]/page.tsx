@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { OfferingDetailChat } from "@/components/offering-detail-chat";
 import { ProviderEmailButton } from "@/components/provider-email-button";
+import { TrackedAnchor } from "@/components/tracked-links";
 import { getOfferingDetail } from "@/lib/database";
 
 function formatValue(value: unknown) {
@@ -137,9 +138,9 @@ export default async function OfferingDetailPage({ params }: { params: Promise<{
         <div className="detail-hero-top">
           <div className="detail-hero-actions-left">
             {offering.gre_link ? (
-              <a className="btn hero-link" href={offering.gre_link} target="_blank" rel="noreferrer">
+              <TrackedAnchor className="btn hero-link" href={offering.gre_link} target="_blank" rel="noreferrer">
                 View on GRE
-              </a>
+              </TrackedAnchor>
             ) : null}
             <ProviderEmailButton
               providerEmail={providerEmail}
