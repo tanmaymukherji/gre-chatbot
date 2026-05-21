@@ -125,7 +125,7 @@ export function ProviderDetailBrowser({ offerings }: { offerings: any[] }) {
                     {items.map((offering) => (
                       <article className="card" key={offering.offering_id}>
                         <h3>
-                          <TrackedLink className="result-title-link" href={`/offering/${offering.offering_id}`}>
+                          <TrackedLink className="result-title-link" href={`/offering/${offering.offering_id}?impact=view`}>
                             {offering.offering_name || "Untitled offering"}
                           </TrackedLink>
                         </h3>
@@ -150,7 +150,7 @@ export function ProviderDetailBrowser({ offerings }: { offerings: any[] }) {
                           </div>
                         ) : null}
                         <div className="provider-offering-links" style={{ marginTop: 14 }}>
-                          <TrackedLink className="result-link" href={`/offering/${offering.offering_id}`}>
+                          <TrackedLink className="result-link" href={`/offering/${offering.offering_id}?impact=view`}>
                             View details
                           </TrackedLink>
                           {offering.gre_link ? (

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ImpactOnLoad } from "@/components/impact-on-load";
 import { OfferingDetailChat } from "@/components/offering-detail-chat";
 import { ProviderEmailButton } from "@/components/provider-email-button";
 import { TrackedAnchor } from "@/components/tracked-links";
@@ -105,8 +106,19 @@ function buildProviderRows(offering: any) {
   ].filter(([, value]) => isPresent(value));
 }
 
-export default async function OfferingDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function OfferingDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { id } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const impactParam = Array.isArray(resolvedSearchParams?.impact)
+    ? resolvedSearchParams.impact[0]
+    : resolvedSearchParams?.impact;
+  const shouldTrackView = String(impactParam || "").toLowerCase() === "view";
 
   let offering: any;
   try {
@@ -134,6 +146,7 @@ export default async function OfferingDetailPage({ params }: { params: Promise<{
 
   return (
     <main className="page-shell">
+      <ImpactOnLoad enabled={shouldTrackView} />
       <section className="hero">
         <div className="detail-hero-top">
           <div className="detail-hero-actions-left">
