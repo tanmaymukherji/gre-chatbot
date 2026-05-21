@@ -8,6 +8,10 @@ export type ImpactCounters = {
 };
 
 const IMPACT_API_PATH = "/api/impact";
+const DIRECT_IMPACT_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+  ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/grameee-admin`
+  : "";
+const DIRECT_IMPACT_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 const IMPACT_PENDING_KEY = "grameee-impact-pending";
 
 function normalizeCounters(value: unknown): ImpactCounters {
@@ -62,6 +66,23 @@ function clearPendingCounters() {
 }
 
 async function postImpactIncrement(counterKey: ImpactCounterKey, delta = 1) {
+  if (DIRECT_IMPACT_URL && DIRECT_IMPACT_ANON_KEY) {
+    return fetch(DIRECT_IMPACT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: DIRECT_IMPACT_ANON_KEY,
+        Authorization: `Bearer ${DIRECT_IMPACT_ANON_KEY}`,
+      },
+      body: JSON.stringify({
+        action: "incrementImpactCounter",
+        counterKey,
+        delta,
+      }),
+      keepalive: true,
+    }).catch(() => null);
+  }
+
   return fetch(IMPACT_API_PATH, {
     method: "POST",
     headers: {
@@ -118,6 +139,26 @@ export async function fetchImpactCounters(): Promise<ImpactCounters> {
       }));
     }
     return flushedCounters;
+  }
+
+  if (DIRECT_IMPACT_URL && DIRECT_IMPACT_ANON_KEY) {
+    const response = await fetch(DIRECT_IMPACT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: DIRECT_IMPACT_ANON_KEY,
+        Authorization: `Bearer ${DIRECT_IMPACT_ANON_KEY}`,
+      },
+      body: JSON.stringify({ action: "getImpactCounters" }),
+      cache: "no-store",
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(data?.error || "Impact counters could not be loaded.");
+    }
+
+    return normalizeCounters(data?.counters);
   }
 
   const response = await fetch(IMPACT_API_PATH, { cache: "no-store" });
