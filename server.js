@@ -1,37 +1,40 @@
-const { spawn } = require("node:child_process");
+const { createServer } = require("node:http");
+const { parse } = require("node:url");
 const { existsSync } = require("node:fs");
+const path = require("node:path");
 
-const port = process.env.PORT || process.env.port || "3000";
 const hostname = "0.0.0.0";
-const standaloneServer = ".next/standalone/server.js";
-const useStandalone = existsSync(standaloneServer);
+const port = Number(process.env.PORT || process.env.port || 3000);
+const standaloneServer = path.join(__dirname, ".next", "standalone", "server.js");
 
-const child = spawn(
-  process.execPath,
-  useStandalone
-    ? [standaloneServer]
-    : [
-        "./node_modules/next/dist/bin/next",
-        "start",
-        "-H",
-        hostname,
-        "-p",
-        String(port)
-      ],
-  {
-    stdio: "inherit",
-    env: {
-      ...process.env,
-      PORT: String(port),
-      HOSTNAME: hostname
-    }
-  }
-);
+if (existsSync(standaloneServer)) {
+  process.env.PORT = String(port);
+  process.env.HOSTNAME = hostname;
+  require(standaloneServer);
+  return;
+}
 
-child.on("exit", (code, signal) => {
-  if (signal) {
-    process.kill(process.pid, signal);
-    return;
-  }
-  process.exit(code ?? 0);
+const next = require("next");
+
+const app = next({
+  dev: false,
+  hostname,
+  port,
 });
+
+const handle = app.getRequestHandler();
+
+app
+  .prepare()
+  .then(() => {
+    createServer((req, res) => {
+      const parsedUrl = parse(req.url, true);
+      handle(req, res, parsedUrl);
+    }).listen(port, hostname, () => {
+      console.log(`AskGRE server ready on http://${hostname}:${port}`);
+    });
+  })
+  .catch((error) => {
+    console.error("AskGRE server failed to start", error);
+    process.exit(1);
+  });
