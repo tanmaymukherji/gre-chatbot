@@ -80,6 +80,19 @@ textarea {
   letter-spacing: -0.04em;
 }
 
+.hero-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  position: relative;
+  z-index: 1;
+}
+
+.hero-heading-row-with-action {
+  flex-wrap: wrap;
+}
+
 .hero p {
   margin: 14px 0 0;
   line-height: 1.55;
@@ -104,6 +117,11 @@ textarea {
   justify-content: flex-end;
   position: relative;
   z-index: 1;
+}
+
+.hero-surface-link {
+  min-width: 140px;
+  flex: 0 0 auto;
 }
 
 .hero-link {
@@ -998,5 +1016,9 @@ textarea {
 
   .hero {
     padding: 24px;
+  }
+
+  .hero-heading-row {
+    align-items: flex-start;
   }
 }

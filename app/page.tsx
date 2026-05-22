@@ -33,14 +33,14 @@ export default async function HomePage() {
   return (
     <main className="page-shell">
       <section className="hero">
-        {surface.slug === "askgre" ? (
-          <div className="hero-actions hero-actions-top">
-            <Link className="btn hero-link" href="https://supergre.grameee.org/">
+        <div className={`hero-heading-row${surface.slug === "askgre" ? " hero-heading-row-with-action" : ""}`}>
+          <h1>{surface.heading}</h1>
+          {surface.slug === "askgre" ? (
+            <Link className="btn hero-link hero-surface-link" href="https://supergre.grameee.org/">
               SuperGRE
             </Link>
-          </div>
-        ) : null}
-        <h1>{surface.heading}</h1>
+          ) : null}
+        </div>
         <p className="hero-copy">
           {surface.heroDescription}
         </p>
