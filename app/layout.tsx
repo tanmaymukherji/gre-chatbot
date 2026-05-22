@@ -16,9 +16,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en">
       <head>
-        <link rel="stylesheet" href="https://grameee.org/shared-shell.css?v=20260522a" />
-        <Script src="https://grameee.org/supabase-config.js?v=20260522a" strategy="beforeInteractive" />
-        <Script src="https://grameee.org/shared-shell.js?v=20260522a" strategy="beforeInteractive" />
+        <link rel="stylesheet" href="https://grameee.org/shared-shell.css?v=20260518b" />
+        <Script src="https://grameee.org/supabase-config.js" strategy="beforeInteractive" />
+        <Script src="https://grameee.org/shared-shell.js?v=20260518b" strategy="beforeInteractive" />
         <Script
           id="grameee-page-menu-config"
           strategy="beforeInteractive"
@@ -35,7 +35,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             })};`
           }}
         />
-        <Script src="https://grameee.org/auth.js?v=20260522a" strategy="beforeInteractive" />
+        <Script src="https://grameee.org/auth.js?v=20260518b" strategy="beforeInteractive" />
       </head>
       <body data-gre-surface={surface.slug}>
         <div id="grameeeShellSlot" suppressHydrationWarning />
