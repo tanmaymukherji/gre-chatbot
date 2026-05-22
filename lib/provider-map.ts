@@ -7,8 +7,15 @@ import {
 } from "@/lib/geography-hierarchy";
 
 type ProviderResult = {
+  source_slug?: string | null;
+  source_label?: string | null;
   geographies?: string[] | null;
   geographies_raw?: string | null;
+  map_lat?: number | null;
+  map_lng?: number | null;
+  portal_url?: string | null;
+  detail_href?: string | null;
+  preferred_contact_email?: string | null;
   solution?: {
     trader?: {
       trader_id?: string | null;
@@ -39,6 +46,7 @@ export type ProviderMarker = {
   associationStatus: string | null;
   offerings: Array<{
     offeringId: string | null;
+    detailHref: string | null;
     offeringName: string | null;
     offeringGroup: string | null;
     valueChain: string | null;
@@ -128,6 +136,17 @@ export function buildProviderMarkers(results: ProviderResult[]) {
     const trader = result.solution?.trader;
     const providerId = trader?.trader_id || `provider-${result.offering_id || Math.random()}`;
     const providerName = trader?.organisation_name || trader?.trader_name || "Unknown provider";
+    const directCoordinate =
+      Number.isFinite(Number(result.map_lat)) && Number.isFinite(Number(result.map_lng))
+        ? {
+            geography: result.geographies?.[0] || result.geographies_raw || "India",
+            resolved: {
+              lat: Number(result.map_lat),
+              lng: Number(result.map_lng),
+              label: result.geographies?.[0] || result.geographies_raw || "India"
+            }
+          }
+        : null;
     const geographyGroups = extractGeographyGroups(result);
     const resolvedGeographies = geographyGroups
       .map((group) => {
@@ -136,7 +155,9 @@ export function buildProviderMarkers(results: ProviderResult[]) {
       })
       .filter((entry) => entry.resolved);
 
-    const targetGeographies = resolvedGeographies.length > 0
+    const targetGeographies = directCoordinate
+      ? [directCoordinate]
+      : resolvedGeographies.length > 0
       ? resolvedGeographies
       : [{ geography: "India", resolved: LOCATION_COORDINATES.india ? { ...LOCATION_COORDINATES.india, label: "India" } : null }].filter((entry) => entry.resolved);
 
@@ -152,7 +173,7 @@ export function buildProviderMarkers(results: ProviderResult[]) {
           lat: resolved.lat,
           lng: resolved.lng,
           locationLabel: resolved.label,
-          email: trader?.email || null,
+          email: result.preferred_contact_email || trader?.email || null,
           website: trader?.website || null,
           associationStatus: trader?.association_status || null,
           offerings: []
@@ -161,11 +182,12 @@ export function buildProviderMarkers(results: ProviderResult[]) {
 
       markers.get(markerId)?.offerings.push({
         offeringId: result.offering_id || null,
+        detailHref: result.detail_href || (result.offering_id ? `/offering/${result.offering_id}` : null),
         offeringName: result.offering_name || null,
         offeringGroup: result.offering_group || null,
         valueChain: result.primary_valuechain || null,
         application: result.primary_application || null,
-        greLink: result.gre_link || null
+        greLink: result.portal_url || result.gre_link || null
       });
     }
   }

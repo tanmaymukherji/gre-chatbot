@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ProviderMapPanel } from "@/components/provider-map-panel";
-import { TrackedAnchor } from "@/components/tracked-links";
+import { TrackedAnchor, TrackedLink } from "@/components/tracked-links";
+import type { GreSurfaceConfig } from "@/lib/surface";
 
 const CATEGORY_OPTIONS = ["", "Knowledge", "Service", "Product"];
 const DOMAIN_OPTIONS = ["", "Manpower", "Method", "Machine", "Material", "Market", "Money"];
@@ -120,9 +120,16 @@ function renderOptions(options: string[], emptyLabel: string) {
   ];
 }
 
-export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string | null }) {
+export function PublicExperience({
+  mapplsPublicKey,
+  surface
+}: {
+  mapplsPublicKey?: string | null;
+  surface: GreSurfaceConfig;
+}) {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [chatQuery, setChatQuery] = useState("");
+  const [beyondGre, setBeyondGre] = useState(false);
   const [activeTab, setActiveTab] = useState<"parameters" | "chat">("parameters");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [assistantAnswer, setAssistantAnswer] = useState<string | null>(null);
@@ -153,6 +160,7 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
       setNotice(parsed.notice || null);
       setActiveMode(parsed.activeMode || null);
       setResultsPage(parsed.resultsPage || 1);
+      setBeyondGre(Boolean(parsed.beyondGre));
     } catch {
       window.sessionStorage.removeItem(SEARCH_STATE_KEY);
     }
@@ -204,10 +212,11 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
         assistantAnswer,
         notice,
         activeMode,
-        resultsPage
+        resultsPage,
+        beyondGre
       })
     );
-  }, [filters, chatQuery, searchResults, assistantAnswer, notice, activeMode, resultsPage]);
+  }, [filters, chatQuery, searchResults, assistantAnswer, notice, activeMode, resultsPage, beyondGre]);
 
   useEffect(() => {
     if (filters.offeringType && !availableOfferingTypes.includes(filters.offeringType)) {
@@ -226,6 +235,9 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
     Object.entries(filters).forEach(([key, value]) => {
       if (value) params.set(key, value);
     });
+    if (surface.enableBeyondGre && beyondGre) {
+      params.set("beyondGre", "true");
+    }
 
     try {
       const response = await fetch(`/api/search?${params.toString()}`);
@@ -263,7 +275,8 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
         },
         body: JSON.stringify({
           message: chatQuery,
-          filters: {}
+          filters: {},
+          beyondGre: surface.enableBeyondGre && beyondGre
         })
       });
 
@@ -294,6 +307,7 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
     setNotice(null);
     setActiveMode(null);
     setResultsPage(1);
+    setBeyondGre(false);
     window.sessionStorage.removeItem(SEARCH_STATE_KEY);
   }
 
@@ -327,6 +341,20 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
               <p className="section-copy">
                 Use structured filters first. Explicit choices here override the default relevance ordering used for ranking.
               </p>
+
+              {surface.enableBeyondGre ? (
+                <div className="query-surface-toggle">
+                  <label className="surface-checkbox" htmlFor="beyondGreToggle">
+                    <input
+                      id="beyondGreToggle"
+                      type="checkbox"
+                      checked={beyondGre}
+                      onChange={(event) => setBeyondGre(event.target.checked)}
+                    />
+                    <span>Beyond GRE</span>
+                  </label>
+                </div>
+              ) : null}
 
               <div className="filter-grid query-panel-body" onFocusCapture={ensureLiveFilters} onMouseEnter={ensureLiveFilters}>
                 <div className="field">
@@ -410,12 +438,12 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
             <>
               <h2 className="section-title">Chatbot</h2>
               <p className="section-copy">
-                Ask a natural-language question. The chatbot can translate, interpret, and then rank matching offerings against the GRE dataset.
+                Ask a natural-language question. The chatbot can translate, interpret, and then rank matching offerings against the {surface.datasetLabel}.
               </p>
 
               <div className="stack query-panel-body">
                 <div className="field">
-                  <label htmlFor="chatQuery">Question for GRE Copilot</label>
+                  <label htmlFor="chatQuery">Question for {surface.copilotLabel}</label>
                   <textarea
                     className="chat-query"
                     id="chatQuery"
@@ -439,12 +467,7 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
         </section>
 
         <div className="stack">
-          <ProviderMapPanel results={searchResults} mapplsPublicKey={mapplsPublicKey || null} />
-          <div className="map-admin-link-wrap">
-            <Link className="subtle-admin-link" href="/admin">
-              GRE Data
-            </Link>
-          </div>
+          <ProviderMapPanel results={searchResults} mapplsPublicKey={mapplsPublicKey || null} surface={surface} />
         </div>
       </div>
 
@@ -467,7 +490,7 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
 
         {assistantAnswer ? (
           <div className="chat-bubble assistant" style={{ marginBottom: 18 }}>
-            <strong>GRE Copilot</strong>
+            <strong>{surface.copilotLabel}</strong>
             <div style={{ whiteSpace: "pre-wrap", marginTop: 8 }}>{assistantAnswer}</div>
           </div>
         ) : null}
@@ -483,15 +506,18 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
                 result.solution?.trader?.organisation_name || result.solution?.trader?.trader_name || "Unknown provider";
               const matchScore = Number(result.matchScore || 0);
               const scoreTone = matchScore >= 100 ? "match-score-high" : "match-score-medium";
+              const detailHref = result.detail_href || `/offering/${result.offering_id}`;
+              const portalHref = result.portal_url || result.gre_link || "";
               return (
                 <article className={`card result-card ${scoreTone}`} key={result.offering_id}>
                   <span className={`match-score-pill ${scoreTone}`}>Relevance Score {matchScore}</span>
                   <div className="result-card-top">
                     <div>
+                      {result.source_label ? <span className="tag">{result.source_label}</span> : null}
                       <h3>
-                        <Link className="result-title-link" href={`/offering/${result.offering_id}?impact=view`} prefetch={false}>
+                        <TrackedLink className="result-title-link" href={detailHref} prefetch={false}>
                           {result.offering_name}
-                        </Link>
+                        </TrackedLink>
                       </h3>
                       <p>
                         {trader}
@@ -513,12 +539,12 @@ export function PublicExperience({ mapplsPublicKey }: { mapplsPublicKey?: string
                   </div>
                   {result.about_offering_text ? <p style={{ marginTop: 14 }}>{result.about_offering_text}</p> : null}
                   <div className="provider-offering-links" style={{ marginTop: 14 }}>
-                    <Link className="result-link" href={`/offering/${result.offering_id}?impact=view`} prefetch={false}>
+                    <TrackedLink className="result-link" href={detailHref} prefetch={false}>
                       View details
-                    </Link>
-                    {result.gre_link ? (
-                      <TrackedAnchor className="result-link" href={result.gre_link} target="_blank" rel="noreferrer">
-                        View on GRE
+                    </TrackedLink>
+                    {portalHref ? (
+                      <TrackedAnchor className="result-link" href={portalHref} target="_blank" rel="noreferrer">
+                        {surface.portalLabel}
                       </TrackedAnchor>
                     ) : null}
                   </div>

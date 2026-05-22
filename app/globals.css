@@ -259,6 +259,27 @@ textarea {
   gap: 12px;
 }
 
+.query-surface-toggle {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 18px;
+}
+
+.surface-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(31, 43, 30, 0.12);
+  background: rgba(255, 253, 248, 0.9);
+  font-weight: 600;
+}
+
+.surface-checkbox input {
+  margin: 0;
+}
+
 .query-actions {
   margin-top: auto;
   align-items: center;
@@ -863,6 +884,42 @@ textarea {
 .detail-table td {
   color: var(--muted);
   line-height: 1.6;
+}
+
+.detail-media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.detail-media-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid rgba(31, 43, 30, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.detail-media-image,
+.detail-media-video,
+.detail-media-frame {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border: 0;
+  border-radius: 14px;
+  background: rgba(31, 43, 30, 0.06);
+  object-fit: cover;
+}
+
+.detail-media-video {
+  object-fit: contain;
+}
+
+.detail-media-caption {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .offering-chat-log {

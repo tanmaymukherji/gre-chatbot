@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import { OfferingDetailChat } from "@/components/offering-detail-chat";
 import { ProviderEmailButton } from "@/components/provider-email-button";
 import { TrackedAnchor } from "@/components/tracked-links";
 import { getOfferingDetail } from "@/lib/database";
-import { incrementImpactCounterOnServer } from "@/lib/server-impact";
+import { getSurfaceConfigByHost } from "@/lib/surface";
 
 function formatValue(value: unknown) {
   if (Array.isArray(value)) {
@@ -108,21 +109,12 @@ function buildProviderRows(offering: any) {
 
 export default async function OfferingDetailPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
-  const resolvedSearchParams = searchParams ? await searchParams : {};
-  const impactParam = Array.isArray(resolvedSearchParams?.impact)
-    ? resolvedSearchParams.impact[0]
-    : resolvedSearchParams?.impact;
-  const shouldTrackView = String(impactParam || "").toLowerCase() === "view";
-
-  if (shouldTrackView) {
-    await incrementImpactCounterOnServer("solutions_discovered");
-  }
+  const headerStore = await headers();
+  const surface = getSurfaceConfigByHost(headerStore.get("host"));
 
   let offering: any;
   try {
@@ -155,7 +147,7 @@ export default async function OfferingDetailPage({
           <div className="detail-hero-actions-left">
             {offering.gre_link ? (
               <TrackedAnchor className="btn hero-link" href={offering.gre_link} target="_blank" rel="noreferrer">
-                View on GRE
+                {surface.portalLabel}
               </TrackedAnchor>
             ) : null}
             <ProviderEmailButton
@@ -164,6 +156,7 @@ export default async function OfferingDetailPage({
               offeringId={offering.offering_id}
               solutionTitle={solutionTitle}
               solutionSummary={solutionSummary}
+              unavailableLabel={surface.slug === "supergre" ? "Contact currently unavailable." : ""}
             />
           </div>
           <Link className="btn hero-link detail-hero-back" href="/">

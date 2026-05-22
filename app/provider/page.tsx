@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { ProviderDetailBrowser } from "@/components/provider-detail-browser";
 import { getProviderDetail } from "@/lib/database";
+import { getSurfaceConfigByHost } from "@/lib/surface";
 
 function formatValue(value: unknown) {
   if (Array.isArray(value)) {
@@ -20,6 +22,8 @@ export default async function ProviderPage({
   searchParams: Promise<{ name?: string }>;
 }) {
   const { name } = await searchParams;
+  const headerStore = await headers();
+  const surface = getSurfaceConfigByHost(headerStore.get("host"));
   if (!name) {
     notFound();
   }
@@ -52,7 +56,7 @@ export default async function ProviderPage({
         </div>
         <h1>{provider.organisation_name || provider.trader_name || "Solution Provider"}</h1>
         <p className="hero-copy">
-          {provider.description || provider.short_description || "This page shows the available GRE dataset summary and offerings for the selected provider."}
+          {provider.description || provider.short_description || `This page shows the available ${surface.datasetLabel} summary and offerings for the selected provider.`}
         </p>
       </section>
 
@@ -110,7 +114,7 @@ export default async function ProviderPage({
       </section>
 
       <section style={{ marginTop: 24 }}>
-        <ProviderDetailBrowser offerings={data.offerings} />
+        <ProviderDetailBrowser offerings={data.offerings} surface={surface} />
       </section>
 
       <div className="page-bottom-actions">

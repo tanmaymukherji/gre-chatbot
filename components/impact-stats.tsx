@@ -8,12 +8,24 @@ type ImpactCounters = {
   connections_made: number;
 };
 
+type DirectoryStats = {
+  offeringCount: number;
+  providerCount: number;
+  sourceCount?: number;
+};
+
 const INITIAL_COUNTERS: ImpactCounters = {
   solutions_discovered: 0,
   connections_made: 0,
 };
 
-export function ImpactStats() {
+export function ImpactStats({
+  surfaceLabel = "Ask GRE",
+  directoryStats,
+}: {
+  surfaceLabel?: string;
+  directoryStats?: DirectoryStats;
+}) {
   const [counters, setCounters] = useState<ImpactCounters>(INITIAL_COUNTERS);
 
   useEffect(() => {
@@ -59,13 +71,13 @@ export function ImpactStats() {
   return (
     <>
       <div className="stat stat-centered">
-        Current Source
-        <strong>1,659</strong>
+        {surfaceLabel}
+        <strong>{Number(directoryStats?.offeringCount || 0).toLocaleString("en-IN")}</strong>
         Solution Offerings
       </div>
       <div className="stat stat-centered">
         Solution Providers
-        <strong>233</strong>
+        <strong>{Number(directoryStats?.providerCount || 0).toLocaleString("en-IN")}</strong>
         Providers
       </div>
       <div className="stat stat-centered">

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { formatGroundedResults, generateGroundedAnswer, getHeuristicSearchIntent, interpretSearchIntent, mergeSearchIntents, shouldTranslateFirst, shouldUseAiInterpretation, translateSearchText } from "@/lib/chat";
 import { getFilterOptions, inferSearchFilters, runSearch } from "@/lib/database";
+import { getSurfaceConfigByHost } from "@/lib/surface";
 
 const payloadSchema = z.object({
   message: z.string().min(2),
@@ -17,12 +18,14 @@ const payloadSchema = z.object({
       language: z.string().optional(),
       geography: z.string().optional()
     })
-    .default({})
+    .default({}),
+  beyondGre: z.boolean().optional().default(false)
 });
 
 export async function POST(request: NextRequest) {
   try {
     const body = payloadSchema.parse(await request.json());
+    const surface = getSurfaceConfigByHost(request.headers.get("host"));
     const normalizedMessage = body.message.toLowerCase();
     const rawWordCount = body.message.trim().split(/\s+/).filter(Boolean).length;
     const shortDirectQuery = rawWordCount <= 4;
@@ -36,7 +39,7 @@ export async function POST(request: NextRequest) {
       : { englishQuery: body.message, keywords: [] };
     const translatedMessage = translation.englishQuery || body.message;
     const normalizedTranslatedMessage = translatedMessage.toLowerCase();
-    const filterOptions = await getFilterOptions();
+    const filterOptions = await getFilterOptions(surface.slug);
     const explicitStructuredCue = Boolean(
       body.filters.solutionProvider ||
       body.filters.category ||
@@ -142,6 +145,7 @@ export async function POST(request: NextRequest) {
     );
 
     const baseSearch = {
+      surfaceSlug: surface.slug,
       q: searchQuery || interpreted.englishQuery || translatedMessage,
       strictKeyword: shortDirectQuery,
       ...effectiveFilters,

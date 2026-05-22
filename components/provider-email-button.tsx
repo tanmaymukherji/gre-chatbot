@@ -9,15 +9,26 @@ type Props = {
   offeringId: string;
   solutionTitle: string;
   solutionSummary: string;
+  unavailableLabel?: string;
+  detailPath?: string;
 };
 
-export function ProviderEmailButton({ providerEmail, providerName, offeringId, solutionTitle, solutionSummary }: Props) {
+export function ProviderEmailButton({
+  providerEmail,
+  providerName,
+  offeringId,
+  solutionTitle,
+  solutionSummary,
+  unavailableLabel = "",
+  detailPath
+}: Props) {
   const [open, setOpen] = useState(false);
   const [seekerName, setSeekerName] = useState("");
   const [seekerEmail, setSeekerEmail] = useState("");
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [unavailableOpen, setUnavailableOpen] = useState(false);
 
   const disabled = !providerEmail;
 
@@ -43,7 +54,8 @@ export function ProviderEmailButton({ providerEmail, providerName, offeringId, s
           seekerEmail,
           offeringId,
           solutionTitle,
-          solutionSummary
+          solutionSummary,
+          detailPath
         })
       });
 
@@ -69,15 +81,27 @@ export function ProviderEmailButton({ providerEmail, providerName, offeringId, s
       <button
         className="btn hero-link"
         type="button"
-        disabled={disabled}
         onClick={() => {
+          if (disabled && unavailableLabel) {
+            setUnavailableOpen((current) => !current);
+            setOpen(false);
+            setError(null);
+            return;
+          }
           setOpen((current) => !current);
+          setUnavailableOpen(false);
           setError(null);
         }}
         title={disabled ? "Provider email is not available for this solution." : "Email Provider"}
       >
         Email Provider
       </button>
+
+      {unavailableOpen ? (
+        <div className="provider-email-status provider-email-status-error">
+          <strong>{unavailableLabel}</strong>
+        </div>
+      ) : null}
 
       {message ? (
         <button

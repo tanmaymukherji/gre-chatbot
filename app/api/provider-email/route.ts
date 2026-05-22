@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getServerEnv } from "@/lib/env";
+import { getSurfaceConfigByHost } from "@/lib/surface";
 
 const requestSchema = z.object({
   providerEmail: z.string().email(),
@@ -9,7 +10,8 @@ const requestSchema = z.object({
   seekerEmail: z.string().email(),
   offeringId: z.string().min(1),
   solutionTitle: z.string().min(1),
-  solutionSummary: z.string().min(1)
+  solutionSummary: z.string().min(1),
+  detailPath: z.string().optional()
 });
 
 function toBase64Url(input: string) {
@@ -66,11 +68,14 @@ export async function POST(request: NextRequest) {
     const body = requestSchema.parse(await request.json());
     const env = getServerEnv();
     const senderEmail = env.greMailSender || "help@greenruraleconomy.in";
-    const appBaseUrl = env.appUrl || "https://askgre.grameee.org";
+    const forwardedHost = request.headers.get("x-forwarded-host");
+    const originHost = forwardedHost || request.headers.get("host");
+    const surface = getSurfaceConfigByHost(originHost);
+    const appBaseUrl = surface.appBaseUrl || env.appUrl || "https://askgre.grameee.org";
 
     const subject = `GRE introduction for ${body.solutionTitle}`;
     const summary = body.solutionSummary.trim();
-    const detailUrl = new URL(`/offering/${body.offeringId}`, appBaseUrl).toString();
+    const detailUrl = new URL(body.detailPath || `/offering/${body.offeringId}`, appBaseUrl).toString();
     const mailBody = [
       `Hello ${body.providerName},`,
       "",

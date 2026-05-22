@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { buildProviderMarkers } from "@/lib/provider-map";
-import { TrackedAnchor } from "@/components/tracked-links";
+import { TrackedAnchor, TrackedLink } from "@/components/tracked-links";
+import type { GreSurfaceConfig } from "@/lib/surface";
 
 const MAP_CONTAINER_ID = "provider-mappls-canvas";
 const MAPPLS_CSS_ID = "mappls-web-sdk-css";
@@ -109,7 +109,15 @@ async function loadMapplsScript(accessToken: string) {
   throw lastError || new Error("The Mappls SDK could not be loaded.");
 }
 
-export function ProviderMapPanel({ results, mapplsPublicKey }: { results: any[]; mapplsPublicKey?: string | null }) {
+export function ProviderMapPanel({
+  results,
+  mapplsPublicKey,
+  surface
+}: {
+  results: any[];
+  mapplsPublicKey?: string | null;
+  surface: GreSurfaceConfig;
+}) {
   const mapInstanceRef = useRef<any>(null);
   const markerRefs = useRef<any[]>([]);
   const [mapReady, setMapReady] = useState(false);
@@ -261,14 +269,14 @@ export function ProviderMapPanel({ results, mapplsPublicKey }: { results: any[];
                           <strong>{offering.offeringName || "Untitled offering"}</strong>
                           <span>{[offering.offeringGroup || "Offering", offering.valueChain || "No value chain", offering.application || "No application"].join(" | ")}</span>
                           <div className="provider-offering-links">
-                            {offering.offeringId ? (
-                              <Link className="result-link" href={`/offering/${offering.offeringId}?impact=view`} prefetch={false}>
+                            {offering.detailHref ? (
+                              <TrackedLink className="result-link" href={offering.detailHref} prefetch={false}>
                                 View details
-                              </Link>
+                              </TrackedLink>
                             ) : null}
                             {offering.greLink ? (
                               <TrackedAnchor className="result-link" href={offering.greLink} target="_blank" rel="noreferrer">
-                                View on GRE
+                                {surface.portalLabel}
                               </TrackedAnchor>
                             ) : null}
                           </div>

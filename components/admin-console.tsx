@@ -5,19 +5,30 @@ import { useEffect, useState } from "react";
 export function AdminConsole() {
   const [password, setPassword] = useState("");
   const [sessionUsername, setSessionUsername] = useState<string | null>(null);
+  const [sessionSource, setSessionSource] = useState<"grameee" | "legacy" | null>(null);
   const [solutionFile, setSolutionFile] = useState<File | null>(null);
   const [traderFile, setTraderFile] = useState<File | null>(null);
-  const [status, setStatus] = useState<string>("Enter the admin password to continue.");
+  const [status, setStatus] = useState<string>("Checking admin access...");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    fetch("/api/admin/session")
+    fetch("/api/gre-admin/session")
       .then((response) => response.json())
       .then((data) => {
         setSessionUsername(data.username || null);
+        setSessionSource(data.source || null);
+        setStatus(
+          data.source === "grameee"
+            ? "Admin access is available through your GramEEE login."
+            : data.username
+              ? "Admin login successful. You can now upload the latest GRE workbooks."
+              : "Enter the admin password to continue."
+        );
       })
       .catch(() => {
         setSessionUsername(null);
+        setSessionSource(null);
+        setStatus("Enter the admin password to continue.");
       });
   }, []);
 
@@ -25,7 +36,7 @@ export function AdminConsole() {
     setBusy(true);
     setStatus("Signing in...");
 
-    const response = await fetch("/api/admin/login", {
+    const response = await fetch("/api/gre-admin/login", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -39,8 +50,10 @@ export function AdminConsole() {
     if (!response.ok) {
       setStatus(payload.error || "Login failed.");
       setSessionUsername(null);
+      setSessionSource(null);
     } else {
       setSessionUsername(payload.username);
+      setSessionSource("legacy");
       setPassword("");
       setStatus("Admin login successful. You can now upload the latest GRE workbooks.");
     }
@@ -60,7 +73,7 @@ export function AdminConsole() {
     formData.append("solutionFile", solutionFile);
     formData.append("traderFile", traderFile);
 
-    const response = await fetch("/api/admin/import", {
+    const response = await fetch("/api/gre-admin/import", {
       method: "POST",
       body: formData
     });
@@ -77,10 +90,16 @@ export function AdminConsole() {
   }
 
   async function signOut() {
-    await fetch("/api/admin/logout", {
+    if (sessionSource === "grameee") {
+      setStatus("This page is using your shared GramEEE admin session.");
+      return;
+    }
+
+    await fetch("/api/gre-admin/logout", {
       method: "POST"
     });
     setSessionUsername(null);
+    setSessionSource(null);
     setPassword("");
     setStatus("Signed out.");
   }
@@ -123,15 +142,21 @@ export function AdminConsole() {
                 upsert the rows into the GRE database.
               </p>
             </div>
-            <button className="btn ghost" type="button" onClick={signOut} disabled={busy}>
-              Sign out
-            </button>
+            {sessionSource === "legacy" ? (
+              <button className="btn ghost" type="button" onClick={signOut} disabled={busy}>
+                Sign out
+              </button>
+            ) : null}
           </div>
 
           <div className="stack">
             <div className="notice">
               Signed in as: <span className="mono">{sessionUsername}</span>
             </div>
+
+            {sessionSource === "grameee" ? (
+              <div className="notice">Access is being provided by your active GramEEE admin session.</div>
+            ) : null}
 
             <div className="field">
               <label htmlFor="solution-file">Solution workbook</label>

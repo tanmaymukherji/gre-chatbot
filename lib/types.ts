@@ -2,6 +2,7 @@ export type SearchFilters = {
   q?: string;
   strictKeyword?: boolean;
   disableKeywordPromotion?: boolean;
+  surfaceSlug?: "askgre" | "supergre";
   solutionProvider?: string;
   category?: string;
   domain6m?: string;
@@ -11,6 +12,7 @@ export type SearchFilters = {
   tag?: string;
   language?: string;
   geography?: string;
+  beyondGre?: boolean;
   limit?: number;
   page?: number;
 };
