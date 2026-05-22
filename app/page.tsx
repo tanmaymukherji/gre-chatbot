@@ -3,6 +3,7 @@ import { ImpactStats } from "@/components/impact-stats";
 import { headers } from "next/headers";
 import { getSurfaceConfigByHost } from "@/lib/surface";
 import { getDirectorySummaryStats } from "@/lib/database";
+import Link from "next/link";
 
 const FALLBACK_DIRECTORY_STATS = {
   offeringCount: 0,
@@ -32,6 +33,13 @@ export default async function HomePage() {
   return (
     <main className="page-shell">
       <section className="hero">
+        {surface.slug === "askgre" ? (
+          <div className="hero-actions hero-actions-top">
+            <Link className="btn hero-link" href="https://supergre.grameee.org/">
+              SuperGRE
+            </Link>
+          </div>
+        ) : null}
         <h1>{surface.heading}</h1>
         <p className="hero-copy">
           {surface.heroDescription}
