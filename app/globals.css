@@ -98,14 +98,6 @@ textarea {
   margin-top: 22px;
 }
 
-.hero-actions-top {
-  margin-top: 0;
-  margin-bottom: 22px;
-  justify-content: flex-end;
-  position: relative;
-  z-index: 1;
-}
-
 .hero-link {
   display: inline-flex;
   align-items: center;
