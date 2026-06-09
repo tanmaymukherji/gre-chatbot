@@ -3,6 +3,33 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { cookies } from "next/headers";
 import { OfferingDetailChat } from "@/components/offering-detail-chat";
+
+function isVideoUrl(url: string) {
+  return /\.(mp4|webm|ogg|mov)(\?|#|$)/i.test(url) ||
+    /youtube\.com\/watch\?/i.test(url) ||
+    /youtube\.com\/embed\//i.test(url) ||
+    /vimeo\.com\//i.test(url);
+}
+
+function toEmbedUrl(url: string) {
+  const text = String(url || "");
+  const youtubeWatch = text.match(/[?&]v=([^&]+)/i);
+  if (/youtube\.com\/watch\?/i.test(text) && youtubeWatch?.[1]) {
+    return `https://www.youtube.com/embed/${youtubeWatch[1]}`;
+  }
+  const youtuBe = text.match(/youtu\.be\/([^?&]+)/i);
+  if (youtuBe?.[1]) {
+    return `https://www.youtube.com/embed/${youtuBe[1]}`;
+  }
+  if (/youtube\.com\/embed\//i.test(text)) {
+    return text;
+  }
+  const vimeoMatch = text.match(/vimeo\.com\/(\d+)/i);
+  if (vimeoMatch?.[1]) {
+    return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+  }
+  return text;
+}
 import { ProviderEmailButton } from "@/components/provider-email-button";
 import { TrackedAnchor } from "@/components/tracked-links";
 import { getOfferingDetail } from "@/lib/database";
@@ -76,7 +103,6 @@ function buildOfferingRows(offering: any, viewerSummary: any) {
     ["Duration", offering.duration],
     ["Prerequisites", offering.prerequisites],
     ["Certification Offered", offering.certification_offered],
-    ["Knowledge Content", offering.knowledge_content_url]
   ];
 
   const group = String(offering.offering_group || "").toLowerCase();
@@ -260,6 +286,28 @@ export default async function OfferingDetailPage({
                     ))}
                   </tbody>
                 </table>
+              </section>
+            ) : null}
+
+            {offering.knowledge_content_url && isVideoUrl(offering.knowledge_content_url) ? (
+              <section className="panel panel-pad">
+                <h2 className="section-title">Video</h2>
+                <div className="detail-media-card">
+                  {/\.(mp4|webm|ogg|mov)(\?|#|$)/i.test(offering.knowledge_content_url) ? (
+                    <video className="detail-media-video" controls preload="metadata" style={{ maxWidth: "100%", borderRadius: 12 }}>
+                      <source src={offering.knowledge_content_url} />
+                      Your browser does not support embedded video playback.
+                    </video>
+                  ) : (
+                    <iframe
+                      src={toEmbedUrl(offering.knowledge_content_url)}
+                      title="Embedded video"
+                      style={{ width: "100%", height: 400, border: "none", borderRadius: 12 }}
+                      allow="fullscreen; accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  )}
+                </div>
               </section>
             ) : null}
           </section>
