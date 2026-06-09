@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ProviderMapPanel } from "@/components/provider-map-panel";
+import { ShowcaseSections } from "@/components/showcase-sections";
 import { TrackedAnchor, TrackedLink } from "@/components/tracked-links";
 import type { GreSurfaceConfig } from "@/lib/surface";
 
@@ -568,6 +569,7 @@ export function PublicExperience({
           </div>
         ) : null}
       </section>
+      <ShowcaseSections />
     </div>
   );
 }
