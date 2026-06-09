@@ -1,5 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase";
-import type { ImportBundle, SearchFilters } from "@/lib/types";
+import type { SearchFilters } from "@/lib/types";
 import type { GreSurfaceSlug } from "@/lib/surface";
 
 const FILTER_CACHE_TTL_MS = 60 * 1000;
@@ -16,6 +16,7 @@ type CachedFilterOptions = {
   tags: string[];
   languages: string[];
   geographies: string[];
+  providerEmailTemplate?: string;
 };
 
 type DirectorySummaryStats = {
@@ -113,13 +114,7 @@ export function invalidateSearchCaches() {
   livelihoodSearchCache = null;
 }
 
-function chunk<T>(rows: T[], size = 250) {
-  const chunks: T[][] = [];
-  for (let i = 0; i < rows.length; i += size) {
-    chunks.push(rows.slice(i, i + size));
-  }
-  return chunks;
-}
+
 
 import {
   extractFlatGeographyEntries,
@@ -2739,89 +2734,10 @@ async function getProviderIdsByName(providerName: string | undefined, traders?: 
     .filter(Boolean);
 }
 
-export async function applyImportBundle(bundle: ImportBundle, fileNames: { solutionFileName: string; traderFileName: string }) {
-  const supabase = createServerSupabaseClient();
-  invalidateSearchCaches();
-
-  const { data: importRow, error: importError } = await supabase
-    .from("data_imports")
-    .insert({
-      solution_file_name: fileNames.solutionFileName,
-      trader_file_name: fileNames.traderFileName,
-      status: "running",
-      source_solution_rows: bundle.stats.solutionRows,
-      source_trader_rows: bundle.stats.traderRows
-    })
-    .select("id")
-    .single();
-
-  if (importError) {
-    throw importError;
-  }
-
-  const importId = importRow.id;
-
-  try {
-    for (const rows of chunk(bundle.traders)) {
-      const { error } = await supabase.from("traders").upsert(rows, { onConflict: "trader_id" });
-      if (error) throw error;
-    }
-
-    for (const rows of chunk(bundle.solutions)) {
-      const { error } = await supabase.from("solutions").upsert(rows, { onConflict: "solution_id" });
-      if (error) throw error;
-    }
-
-    for (const rows of chunk(bundle.offerings)) {
-      const rowsWithImport = rows.map((row) => ({ ...row, last_import_id: importId }));
-      const { error } = await supabase.from("offerings").upsert(rowsWithImport, { onConflict: "offering_id" });
-      if (error) throw error;
-    }
-
-    const { error: completeError } = await supabase
-      .from("data_imports")
-      .update({
-        status: "completed",
-        inserted_traders: bundle.traders.length,
-        inserted_solutions: bundle.solutions.length,
-        inserted_offerings: bundle.offerings.length,
-        completed_at: new Date().toISOString()
-      })
-      .eq("id", importId);
-
-    if (completeError) {
-      throw completeError;
-    }
-
-    invalidateSearchCaches();
-    await Promise.all([
-      markSurfaceCacheDirty("askgre", ["directory", "filters"]),
-      markSurfaceCacheDirty("supergre", ["directory", "filters"])
-    ]);
-
-    return {
-      importId,
-      traders: bundle.traders.length,
-      solutions: bundle.solutions.length,
-      offerings: bundle.offerings.length
-    };
-  } catch (error) {
-    await supabase
-      .from("data_imports")
-      .update({
-        status: "failed",
-        completed_at: new Date().toISOString(),
-        error_message: error instanceof Error ? error.message : "Unknown import error"
-      })
-      .eq("id", importId);
-
-    throw error;
-  }
-}
-
 export async function runSearch(filters: SearchFilters) {
   const baseFilters = {
     ...filters,
+    surfaceSlug: "askgre" as const,
     beyondGre: false
   };
   const results = await runSearchInternal(baseFilters);
@@ -2857,7 +2773,7 @@ export async function runSearch(filters: SearchFilters) {
   }
 
   if (externalResults.length > 0) {
-    const merged = rankUnifiedResults(dedupeOfferingsById([...results, ...externalResults]));
+    const merged = mergeSuperGreResults(results, externalResults, filters);
     if (merged.length > 0) {
       return merged;
     }
@@ -2914,7 +2830,7 @@ export async function runSearch(filters: SearchFilters) {
         fallbackExternalResults.push(...await runLivelihoodSearch(fallbackFilters));
       }
       fallbackExternalResults.push(...await runExternalMachineSourceSearch(fallbackFilters));
-      return rankUnifiedResults(dedupeOfferingsById([...fallbackResults, ...fallbackExternalResults]));
+      return mergeSuperGreResults(fallbackResults, fallbackExternalResults, filters);
     }
 
     if (shouldIncludeGian) {
@@ -2932,7 +2848,7 @@ export async function runSearch(filters: SearchFilters) {
         language: undefined,
         geography: undefined
       });
-      return rankUnifiedResults(dedupeOfferingsById([...fallbackResults, ...gianResults]));
+      return mergeSuperGreResults(fallbackResults, gianResults, filters);
     }
 
     if (shouldIncludeGrid) {
@@ -2950,7 +2866,7 @@ export async function runSearch(filters: SearchFilters) {
         language: undefined,
         geography: undefined
       });
-      return rankUnifiedResults(dedupeOfferingsById([...fallbackResults, ...gridResults]));
+      return mergeSuperGreResults(fallbackResults, gridResults, filters);
     }
 
     if (shouldIncludeBetterIndia) {
@@ -2968,7 +2884,7 @@ export async function runSearch(filters: SearchFilters) {
         language: undefined,
         geography: undefined
       });
-      return rankUnifiedResults(dedupeOfferingsById([...fallbackResults, ...betterIndiaResults]));
+      return mergeSuperGreResults(fallbackResults, betterIndiaResults, filters);
     }
 
     if (shouldIncludeLivelihood) {
@@ -3000,7 +2916,7 @@ export async function runSearch(filters: SearchFilters) {
         language: undefined,
         geography: undefined
       });
-      return rankUnifiedResults(dedupeOfferingsById([...fallbackResults, ...directLivelihoodResults, ...livelihoodResults]));
+      return mergeSuperGreResults(fallbackResults, [...directLivelihoodResults, ...livelihoodResults], filters);
     }
 
     return fallbackResults;
@@ -3029,6 +2945,19 @@ function rankUnifiedResults(rows: any[]) {
       Number(right.score || 0) - Number(left.score || 0) ||
       String(left.offering_name || "").localeCompare(String(right.offering_name || ""))
     );
+}
+
+function mergeSuperGreResults(greResults: any[], externalResults: any[], filters: SearchFilters) {
+  const rankedGre = rankUnifiedResults(dedupeOfferingsById(greResults));
+  const rankedExternal = rankUnifiedResults(dedupeOfferingsById(externalResults));
+  const rankedMerged = rankUnifiedResults(dedupeOfferingsById([...greResults, ...externalResults]));
+
+  if ((filters.surfaceSlug || "askgre") !== "supergre" || !filters.beyondGre || rankedGre.length === 0) {
+    return rankedMerged;
+  }
+
+  const greIds = new Set(rankedGre.map((row) => String(row.offering_id || "")));
+  return [...rankedGre, ...rankedExternal.filter((row) => !greIds.has(String(row.offering_id || "")))];
 }
 
 async function runSelcoSearch(filters: SearchFilters) {
@@ -3565,8 +3494,28 @@ export async function getFilterOptions(surface: GreSurfaceSlug = "askgre") {
     throw toError(cached.error, "Failed to read filter options cache.");
   }
 
+  const cachedValue = cached.data?.payload
+    ? mergeFilterOptionsWithDefaults(surface, cached.data.payload as CachedFilterOptions)
+    : null;
+  const cacheLooksIncomplete =
+    surface === "askgre" &&
+    Boolean(cachedValue) &&
+    (!cachedValue.solutionProviders?.length || !cachedValue.valueChains?.length || !cachedValue.applications?.length);
+
+  if ((state.filters_dirty || cacheLooksIncomplete) && cached.data?.payload) {
+    try {
+      return mergeFilterOptionsWithDefaults(surface, await refreshFilterOptionsCache(surface));
+    } catch {
+      filterOptionsCache[surface] = {
+        expiresAt: now + FILTER_CACHE_TTL_MS,
+        value: cachedValue!,
+      };
+      return cachedValue!;
+    }
+  }
+
   if (!state.filters_dirty && cached.data?.payload) {
-    const value = cached.data.payload as CachedFilterOptions;
+    const value = cachedValue!;
     filterOptionsCache[surface] = {
       expiresAt: now + FILTER_CACHE_TTL_MS,
       value
@@ -3575,7 +3524,7 @@ export async function getFilterOptions(surface: GreSurfaceSlug = "askgre") {
   }
 
   if (cached.data?.payload) {
-    const value = cached.data.payload as CachedFilterOptions;
+    const value = cachedValue!;
     filterOptionsCache[surface] = {
       expiresAt: now + FILTER_CACHE_TTL_MS,
       value
@@ -3584,7 +3533,7 @@ export async function getFilterOptions(surface: GreSurfaceSlug = "askgre") {
   }
 
   try {
-    return await refreshFilterOptionsCache(surface);
+    return mergeFilterOptionsWithDefaults(surface, await refreshFilterOptionsCache(surface));
   } catch {
     const fallback = defaultServerFilterOptions(surface);
     void seedFilterOptionsCache(surface, fallback);
@@ -3952,17 +3901,21 @@ function buildDirectorySummaryStats(rows: any[], traders: TraderLookupRow[], sur
 }
 
 function buildFilterOptionsFromRows(rows: any[], traders: TraderLookupRow[], surface: GreSurfaceSlug): CachedFilterOptions {
+  const providerCandidates = uniqueSorted(rows.flatMap((row: any) => [
+    row?.solution?.trader?.organisation_name,
+    row?.solution?.trader?.trader_name,
+    row?.organisation_name,
+    row?.trader_name,
+    row?.preferred_contact_name,
+  ].filter(Boolean)));
   const solutionProviders = surface === "supergre"
-    ? uniqueSorted(rows.flatMap((row: any) => [
-      row?.solution?.trader?.organisation_name,
-      row?.solution?.trader?.trader_name,
-      row?.preferred_contact_name
-    ].filter(Boolean)))
-    : uniqueSorted(
-      (traders || [])
+    ? providerCandidates
+    : uniqueSorted([
+      ...(traders || [])
         .map((row: any) => row.organisation_name || row.trader_name)
-        .filter(Boolean)
-    );
+        .filter(Boolean),
+      ...providerCandidates,
+    ]);
 
   const domains6m = uniqueSorted(
     rows.flatMap((row: any) =>
@@ -3989,8 +3942,14 @@ function buildFilterOptionsFromRows(rows: any[], traders: TraderLookupRow[], sur
         )
       ])
     ),
-    valueChains: uniqueSorted(rows.map((row: any) => row.primary_valuechain).filter(Boolean)),
-    applications: uniqueSorted(rows.map((row: any) => row.primary_application).filter(Boolean)),
+    valueChains: uniqueSorted(rows.flatMap((row: any) => [
+      row.primary_valuechain,
+      ...(Array.isArray(row.valuechains) ? row.valuechains : []),
+    ]).filter(Boolean)),
+    applications: uniqueSorted(rows.flatMap((row: any) => [
+      row.primary_application,
+      ...(Array.isArray(row.applications) ? row.applications : []),
+    ]).filter(Boolean)),
     tags: uniqueSorted(rows.flatMap((row: any) => row.tags || [])),
     languages: uniqueSorted(rows.flatMap((row: any) => row.languages || [])),
     geographies: uniqueSorted(rows.flatMap((row: any) => row.geographies || []))
@@ -4033,8 +3992,23 @@ function defaultServerFilterOptions(surface: GreSurfaceSlug): CachedFilterOption
         Market: ["Market reports", "Market support"],
         Money: ["Financial support"]
       },
-      valueChains: [],
-      applications: [],
+      valueChains: [
+        "Livestock",
+        "Dairy",
+        "Poultry",
+        "Goat",
+        "Agriculture",
+        "Bamboo",
+        "Food Processing"
+      ],
+      applications: [
+        "Goat",
+        "Dairy For Milk",
+        "Biscuit",
+        "Baked Goods",
+        "Poultry",
+        "Organic Farming"
+      ],
       tags: [],
       languages: ["English", "Hindi", "KANNADA", "MARATHI", "ODIA", "TELUGU", "TAMIL", "GUJARATI"],
       geographies: ["India", "Karnataka", "Madhya Pradesh", "Odisha", "Maharashtra", "Telangana", "Jharkhand", "Bihar"]
@@ -4052,6 +4026,25 @@ function defaultServerFilterOptions(surface: GreSurfaceSlug): CachedFilterOption
     tags: [],
     languages: ["English", "Hindi", "KANNADA", "MARATHI", "ODIA", "TELUGU", "TAMIL", "GUJARATI", "Bangla"],
     geographies: ["India", "Karnataka", "Madhya Pradesh", "Odisha", "Maharashtra", "Telangana", "Jharkhand", "Bihar", "Pan-India"]
+  };
+}
+
+function mergeFilterOptionsWithDefaults(surface: GreSurfaceSlug, options: CachedFilterOptions): CachedFilterOptions {
+  const defaults = defaultServerFilterOptions(surface);
+  return {
+    solutionProviders: options.solutionProviders?.length ? options.solutionProviders : defaults.solutionProviders,
+    categories: options.categories?.length ? options.categories : defaults.categories,
+    domains6m: options.domains6m?.length ? options.domains6m : defaults.domains6m,
+    offeringTypes: options.offeringTypes?.length ? options.offeringTypes : defaults.offeringTypes,
+    offeringTypesByDomain: Object.keys(options.offeringTypesByDomain || {}).length ? options.offeringTypesByDomain : defaults.offeringTypesByDomain,
+    valueChains: options.valueChains?.length ? options.valueChains : defaults.valueChains,
+    applications: options.applications?.length ? options.applications : defaults.applications,
+    tags: options.tags?.length ? options.tags : defaults.tags,
+    languages: options.languages?.length ? options.languages : defaults.languages,
+    geographies: options.geographies?.length ? options.geographies : defaults.geographies,
+    ...(typeof options.providerEmailTemplate === "string" && options.providerEmailTemplate.trim()
+      ? { providerEmailTemplate: options.providerEmailTemplate }
+      : {}),
   };
 }
 
@@ -4078,19 +4071,8 @@ function addGeographies(target: Set<string>, values: unknown) {
 }
 
 async function buildAskGreFilterOptionsLightweight(supabase: ReturnType<typeof createServerSupabaseClient>) {
-  const [offeringsResult, tradersResult] = await Promise.all([
-    supabase
-      .from("offerings")
-      .select("offering_group,domain_6m,offering_type,primary_valuechain,primary_application,tags,languages,geographies"),
-    supabase
-      .from("traders")
-      .select("organisation_name,trader_name")
-  ]);
-
-  if (offeringsResult.error) throw toError(offeringsResult.error, "Failed to load GRE offering filter data.");
-  if (tradersResult.error) throw toError(tradersResult.error, "Failed to load GRE provider filter data.");
-
-  return buildFilterOptionsFromRows(offeringsResult.data || [], (tradersResult.data || []) as any, "askgre");
+  const { offerings, traders } = await getCachedSearchData();
+  return mergeFilterOptionsWithDefaults("askgre", buildFilterOptionsFromRows(offerings || [], traders || [], "askgre"));
 }
 
 async function buildSuperGreFilterOptionsLightweight(supabase: ReturnType<typeof createServerSupabaseClient>) {
@@ -4446,15 +4428,33 @@ async function refreshDirectorySummaryCache(surface: GreSurfaceSlug) {
 
 async function refreshFilterOptionsCache(surface: GreSurfaceSlug) {
   const supabase = createServerSupabaseClient();
+  const { data: existingCache, error: existingCacheError } = await supabase
+    .from("filter_options_cache")
+    .select("payload")
+    .eq("surface_slug", surface)
+    .maybeSingle();
+
+  if (existingCacheError) {
+    throw toError(existingCacheError, "Failed to read existing filter options cache.");
+  }
+
   const options = surface === "supergre"
     ? await buildSuperGreFilterOptionsLightweight(supabase)
     : await buildAskGreFilterOptionsLightweight(supabase);
+
+  const normalizedOptions = mergeFilterOptionsWithDefaults(surface, options);
+  const payload = {
+    ...normalizedOptions,
+    ...(typeof existingCache?.payload?.providerEmailTemplate === "string" && existingCache.payload.providerEmailTemplate.trim()
+      ? { providerEmailTemplate: existingCache.payload.providerEmailTemplate }
+      : {})
+  };
 
   const { error: cacheError } = await supabase
     .from("filter_options_cache")
     .upsert({
       surface_slug: surface,
-      payload: options,
+      payload,
       updated_at: new Date().toISOString()
     }, { onConflict: "surface_slug" });
 
@@ -4476,19 +4476,30 @@ async function refreshFilterOptionsCache(surface: GreSurfaceSlug) {
 
   filterOptionsCache[surface] = {
     expiresAt: Date.now() + FILTER_CACHE_TTL_MS,
-    value: options
+    value: normalizedOptions
   };
 
-  return options;
+  return normalizedOptions;
 }
 
 async function seedFilterOptionsCache(surface: GreSurfaceSlug, options: CachedFilterOptions) {
   const supabase = createServerSupabaseClient();
+  const { data: existingCache } = await supabase
+    .from("filter_options_cache")
+    .select("payload")
+    .eq("surface_slug", surface)
+    .maybeSingle();
+
   await supabase
     .from("filter_options_cache")
     .upsert({
       surface_slug: surface,
-      payload: options,
+      payload: {
+        ...options,
+        ...(typeof existingCache?.payload?.providerEmailTemplate === "string" && existingCache.payload.providerEmailTemplate.trim()
+          ? { providerEmailTemplate: existingCache.payload.providerEmailTemplate }
+          : {})
+      },
       updated_at: new Date().toISOString()
     }, { onConflict: "surface_slug" });
 }
