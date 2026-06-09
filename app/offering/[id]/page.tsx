@@ -8,6 +8,7 @@ function isVideoUrl(url: string) {
   return /\.(mp4|webm|ogg|mov)(\?|#|$)/i.test(url) ||
     /youtube\.com\/watch\?/i.test(url) ||
     /youtube\.com\/embed\//i.test(url) ||
+    /youtu\.be\//i.test(url) ||
     /vimeo\.com\//i.test(url);
 }
 
