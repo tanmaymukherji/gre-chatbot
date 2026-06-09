@@ -70,6 +70,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Login required." }, { status: 401 });
     }
     const summary = JSON.parse(summaryStr);
+    const userEmail = summary?.email || summary?.username || "";
     const surface = getSurfaceConfigByHost(request.headers.get("host"));
 
     const body = requestSchema.parse(await request.json());
@@ -83,11 +84,23 @@ export async function POST(request: NextRequest) {
     ).join("\n");
 
     const subject = `6M Mix for ${body.keyword}`;
-    const textBody = `Hello,\n\nThis is the selected mix of 6M Solutions for the thematic area of ${body.keyword}.\n\n${solutionLines}\n\nRegards,\nTeam GRE`;
+
+    const supabase = createServerSupabaseClient();
+    const { data: templateRow } = await supabase
+      .from("filter_options_cache")
+      .select("payload")
+      .eq("surface_slug", "askgre")
+      .maybeSingle();
+    const rawTemplate = String(templateRow?.payload?.sixmEmailTemplate || "");
+    const DEFAULT_TEMPLATE = `Hello,\n\nThis is the selected mix of 6M Solutions for the thematic area of {{keyword}}.\n\n{{solutions}}\n\nRegards,\nTeam GRE`;
+    const template = rawTemplate || DEFAULT_TEMPLATE;
+    const textBody = template
+      .replace(/\{\{keyword\}\}/g, body.keyword)
+      .replace(/\{\{solutions\}\}/g, solutionLines);
 
     const raw = [
       `From: ${senderEmail}`,
-      `To: ${body.senderEmail}`,
+      `To: ${userEmail || body.senderEmail}`,
       `Subject: =?utf-8?B?${Buffer.from(subject).toString("base64")}?=`,
       "MIME-Version: 1.0",
       "Content-Type: text/plain; charset=utf-8",

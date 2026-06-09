@@ -37,6 +37,8 @@ export function AdminConsole() {
   const [supergreTemplate, setSupergreTemplate] = useState("");
   const [status, setStatus] = useState<string>("Checking admin access...");
   const [templateStatus, setTemplateStatus] = useState<string>("Loading provider email templates...");
+  const [sixmTemplate, setSixmTemplate] = useState("");
+  const [sixmTemplateStatus, setSixmTemplateStatus] = useState("Loading 6M email template...");
   const [showcaseStatus, setShowcaseStatus] = useState<string>("Loading GRE feature and partner content...");
   const [featureBusy, setFeatureBusy] = useState(false);
   const [partnerBusy, setPartnerBusy] = useState(false);
@@ -82,6 +84,18 @@ export function AdminConsole() {
   }, []);
 
   useEffect(() => {
+    fetch("/api/gre-admin/sixm-email-template")
+      .then((response) => response.json())
+      .then((data) => {
+        setSixmTemplate(String(data?.templateBody || ""));
+        setSixmTemplateStatus("6M email template ready.");
+      })
+      .catch(() => {
+        setSixmTemplateStatus("6M email template could not be loaded.");
+      });
+  }, []);
+
+  useEffect(() => {
     fetch("/api/gre-admin/showcase")
       .then((response) => response.json())
       .then((data) => {
@@ -122,6 +136,17 @@ export function AdminConsole() {
       setStatus("Admin login successful. You can now upload the latest GRE workbooks.");
     }
     setBusy(false);
+  }
+
+  async function saveSixmTemplate(templateBody: string) {
+    setSixmTemplateStatus("Saving 6M email template...");
+    const response = await fetch("/api/gre-admin/sixm-email-template", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ templateBody })
+    });
+    const payload = await response.json();
+    setSixmTemplateStatus(response.ok ? "6M email template updated." : payload.error || "Template could not be saved.");
   }
 
   async function signOut() {
@@ -456,6 +481,46 @@ export function AdminConsole() {
           </div>
 
           <div className="notice">{templateStatus}</div>
+        </div>
+      </div>
+
+      <div className="panel panel-pad">
+        <div className="split">
+          <div>
+            <h2 className="section-title">6M Explorer Email Template</h2>
+            <p className="section-copy">
+              Edit the email text sent when a user emails their 6M solution selection to themselves.
+            </p>
+          </div>
+        </div>
+
+        <div className="stack">
+          <div className="field">
+            <label htmlFor="sixm-email-template">6M Email Body</label>
+            <textarea
+              id="sixm-email-template"
+              value={sixmTemplate}
+              onChange={(event) => setSixmTemplate(event.target.value)}
+              rows={12}
+            />
+          </div>
+
+          <div className="notice">
+            Supported placeholders: {"{{keyword}}"}, {"{{solutions}}"}
+          </div>
+
+          <div className="actions">
+            <button
+              className="btn secondary"
+              type="button"
+              onClick={() => saveSixmTemplate(sixmTemplate)}
+              disabled={!sixmTemplate.trim()}
+            >
+              Save 6M Email Template
+            </button>
+          </div>
+
+          <div className="notice">{sixmTemplateStatus}</div>
         </div>
       </div>
 
