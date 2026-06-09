@@ -7,25 +7,6 @@ export type ImpactCounters = {
   connections_made: number;
 };
 
-export type ImpactAuditEvent = {
-  kind: "view" | "email";
-  surface?: string;
-  action?: string;
-  actorEmail?: string;
-  actorName?: string;
-  senderEmail?: string;
-  senderName?: string;
-  recipientEmail?: string | string[];
-  ccEmail?: string | string[];
-  replyToEmail?: string | string[];
-  itemId?: string | number;
-  itemLabel?: string;
-  itemSource?: string;
-  detailPath?: string;
-  portalUrl?: string;
-  meta?: Record<string, unknown>;
-};
-
 const IMPACT_API_PATH = "/api/impact";
 const DIRECT_IMPACT_URL = "https://zphabezqbboaexmmhcic.supabase.co/functions/v1/grameee-admin";
 const DIRECT_IMPACT_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwaGFiZXpxYmJvYWV4bW1oY2ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNTY5MTgsImV4cCI6MjA5MTczMjkxOH0.cHZCuzwiAEEQjPo6WAADaD5oBZapFmk45dOe4A4g37U";
@@ -82,7 +63,7 @@ function clearPendingCounters() {
   } catch {}
 }
 
-async function postImpactIncrement(counterKey: ImpactCounterKey, delta = 1, auditEvent?: ImpactAuditEvent | null) {
+async function postImpactIncrement(counterKey: ImpactCounterKey, delta = 1) {
   if (DIRECT_IMPACT_URL && DIRECT_IMPACT_ANON_KEY) {
     return fetch(DIRECT_IMPACT_URL, {
       method: "POST",
@@ -95,7 +76,6 @@ async function postImpactIncrement(counterKey: ImpactCounterKey, delta = 1, audi
         action: "incrementImpactCounter",
         counterKey,
         delta,
-        auditEvent: auditEvent || undefined,
       }),
       keepalive: true,
     }).catch(() => null);
@@ -109,7 +89,6 @@ async function postImpactIncrement(counterKey: ImpactCounterKey, delta = 1, audi
     body: JSON.stringify({
       counterKey,
       delta,
-      auditEvent: auditEvent || undefined,
     }),
     keepalive: true,
   }).catch(() => null);
@@ -190,10 +169,10 @@ export async function fetchImpactCounters(): Promise<ImpactCounters> {
   return normalizeCounters(data?.counters);
 }
 
-export async function incrementImpactCounter(counterKey: ImpactCounterKey, delta = 1, auditEvent?: ImpactAuditEvent | null) {
+export async function incrementImpactCounter(counterKey: ImpactCounterKey, delta = 1) {
   bumpPendingCounter(counterKey, delta);
 
-  const response = await postImpactIncrement(counterKey, delta, auditEvent);
+  const response = await postImpactIncrement(counterKey, delta);
 
   if (!response) {
     return null;
@@ -223,6 +202,6 @@ export async function incrementImpactCounter(counterKey: ImpactCounterKey, delta
   return counters;
 }
 
-export function trackImpactCounter(counterKey: ImpactCounterKey, delta = 1, auditEvent?: ImpactAuditEvent | null) {
-  void incrementImpactCounter(counterKey, delta, auditEvent);
+export function trackImpactCounter(counterKey: ImpactCounterKey, delta = 1) {
+  void incrementImpactCounter(counterKey, delta);
 }

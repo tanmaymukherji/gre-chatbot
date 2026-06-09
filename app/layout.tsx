@@ -1,4 +1,5 @@
 import "./globals.css";
+import Script from "next/script";
 import { headers } from "next/headers";
 import { SurfaceSessionGuard } from "@/components/surface-session-guard";
 import { getSurfaceConfigByHost } from "@/lib/surface";
@@ -15,12 +16,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en">
       <head>
-        <link rel="stylesheet" href="https://grameee.org/shared-shell.css?v=20260531b" />
-        <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-        <script defer src="https://grameee.org/supabase-config.js?v=20260522m"></script>
-        <script defer src="https://grameee.org/shared-shell.js?v=20260531b"></script>
-        <script
-          defer
+        <link rel="stylesheet" href="https://grameee.org/shared-shell.css?v=20260518b" />
+        <Script src="https://grameee.org/supabase-config.js" strategy="beforeInteractive" />
+        <Script src="https://grameee.org/shared-shell.js?v=20260518b" strategy="beforeInteractive" />
+        <Script
+          id="grameee-page-menu-config"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `window.grameeePageMenuConfig = ${JSON.stringify({
               menuItems: [
@@ -34,7 +35,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             })};`
           }}
         />
-        <script defer src="https://grameee.org/auth.js?v=20260531b"></script>
+        <Script src="https://grameee.org/auth.js?v=20260518b" strategy="beforeInteractive" />
       </head>
       <body data-gre-surface={surface.slug}>
         <div id="grameeeShellSlot" suppressHydrationWarning />

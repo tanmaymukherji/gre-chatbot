@@ -180,11 +180,8 @@ export function ProviderMapPanel({
       disposed = true;
       markerRefs.current.forEach((marker) => marker?.remove?.());
       markerRefs.current = [];
+      mapInstanceRef.current?.remove?.();
       mapInstanceRef.current = null;
-      const container = document.getElementById(MAP_CONTAINER_ID);
-      if (container) {
-        container.innerHTML = "";
-      }
       setMapReady(false);
       setSelectedMarker(null);
     };
@@ -273,37 +270,12 @@ export function ProviderMapPanel({
                           <span>{[offering.offeringGroup || "Offering", offering.valueChain || "No value chain", offering.application || "No application"].join(" | ")}</span>
                           <div className="provider-offering-links">
                             {offering.detailHref ? (
-                              <TrackedLink
-                                className="result-link"
-                                href={offering.detailHref}
-                                prefetch={false}
-                                auditEvent={{
-                                  kind: "view",
-                                  action: "view_details",
-                                  itemId: offering.offeringId,
-                                  itemLabel: offering.offeringName || "Untitled offering",
-                                  itemSource: surface.slug,
-                                  detailPath: offering.detailHref,
-                                }}
-                              >
+                              <TrackedLink className="result-link" href={offering.detailHref} prefetch={false}>
                                 View details
                               </TrackedLink>
                             ) : null}
                             {offering.greLink ? (
-                              <TrackedAnchor
-                                className="result-link"
-                                href={offering.greLink}
-                                target="_blank"
-                                rel="noreferrer"
-                                auditEvent={{
-                                  kind: "view",
-                                  action: "view_portal",
-                                  itemId: offering.offeringId,
-                                  itemLabel: offering.offeringName || "Untitled offering",
-                                  itemSource: surface.slug,
-                                  portalUrl: offering.greLink,
-                                }}
-                              >
+                              <TrackedAnchor className="result-link" href={offering.greLink} target="_blank" rel="noreferrer">
                                 {surface.portalLabel}
                               </TrackedAnchor>
                             ) : null}

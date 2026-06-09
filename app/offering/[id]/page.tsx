@@ -1,12 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
-import { cookies } from "next/headers";
 import { OfferingDetailChat } from "@/components/offering-detail-chat";
 import { ProviderEmailButton } from "@/components/provider-email-button";
 import { TrackedAnchor } from "@/components/tracked-links";
 import { getOfferingDetail } from "@/lib/database";
-import { maskPhoneNumber, parseSharedUserSummaryCookie } from "@/lib/auth";
 import { getSurfaceConfigByHost } from "@/lib/surface";
 
 function formatValue(value: unknown) {
@@ -25,7 +23,7 @@ function isLinkValue(value: unknown) {
   return text.startsWith("http://") || text.startsWith("https://") || text.startsWith("data:");
 }
 
-function buildOfferingRows(offering: any, viewerSummary: any) {
+function buildOfferingRows(offering: any) {
   const primaryRows = [
     ["Offering Category", offering.offering_category],
     ["Offering Group", offering.offering_group],
@@ -49,7 +47,7 @@ function buildOfferingRows(offering: any, viewerSummary: any) {
   const serviceRows = [
     ["Trainer Name", offering.trainer_name],
     ["Trainer Email", offering.trainer_email],
-    ["Trainer Phone", maskPhoneNumber(offering.trainer_phone, viewerSummary)],
+    ["Trainer Phone", offering.trainer_phone],
     ["Trainer Details", offering.trainer_details_text],
     ["Duration", offering.duration],
     ["Prerequisites", offering.prerequisites],
@@ -93,7 +91,7 @@ function buildOfferingRows(offering: any, viewerSummary: any) {
   };
 }
 
-function buildProviderRows(offering: any, viewerSummary: any) {
+function buildProviderRows(offering: any) {
   const trader = offering.solution?.trader;
   return [
     ["Solution Name", offering.solution?.solution_name],
@@ -101,7 +99,7 @@ function buildProviderRows(offering: any, viewerSummary: any) {
     ["Association Status", trader?.association_status],
     ["Email", offering.preferred_contact_email || trader?.email],
     ["Website", trader?.website],
-    ["Phone", maskPhoneNumber(offering.preferred_contact_phone || trader?.mobile, viewerSummary)],
+    ["Phone", offering.preferred_contact_phone || trader?.mobile],
     ["Point of Contact", offering.preferred_contact_name || trader?.poc_name],
     ["Contact Details", offering.preferred_contact_details || offering.contact_details],
     ["Tagline", trader?.tagline],
@@ -116,9 +114,7 @@ export default async function OfferingDetailPage({
 }) {
   const { id } = await params;
   const headerStore = await headers();
-  const cookieStore = await cookies();
   const surface = getSurfaceConfigByHost(headerStore.get("host"));
-  const viewerSummary = parseSharedUserSummaryCookie(cookieStore.get("grameee_user_summary")?.value);
 
   let offering: any;
   try {
@@ -127,8 +123,8 @@ export default async function OfferingDetailPage({
     notFound();
   }
 
-  const { primaryRows, secondaryRows } = buildOfferingRows(offering, viewerSummary);
-  const providerRows = buildProviderRows(offering, viewerSummary);
+  const { primaryRows, secondaryRows } = buildOfferingRows(offering);
+  const providerRows = buildProviderRows(offering);
   const providerName =
     offering.preferred_contact_name ||
     offering.solution?.trader?.organisation_name ||
@@ -150,23 +146,7 @@ export default async function OfferingDetailPage({
         <div className="detail-hero-top">
           <div className="detail-hero-actions-left">
             {offering.gre_link ? (
-              <TrackedAnchor
-                className="btn hero-link"
-                href={offering.gre_link}
-                target="_blank"
-                rel="noreferrer"
-                auditEvent={{
-                  kind: "view",
-                  surface: surface.slug,
-                  action: "view_portal",
-                  actorEmail: viewerSummary?.email,
-                  actorName: viewerSummary?.fullName || viewerSummary?.username,
-                  itemId: offering.offering_id,
-                  itemLabel: offering.offering_name || solutionTitle,
-                  itemSource: surface.slug,
-                  portalUrl: offering.gre_link,
-                }}
-              >
+              <TrackedAnchor className="btn hero-link" href={offering.gre_link} target="_blank" rel="noreferrer">
                 {surface.portalLabel}
               </TrackedAnchor>
             ) : null}

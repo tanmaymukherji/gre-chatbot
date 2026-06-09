@@ -126,19 +126,7 @@ export function ProviderDetailBrowser({ offerings, surface }: { offerings: any[]
                     {items.map((offering) => (
                       <article className="card" key={offering.offering_id}>
                         <h3>
-                          <TrackedLink
-                            className="result-title-link"
-                            href={`/offering/${offering.offering_id}`}
-                            prefetch={false}
-                            auditEvent={{
-                              kind: "view",
-                              action: "view_details",
-                              itemId: offering.offering_id,
-                              itemLabel: offering.offering_name || "Untitled offering",
-                              itemSource: surface.slug,
-                              detailPath: `/offering/${offering.offering_id}`,
-                            }}
-                          >
+                          <TrackedLink className="result-title-link" href={`/offering/${offering.offering_id}`} prefetch={false}>
                             {offering.offering_name || "Untitled offering"}
                           </TrackedLink>
                         </h3>
@@ -163,36 +151,11 @@ export function ProviderDetailBrowser({ offerings, surface }: { offerings: any[]
                           </div>
                         ) : null}
                         <div className="provider-offering-links" style={{ marginTop: 14 }}>
-                          <TrackedLink
-                            className="result-link"
-                            href={`/offering/${offering.offering_id}`}
-                            prefetch={false}
-                            auditEvent={{
-                              kind: "view",
-                              action: "view_details",
-                              itemId: offering.offering_id,
-                              itemLabel: offering.offering_name || "Untitled offering",
-                              itemSource: surface.slug,
-                              detailPath: `/offering/${offering.offering_id}`,
-                            }}
-                          >
+                          <TrackedLink className="result-link" href={`/offering/${offering.offering_id}`} prefetch={false}>
                             View details
                           </TrackedLink>
                           {offering.gre_link ? (
-                            <TrackedAnchor
-                              className="result-link"
-                              href={offering.gre_link}
-                              target="_blank"
-                              rel="noreferrer"
-                              auditEvent={{
-                                kind: "view",
-                                action: "view_portal",
-                                itemId: offering.offering_id,
-                                itemLabel: offering.offering_name || "Untitled offering",
-                                itemSource: surface.slug,
-                                portalUrl: offering.gre_link,
-                              }}
-                            >
+                            <TrackedAnchor className="result-link" href={offering.gre_link} target="_blank" rel="noreferrer">
                               {surface.portalLabel}
                             </TrackedAnchor>
                           ) : null}
