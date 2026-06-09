@@ -54,11 +54,8 @@ export function SixMOrbitCanvas({
         </svg>
 
         <div className="sixm-center-node">
-          <span className="sixm-center-search-icon" aria-hidden="true">
-            6M
-          </span>
           {centerBadge ? <span className="sixm-center-badge">{centerBadge}</span> : null}
-          <strong>{keyword || "Keyword"}</strong>
+          <strong style={{ fontSize: "0.94rem", textTransform: "uppercase", fontWeight: 800 }}>{keyword || "KEYWORD"}</strong>
           {!keyword && emptyCenterHint ? <span>{emptyCenterHint}</span> : null}
         </div>
 

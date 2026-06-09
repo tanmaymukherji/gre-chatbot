@@ -10,16 +10,16 @@ export function SelectedSolutionsVisualization({
   keyword,
   solutions,
   onBack,
-  onClearAll,
   onCopySummary,
-  onViewDetails
+  onViewDetails,
+  onEmailSelection
 }: {
   keyword: string;
   solutions: Solution[];
   onBack: () => void;
-  onClearAll: () => void;
   onCopySummary: (text: string) => void;
   onViewDetails: (solution: Solution) => void;
+  onEmailSelection?: () => void;
 }) {
   const summaryText = buildSummaryText(keyword, solutions);
   const [activeM, setActiveM] = useState<SixMDomain | null>(
@@ -46,12 +46,14 @@ export function SelectedSolutionsVisualization({
           <button type="button" className="btn ghost" onClick={onBack}>
             Back to 6M Explorer
           </button>
-          <button type="button" className="btn ghost" onClick={onClearAll}>
-            Clear All
-          </button>
           <button type="button" className="btn sixm-primary-btn" onClick={() => onCopySummary(summaryText)}>
             Export/Copy Summary
           </button>
+          {onEmailSelection ? (
+            <button type="button" className="btn sixm-primary-btn" onClick={onEmailSelection} style={{ background: "#1d5a42", borderColor: "#1d5a42" }}>
+              Email 6M Selection to Self
+            </button>
+          ) : null}
         </div>
       </div>
 

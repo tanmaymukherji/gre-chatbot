@@ -48,7 +48,7 @@ export function SixMSearchBar({
           {loading ? "Searching..." : "Find Ms"}
         </button>
         {onClearAll ? (
-          <button className="btn sixm-primary-btn" type="button" onClick={onClearAll} style={{ background: "#6b7280", borderColor: "#6b7280" }}>
+          <button className="btn" type="button" onClick={onClearAll} style={{ background: "#fff", color: "#333", border: "1px solid #ccc" }}>
             Clear All
           </button>
         ) : null}

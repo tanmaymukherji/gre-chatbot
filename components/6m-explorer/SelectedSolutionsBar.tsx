@@ -5,13 +5,11 @@ import type { Solution } from "@/lib/sixm-explorer";
 export function SelectedSolutionsBar({
   solutions,
   onRemove,
-  onVisualize,
-  onEmailSelection
+  onVisualize
 }: {
   solutions: Solution[];
   onRemove: (id: string) => void;
   onVisualize: () => void;
-  onEmailSelection?: () => void;
 }) {
   if (!solutions.length) {
     return null;
@@ -44,11 +42,6 @@ export function SelectedSolutionsBar({
         <button type="button" className="btn sixm-primary-btn" onClick={onVisualize}>
           Visualize Selected Solutions under 6M
         </button>
-        {onEmailSelection ? (
-          <button type="button" className="btn sixm-primary-btn" onClick={onEmailSelection} style={{ background: "#1d5a42", borderColor: "#1d5a42" }}>
-            Email 6M Selection to Self
-          </button>
-        ) : null}
       </div>
     </section>
   );

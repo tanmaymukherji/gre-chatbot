@@ -205,9 +205,34 @@ export function SixMExplorerPage() {
           keyword={currentKeyword}
           solutions={selectedSolutions}
           onBack={() => setSelectedVisualisationOpen(false)}
-          onClearAll={() => setSelectedSolutions([])}
           onCopySummary={copySummary}
           onViewDetails={(solution) => void openDetails(solution)}
+          onEmailSelection={async () => {
+            const solutionList = selectedSolutions.map((s) => `${s.providerName} — ${s.title} (${window.location.origin}/offering/${s.offeringId})`).join("\n");
+            const draftText = `Hello,\n\nThis is the selected mix of 6M Solutions for the thematic area of ${currentKeyword}.\n\n${solutionList}\n\nRegards,\nTeam GRE`;
+            if (!window.confirm(`Send this email to yourself?\n\n${draftText}`)) return;
+            try {
+              const response = await fetch("/api/sixm-email", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  keyword: currentKeyword,
+                  solutions: selectedSolutions.map((s) => ({
+                    providerName: s.providerName,
+                    offeringName: s.title,
+                    detailUrl: `${window.location.origin}/offering/${s.offeringId}`
+                  })),
+                  senderEmail: "",
+                  senderName: ""
+                })
+              });
+              const result = await response.json();
+              if (!response.ok) throw new Error(result.error || "Send failed.");
+              setNotice("6M selection emailed successfully.");
+            } catch (error) {
+              setNotice(error instanceof Error ? error.message : "Email could not be sent.");
+            }
+          }}
         />
       ) : (
         <div className="sixm-layout-stack">
@@ -263,32 +288,6 @@ export function SixMExplorerPage() {
           solutions={selectedSolutions}
           onRemove={(id) => setSelectedSolutions((current) => current.filter((item) => item.id !== id))}
           onVisualize={() => setSelectedVisualisationOpen(true)}
-          onEmailSelection={selectedSolutions.length > 0 ? async () => {
-            const solutionList = selectedSolutions.map((s) => `${s.providerName} — ${s.title} (${window.location.origin}/offering/${s.offeringId})`).join("\n");
-            const draftText = `Hello,\n\nThis is the selected mix of 6M Solutions for the thematic area of ${currentKeyword}.\n\n${solutionList}\n\nRegards,\nTeam GRE`;
-            if (!window.confirm(`Send this email to yourself?\n\n${draftText}`)) return;
-            try {
-              const response = await fetch("/api/sixm-email", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  keyword: currentKeyword,
-                  solutions: selectedSolutions.map((s) => ({
-                    providerName: s.providerName,
-                    offeringName: s.title,
-                    detailUrl: `${window.location.origin}/offering/${s.offeringId}`
-                  })),
-                  senderEmail: "",
-                  senderName: ""
-                })
-              });
-              const result = await response.json();
-              if (!response.ok) throw new Error(result.error || "Send failed.");
-              setNotice("6M selection emailed successfully.");
-            } catch (error) {
-              setNotice(error instanceof Error ? error.message : "Email could not be sent.");
-            }
-          } : undefined}
         />
       ) : null}
     </main>
