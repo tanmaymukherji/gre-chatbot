@@ -69,6 +69,7 @@ export function SixMExplorerPage() {
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailSending, setEmailSending] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [emailTemplate, setEmailTemplate] = useState("");
 
   useEffect(() => {
     if (!notice) {
@@ -210,7 +211,15 @@ export function SixMExplorerPage() {
           onBack={() => setSelectedVisualisationOpen(false)}
           onCopySummary={copySummary}
           onViewDetails={(solution) => void openDetails(solution)}
-          onEmailSelection={() => { setEmailModalOpen(true); setEmailError(null); }}
+          onEmailSelection={async () => {
+            setEmailError(null);
+            try {
+              const tmplResp = await fetch("/api/gre-admin/sixm-email-template");
+              const tmplData = await tmplResp.json();
+              setEmailTemplate(tmplData?.templateBody || "");
+            } catch {}
+            setEmailModalOpen(true);
+          }}
         />
       ) : (
         <div className="sixm-layout-stack">
@@ -270,30 +279,38 @@ export function SixMExplorerPage() {
       ) : null}
 
       {emailModalOpen ? (
-        <div className="sixm-modal-backdrop" onClick={() => { if (!emailSending) { setEmailModalOpen(false); setEmailError(null); } }}>
+        <div className="sixm-modal-backdrop" onClick={() => { if (!emailSending) { setEmailModalOpen(false); setEmailError(null); setEmailTemplate(""); } }}>
           <div className="panel panel-pad sixm-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 640 }}>
             <div className="sixm-modal-head">
               <div>
                 <h3 className="section-title">Email 6M Selection</h3>
-                <p className="section-copy">Review the 6M solution mix before sending.</p>
+                <p className="section-copy">Review the email before it is sent.</p>
               </div>
             </div>
 
-            <div className="sixm-email-summary">
-              <div><strong>From:</strong> Team GRE &lt;help@greenruraleconomy.in&gt;</div>
-              <div><strong>To:</strong> (your logged-in email)</div>
-              <div><strong>Subject:</strong> 6M Mix for {currentKeyword}</div>
+            <div className="sixm-email-summary" style={{ display: "grid", gap: 10, marginBottom: 16 }}>
+              <div style={{ padding: "10px 14px", background: "#f8faf8", borderRadius: 12, border: "1px solid #e7efe8" }}>
+                <div style={{ fontSize: "0.82rem", color: "#64806a", marginBottom: 4 }}>From</div>
+                <strong>Team GRE &lt;help@greenruraleconomy.in&gt;</strong>
+              </div>
+              <div style={{ padding: "10px 14px", background: "#f8faf8", borderRadius: 12, border: "1px solid #e7efe8" }}>
+                <div style={{ fontSize: "0.82rem", color: "#64806a", marginBottom: 4 }}>To</div>
+                <strong>You</strong>
+                <small style={{ display: "block", color: "#607064" }}>(logged-in email)</small>
+              </div>
+              <div style={{ padding: "10px 14px", background: "#f8faf8", borderRadius: 12, border: "1px solid #e7efe8" }}>
+                <div style={{ fontSize: "0.82rem", color: "#64806a", marginBottom: 4 }}>Subject</div>
+                <strong>6M Mix for {currentKeyword}</strong>
+              </div>
             </div>
 
-            <div style={{ marginTop: 16, maxHeight: 300, overflow: "auto" }}>
-              {selectedSolutions.map((s, i) => (
-                <div key={s.id} style={{ padding: "8px 0", borderBottom: "1px solid #edf3ee", fontSize: "0.9rem" }}>
-                  <strong>{i + 1}. [{s.sixMDomains?.[0] || "M"}]</strong> {s.providerName} — {s.title}
-                  <div style={{ fontSize: "0.82rem", color: "#607064", marginTop: 2 }}>
-                    {window.location.origin}/offering/{s.offeringId}
-                  </div>
-                </div>
-              ))}
+            <div style={{ padding: 16, background: "#fcfdfc", borderRadius: 12, border: "1px solid #edf3ee", whiteSpace: "pre-wrap", fontSize: "0.88rem", lineHeight: 1.6, maxHeight: 320, overflow: "auto" }}>
+              {(() => {
+                const solLines = selectedSolutions.map((s, i) => `${i + 1}. [${s.sixMDomains?.[0] || "M"}] ${s.providerName} — ${s.title}\n   ${window.location.origin}/offering/${s.offeringId}`).join("\n\n");
+                return (emailTemplate || "Hello,\n\nThis is the selected mix of 6M Solutions for the thematic area of {{keyword}}.\n\n{{solutions}}\n\nRegards,\nTeam GRE")
+                  .replace(/\{\{keyword\}\}/g, currentKeyword)
+                  .replace(/\{\{solutions\}\}/g, solLines);
+              })()}
             </div>
 
             {emailError ? (
@@ -303,7 +320,7 @@ export function SixMExplorerPage() {
             ) : null}
 
             <div className="sixm-modal-actions" style={{ marginTop: 20 }}>
-              <button className="btn ghost" type="button" onClick={() => { setEmailModalOpen(false); setEmailError(null); }} disabled={emailSending}>
+              <button className="btn ghost" type="button" onClick={() => { setEmailModalOpen(false); setEmailError(null); setEmailTemplate(""); }} disabled={emailSending}>
                 Cancel
               </button>
               <button className="btn sixm-primary-btn" type="button" disabled={emailSending} onClick={async () => {
@@ -326,6 +343,7 @@ export function SixMExplorerPage() {
                   const result = await response.json();
                   if (!response.ok) throw new Error(result.error || "Send failed.");
                   setEmailModalOpen(false);
+                  setEmailTemplate("");
                   setNotice("6M selection emailed successfully.");
                 } catch (error) {
                   setEmailError(error instanceof Error ? error.message : "Email could not be sent.");
