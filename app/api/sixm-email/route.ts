@@ -10,9 +10,10 @@ const requestSchema = z.object({
   solutions: z.array(z.object({
     providerName: z.string(),
     offeringName: z.string(),
-    detailUrl: z.string()
+    detailUrl: z.string(),
+    mDomains: z.array(z.string()).optional()
   })).min(1),
-  senderEmail: z.string().email(),
+  senderEmail: z.string().optional(),
   senderName: z.string().optional()
 });
 
@@ -79,9 +80,10 @@ export async function POST(request: NextRequest) {
     const senderEmail = env.greMailSender || "help@greenruraleconomy.in";
     const accessToken = await refreshAccessToken();
 
-    const solutionLines = body.solutions.map((s, i) =>
-      `${i + 1}. ${s.providerName} — ${s.offeringName} (${s.detailUrl})`
-    ).join("\n");
+    const solutionLines = body.solutions.map((s, i) => {
+      const mCategory = s.mDomains?.length ? `[${s.mDomains[0]}]` : "[M]";
+      return `${i + 1}. ${mCategory} ${s.providerName} — ${s.offeringName}\n   ${s.detailUrl}`;
+    }).join("\n\n");
 
     const subject = `6M Mix for ${body.keyword}`;
 

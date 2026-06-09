@@ -66,6 +66,9 @@ export function SixMExplorerPage() {
   const [detailsModalSolution, setDetailsModalSolution] = useState<SolutionDetail | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [selectedVisualisationOpen, setSelectedVisualisationOpen] = useState(false);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!notice) {
@@ -207,32 +210,7 @@ export function SixMExplorerPage() {
           onBack={() => setSelectedVisualisationOpen(false)}
           onCopySummary={copySummary}
           onViewDetails={(solution) => void openDetails(solution)}
-          onEmailSelection={async () => {
-            const solutionList = selectedSolutions.map((s) => `${s.providerName} — ${s.title} (${window.location.origin}/offering/${s.offeringId})`).join("\n");
-            const draftText = `Hello,\n\nThis is the selected mix of 6M Solutions for the thematic area of ${currentKeyword}.\n\n${solutionList}\n\nRegards,\nTeam GRE`;
-            if (!window.confirm(`Send this email to yourself?\n\n${draftText}`)) return;
-            try {
-              const response = await fetch("/api/sixm-email", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  keyword: currentKeyword,
-                  solutions: selectedSolutions.map((s) => ({
-                    providerName: s.providerName,
-                    offeringName: s.title,
-                    detailUrl: `${window.location.origin}/offering/${s.offeringId}`
-                  })),
-                  senderEmail: "",
-                  senderName: ""
-                })
-              });
-              const result = await response.json();
-              if (!response.ok) throw new Error(result.error || "Send failed.");
-              setNotice("6M selection emailed successfully.");
-            } catch (error) {
-              setNotice(error instanceof Error ? error.message : "Email could not be sent.");
-            }
-          }}
+          onEmailSelection={() => { setEmailModalOpen(true); setEmailError(null); }}
         />
       ) : (
         <div className="sixm-layout-stack">
@@ -289,6 +267,77 @@ export function SixMExplorerPage() {
           onRemove={(id) => setSelectedSolutions((current) => current.filter((item) => item.id !== id))}
           onVisualize={() => setSelectedVisualisationOpen(true)}
         />
+      ) : null}
+
+      {emailModalOpen ? (
+        <div className="sixm-modal-backdrop" onClick={() => { if (!emailSending) { setEmailModalOpen(false); setEmailError(null); } }}>
+          <div className="panel panel-pad sixm-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 640 }}>
+            <div className="sixm-modal-head">
+              <div>
+                <h3 className="section-title">Email 6M Selection</h3>
+                <p className="section-copy">Review the 6M solution mix before sending.</p>
+              </div>
+            </div>
+
+            <div className="sixm-email-summary">
+              <div><strong>From:</strong> Team GRE &lt;help@greenruraleconomy.in&gt;</div>
+              <div><strong>To:</strong> (your logged-in email)</div>
+              <div><strong>Subject:</strong> 6M Mix for {currentKeyword}</div>
+            </div>
+
+            <div style={{ marginTop: 16, maxHeight: 300, overflow: "auto" }}>
+              {selectedSolutions.map((s, i) => (
+                <div key={s.id} style={{ padding: "8px 0", borderBottom: "1px solid #edf3ee", fontSize: "0.9rem" }}>
+                  <strong>{i + 1}. [{s.sixMDomains?.[0] || "M"}]</strong> {s.providerName} — {s.title}
+                  <div style={{ fontSize: "0.82rem", color: "#607064", marginTop: 2 }}>
+                    {window.location.origin}/offering/{s.offeringId}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {emailError ? (
+              <div style={{ marginTop: 12, padding: 12, background: "#fef2f2", borderRadius: 12, color: "#991b1b", fontSize: "0.85rem" }}>
+                {emailError}
+              </div>
+            ) : null}
+
+            <div className="sixm-modal-actions" style={{ marginTop: 20 }}>
+              <button className="btn ghost" type="button" onClick={() => { setEmailModalOpen(false); setEmailError(null); }} disabled={emailSending}>
+                Cancel
+              </button>
+              <button className="btn sixm-primary-btn" type="button" disabled={emailSending} onClick={async () => {
+                setEmailSending(true);
+                setEmailError(null);
+                try {
+                  const response = await fetch("/api/sixm-email", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      keyword: currentKeyword,
+                      solutions: selectedSolutions.map((s) => ({
+                        providerName: s.providerName,
+                        offeringName: s.title,
+                        detailUrl: `${window.location.origin}/offering/${s.offeringId}`,
+                        mDomains: s.sixMDomains || []
+                      }))
+                    })
+                  });
+                  const result = await response.json();
+                  if (!response.ok) throw new Error(result.error || "Send failed.");
+                  setEmailModalOpen(false);
+                  setNotice("6M selection emailed successfully.");
+                } catch (error) {
+                  setEmailError(error instanceof Error ? error.message : "Email could not be sent.");
+                } finally {
+                  setEmailSending(false);
+                }
+              }}>
+                {emailSending ? "Sending..." : "Send Email"}
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </main>
   );
