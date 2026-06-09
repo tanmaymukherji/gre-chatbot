@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { headers } from "next/headers";
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { ProviderEmailButton } from "@/components/provider-email-button";
 import { TrackedAnchor } from "@/components/tracked-links";
 import { DetailBackButton } from "@/components/detail-back-button";
 import { getExternalOfferingDetail } from "@/lib/database";
+import { maskPhoneNumber, parseSharedUserSummaryCookie } from "@/lib/auth";
 import { getSurfaceConfigByHost } from "@/lib/surface";
 
 type DetailMediaItem = {
@@ -119,7 +121,7 @@ function flattenObjectStrings(value: unknown): string[] {
   return text ? [text] : [];
 }
 
-function baseProviderRows(offering: any) {
+function baseProviderRows(offering: any, viewerSummary: any) {
   const trader = offering.solution?.trader;
   return rowsOf([
     ["Solution Name", offering.solution?.solution_name],
@@ -127,7 +129,7 @@ function baseProviderRows(offering: any) {
     ["Association Status", trader?.association_status],
     ["Email", offering.preferred_contact_email || trader?.email],
     ["Website", trader?.website || offering.portal_url],
-    ["Phone", offering.preferred_contact_phone || trader?.mobile],
+    ["Phone", maskPhoneNumber(offering.preferred_contact_phone || trader?.mobile, viewerSummary)],
     ["Point of Contact", offering.preferred_contact_name || trader?.poc_name],
     ["Contact Details", offering.preferred_contact_details],
     ["Tagline", trader?.tagline],
@@ -135,10 +137,10 @@ function baseProviderRows(offering: any) {
   ]);
 }
 
-function buildStructuredDetailSections(offering: any) {
+function buildStructuredDetailSections(offering: any, viewerSummary: any) {
   const source = String(offering.source_slug || "").trim();
   const payload = offering.raw_payload || {};
-  const providerRows = baseProviderRows(offering);
+  const providerRows = baseProviderRows(offering, viewerSummary);
 
   if (source === "selco" || source === "innovation-guild" || source === "gian" || source === "grid") {
     const product = payload.product || payload.practice || {};
@@ -229,7 +231,7 @@ function buildStructuredDetailSections(offering: any) {
       providerRows: rowsOf([
         ["Person / Entity", story.person_name],
         ["Email", story.contact_email],
-        ["Phone", story.contact_phone],
+        ["Phone", maskPhoneNumber(story.contact_phone, viewerSummary)],
         ["Address", story.contact_address],
         ["Portal Page", story.story_url]
       ]),
@@ -277,7 +279,7 @@ function buildStructuredDetailSections(offering: any) {
       providerRows: rowsOf([
         ["Contact Name", entity.entity_name],
         ["Email", entity.contact_email],
-        ["Phone", entity.contact_phone],
+        ["Phone", maskPhoneNumber(entity.contact_phone, viewerSummary)],
         ["Website", entity.website_url],
         ["Portal Page", entity.website_url || entity.source_url]
       ]),
@@ -385,7 +387,9 @@ export default async function ExternalDetailPage({
 }) {
   const { source, id } = await params;
   const headerStore = await headers();
+  const cookieStore = await cookies();
   const surface = getSurfaceConfigByHost(headerStore.get("host"));
+  const viewerSummary = parseSharedUserSummaryCookie(cookieStore.get("grameee_user_summary")?.value);
 
   let offering: any;
   try {
@@ -401,7 +405,7 @@ export default async function ExternalDetailPage({
     "Solution Provider";
   const providerEmail = offering.preferred_contact_email || offering.solution?.trader?.email || "";
   const detailPath = `/detail/${encodeURIComponent(source)}/${encodeURIComponent(id)}`;
-  const sections = buildStructuredDetailSections(offering);
+  const sections = buildStructuredDetailSections(offering, viewerSummary);
 
   return (
     <main className="page-shell">
@@ -409,7 +413,23 @@ export default async function ExternalDetailPage({
         <div className="detail-hero-top">
           <div className="detail-hero-actions-left">
             {offering.portal_url ? (
-              <TrackedAnchor className="btn hero-link" href={offering.portal_url} target="_blank" rel="noreferrer">
+              <TrackedAnchor
+                className="btn hero-link"
+                href={offering.portal_url}
+                target="_blank"
+                rel="noreferrer"
+                auditEvent={{
+                  kind: "view",
+                  surface: surface.slug,
+                  action: "view_portal",
+                  actorEmail: viewerSummary?.email,
+                  actorName: viewerSummary?.fullName || viewerSummary?.username,
+                  itemId: offering.offering_id,
+                  itemLabel: offering.offering_name || "External offering",
+                  itemSource: source,
+                  portalUrl: offering.portal_url,
+                }}
+              >
                 {surface.portalLabel}
               </TrackedAnchor>
             ) : null}

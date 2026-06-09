@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ProviderMapPanel } from "@/components/provider-map-panel";
+import { ShowcaseSections } from "@/components/showcase-sections";
 import { TrackedAnchor, TrackedLink } from "@/components/tracked-links";
 import type { GreSurfaceConfig } from "@/lib/surface";
 
@@ -129,7 +131,7 @@ export function PublicExperience({
 }) {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [chatQuery, setChatQuery] = useState("");
-  const [beyondGre, setBeyondGre] = useState(false);
+  const [beyondGre, setBeyondGre] = useState(surface.enableBeyondGre);
   const [activeTab, setActiveTab] = useState<"parameters" | "chat">("parameters");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [assistantAnswer, setAssistantAnswer] = useState<string | null>(null);
@@ -160,11 +162,15 @@ export function PublicExperience({
       setNotice(parsed.notice || null);
       setActiveMode(parsed.activeMode || null);
       setResultsPage(parsed.resultsPage || 1);
-      setBeyondGre(Boolean(parsed.beyondGre));
+      setBeyondGre(surface.enableBeyondGre ? true : Boolean(parsed.beyondGre));
     } catch {
       window.sessionStorage.removeItem(SEARCH_STATE_KEY);
     }
-  }, []);
+  }, [surface.enableBeyondGre]);
+
+  useEffect(() => {
+    void loadFilterOptions();
+  }, [surface.slug]);
 
   async function loadFilterOptions() {
     if (loadedLiveFilters || loadingLiveFilters) {
@@ -307,7 +313,7 @@ export function PublicExperience({
     setNotice(null);
     setActiveMode(null);
     setResultsPage(1);
-    setBeyondGre(false);
+    setBeyondGre(surface.enableBeyondGre);
     window.sessionStorage.removeItem(SEARCH_STATE_KEY);
   }
 
@@ -333,6 +339,11 @@ export function PublicExperience({
             >
               Chatbot
             </button>
+            {surface.slug === "askgre" ? (
+              <Link className="tab-btn sixm-entry-btn" href={`/6m-explorer${filters.q ? `?q=${encodeURIComponent(filters.q)}` : ""}`}>
+                6M Explorer
+              </Link>
+            ) : null}
           </div>
 
           {activeTab === "parameters" ? (
@@ -341,20 +352,6 @@ export function PublicExperience({
               <p className="section-copy">
                 Use structured filters first. Explicit choices here override the default relevance ordering used for ranking.
               </p>
-
-              {surface.enableBeyondGre ? (
-                <div className="query-surface-toggle">
-                  <label className="surface-checkbox" htmlFor="beyondGreToggle">
-                    <input
-                      id="beyondGreToggle"
-                      type="checkbox"
-                      checked={beyondGre}
-                      onChange={(event) => setBeyondGre(event.target.checked)}
-                    />
-                    <span>Beyond GRE</span>
-                  </label>
-                </div>
-              ) : null}
 
               <div className="filter-grid query-panel-body" onFocusCapture={ensureLiveFilters} onMouseEnter={ensureLiveFilters}>
                 <div className="field">
@@ -515,7 +512,19 @@ export function PublicExperience({
                     <div>
                       {result.source_label ? <span className="tag">{result.source_label}</span> : null}
                       <h3>
-                        <TrackedLink className="result-title-link" href={detailHref} prefetch={false}>
+                        <TrackedLink
+                          className="result-title-link"
+                          href={detailHref}
+                          prefetch={false}
+                          auditEvent={{
+                            kind: "view",
+                            action: "view_details",
+                            itemId: result.offering_id,
+                            itemLabel: result.offering_name || "Untitled offering",
+                            itemSource: result.source_slug || surface.slug,
+                            detailPath: detailHref,
+                          }}
+                        >
                           {result.offering_name}
                         </TrackedLink>
                       </h3>
@@ -539,11 +548,36 @@ export function PublicExperience({
                   </div>
                   {result.about_offering_text ? <p style={{ marginTop: 14 }}>{result.about_offering_text}</p> : null}
                   <div className="provider-offering-links" style={{ marginTop: 14 }}>
-                    <TrackedLink className="result-link" href={detailHref} prefetch={false}>
+                    <TrackedLink
+                      className="result-link"
+                      href={detailHref}
+                      prefetch={false}
+                      auditEvent={{
+                        kind: "view",
+                        action: "view_details",
+                        itemId: result.offering_id,
+                        itemLabel: result.offering_name || "Untitled offering",
+                        itemSource: result.source_slug || surface.slug,
+                        detailPath: detailHref,
+                      }}
+                    >
                       View details
                     </TrackedLink>
                     {portalHref ? (
-                      <TrackedAnchor className="result-link" href={portalHref} target="_blank" rel="noreferrer">
+                      <TrackedAnchor
+                        className="result-link"
+                        href={portalHref}
+                        target="_blank"
+                        rel="noreferrer"
+                        auditEvent={{
+                          kind: "view",
+                          action: "view_portal",
+                          itemId: result.offering_id,
+                          itemLabel: result.offering_name || "Untitled offering",
+                          itemSource: result.source_slug || surface.slug,
+                          portalUrl: portalHref,
+                        }}
+                      >
                         {surface.portalLabel}
                       </TrackedAnchor>
                     ) : null}
@@ -568,6 +602,7 @@ export function PublicExperience({
           </div>
         ) : null}
       </section>
+      <ShowcaseSections />
     </div>
   );
 }

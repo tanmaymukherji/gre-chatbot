@@ -3,6 +3,7 @@ import { ImpactStats } from "@/components/impact-stats";
 import { headers } from "next/headers";
 import { getSurfaceConfigByHost } from "@/lib/surface";
 import { getDirectorySummaryStats } from "@/lib/database";
+import { SurfaceSwitchLink } from "@/components/surface-switch-link";
 
 const FALLBACK_DIRECTORY_STATS = {
   offeringCount: 0,
@@ -31,8 +32,24 @@ export default async function HomePage() {
 
   return (
     <main className="page-shell">
-      <section className="hero">
-        <h1>{surface.heading}</h1>
+      <section className={`hero${surface.slug === "supergre" ? " hero-supergre" : ""}`}>
+        <div className="hero-head">
+          <div className="hero-title-block">
+            {surface.slug === "supergre" ? (
+              <p className="hero-kicker">Go Wider with Super GRE</p>
+            ) : null}
+            <h1>{surface.heading}</h1>
+          </div>
+          {surface.slug === "askgre" ? (
+            <SurfaceSwitchLink className="btn hero-link hero-link-super" href="https://supergre.grameee.org">
+              <span className="hero-link-super-lines">
+                <span>Go Wider</span>
+                <span>with</span>
+                <span>SuperGRE</span>
+              </span>
+            </SurfaceSwitchLink>
+          ) : null}
+        </div>
         <p className="hero-copy">
           {surface.heroDescription}
         </p>
