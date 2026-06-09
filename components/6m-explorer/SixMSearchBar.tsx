@@ -6,11 +6,13 @@ export function SixMSearchBar({
   keyword,
   onKeywordChange,
   onSubmit,
+  onClearAll,
   loading
 }: {
   keyword: string;
   onKeywordChange: (value: string) => void;
   onSubmit: () => void;
+  onClearAll?: () => void;
   loading?: boolean;
 }) {
   return (
@@ -45,6 +47,11 @@ export function SixMSearchBar({
         <button className="btn sixm-primary-btn" type="button" onClick={onSubmit} disabled={loading}>
           {loading ? "Searching..." : "Find Ms"}
         </button>
+        {onClearAll ? (
+          <button className="btn sixm-primary-btn" type="button" onClick={onClearAll} style={{ background: "#6b7280", borderColor: "#6b7280" }}>
+            Clear All
+          </button>
+        ) : null}
       </div>
     </section>
   );

@@ -54,8 +54,8 @@ export function SixMExplorerPage() {
   const searchParams = useSearchParams();
   const initialKeyword = String(searchParams.get("q") || "").trim();
 
-  const [keyword, setKeyword] = useState(initialKeyword || "Goat");
-  const [currentKeyword, setCurrentKeyword] = useState(initialKeyword || "Goat");
+  const [keyword, setKeyword] = useState(initialKeyword || "");
+  const [currentKeyword, setCurrentKeyword] = useState(initialKeyword || "");
   const [activeM, setActiveM] = useState<SixMDomain | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -79,9 +79,6 @@ export function SixMExplorerPage() {
   useEffect(() => {
     if (initialKeyword) {
       void handleSearch(initialKeyword, false);
-    } else {
-      const seed = "Goat";
-      void handleSearch(seed, false);
     }
   }, []);
 
@@ -199,7 +196,7 @@ export function SixMExplorerPage() {
 
   return (
     <main className="page-shell sixm-page-shell">
-      <SixMSearchBar keyword={keyword} onKeywordChange={setKeyword} onSubmit={() => void handleSearch()} loading={loading} />
+      <SixMSearchBar keyword={keyword} onKeywordChange={setKeyword} onSubmit={() => void handleSearch()} onClearAll={() => { setKeyword(""); setCurrentKeyword(""); setSelectedSolutions([]); setActiveM(null); setDrawerOpen(false); setCurrentResults({}); }} loading={loading} />
 
       {notice ? <div className="sixm-toast notice">{notice}</div> : null}
 
@@ -266,6 +263,32 @@ export function SixMExplorerPage() {
           solutions={selectedSolutions}
           onRemove={(id) => setSelectedSolutions((current) => current.filter((item) => item.id !== id))}
           onVisualize={() => setSelectedVisualisationOpen(true)}
+          onEmailSelection={selectedSolutions.length > 0 ? async () => {
+            const solutionList = selectedSolutions.map((s) => `${s.providerName} — ${s.title} (${window.location.origin}/offering/${s.offeringId})`).join("\n");
+            const draftText = `Hello,\n\nThis is the selected mix of 6M Solutions for the thematic area of ${currentKeyword}.\n\n${solutionList}\n\nRegards,\nTeam GRE`;
+            if (!window.confirm(`Send this email to yourself?\n\n${draftText}`)) return;
+            try {
+              const response = await fetch("/api/sixm-email", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  keyword: currentKeyword,
+                  solutions: selectedSolutions.map((s) => ({
+                    providerName: s.providerName,
+                    offeringName: s.title,
+                    detailUrl: `${window.location.origin}/offering/${s.offeringId}`
+                  })),
+                  senderEmail: "",
+                  senderName: ""
+                })
+              });
+              const result = await response.json();
+              if (!response.ok) throw new Error(result.error || "Send failed.");
+              setNotice("6M selection emailed successfully.");
+            } catch (error) {
+              setNotice(error instanceof Error ? error.message : "Email could not be sent.");
+            }
+          } : undefined}
         />
       ) : null}
     </main>

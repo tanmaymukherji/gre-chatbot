@@ -44,7 +44,7 @@ export function SelectedSolutionsVisualization({
         </div>
         <div className="sixm-visualization-actions">
           <button type="button" className="btn ghost" onClick={onBack}>
-            Back to Explorer
+            Back to 6M Explorer
           </button>
           <button type="button" className="btn ghost" onClick={onClearAll}>
             Clear All
