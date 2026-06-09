@@ -48,14 +48,6 @@ export function SolutionCard({
             href={solution.greUrl}
             target="_blank"
             rel="noreferrer"
-            auditEvent={{
-              kind: "view",
-              action: "view_portal",
-              itemId: solution.offeringId,
-              itemLabel: solution.title,
-              itemSource: solution.sourceLabel || "gre",
-              portalUrl: solution.greUrl
-            }}
           >
             View on GRE
           </TrackedAnchor>
@@ -67,4 +59,3 @@ export function SolutionCard({
     </article>
   );
 }
-
