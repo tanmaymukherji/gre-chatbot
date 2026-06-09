@@ -304,13 +304,19 @@ function buildStructuredDetailSections(offering: any, viewerSummary: any) {
       ["Geography", offering.geographies],
       ["Tags", offering.tags]
     ]),
-    secondaryRows: rowsOf([
-      ["Summary", offering.about_offering_text],
-      ["Portal Page", offering.portal_url]
-    ]),
-    providerRows,
-    extraSections: []
-  };
+      secondaryRows: rowsOf([
+        ["Summary", offering.about_offering_text],
+        ["Portal Page", offering.portal_url]
+      ]),
+      providerRows,
+      extraSections: [
+        offering.knowledge_content_url ? mediaSection("Videos", [offering.knowledge_content_url], "video") : null,
+        offering.service_brochure_url || offering.product_brochure_url ? mediaSection("Attachments", [
+          offering.service_brochure_url,
+          offering.product_brochure_url,
+        ].filter(Boolean)) : null,
+      ].filter(Boolean)
+    };
 }
 
 function DetailTable({ rows }: { rows: Array<[string, unknown]> }) {
