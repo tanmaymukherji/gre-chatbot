@@ -2305,21 +2305,21 @@ textarea {
 }
 
 .tab-header {
-  background: linear-gradient(135deg, rgba(46, 106, 60, 0.12), rgba(46, 106, 60, 0.04));
+  background: linear-gradient(135deg, rgba(46, 106, 60, 0.18), rgba(46, 106, 60, 0.1));
   border-radius: 999px;
   padding: 4px;
 }
 
-.tab-btn:nth-child(1) { background: rgba(46, 106, 60, 0.2); }
-.tab-btn:nth-child(1):hover { background: rgba(46, 106, 60, 0.28); }
+.tab-btn:nth-child(1) { background: rgba(46, 106, 60, 0.25); color: #1a3a1a; }
+.tab-btn:nth-child(1):hover { background: rgba(46, 106, 60, 0.35); }
 .tab-btn:nth-child(1).active { background: var(--brand); color: #fefcf5; }
 
-.tab-btn:nth-child(2) { background: rgba(46, 106, 60, 0.12); }
-.tab-btn:nth-child(2):hover { background: rgba(46, 106, 60, 0.2); }
+.tab-btn:nth-child(2) { background: rgba(46, 106, 60, 0.16); color: #1a3a1a; }
+.tab-btn:nth-child(2):hover { background: rgba(46, 106, 60, 0.26); }
 .tab-btn:nth-child(2).active { background: var(--brand); color: #fefcf5; }
 
-.tab-btn:nth-child(3) { background: rgba(46, 106, 60, 0.06); }
-.tab-btn:nth-child(3):hover { background: rgba(46, 106, 60, 0.12); }
+.tab-btn:nth-child(3) { background: rgba(46, 106, 60, 0.1); color: #1a3a1a; }
+.tab-btn:nth-child(3):hover { background: rgba(46, 106, 60, 0.18); }
 .tab-btn:nth-child(3).active { background: var(--brand); color: #fefcf5; }
 
 .sixm-page-shell {
