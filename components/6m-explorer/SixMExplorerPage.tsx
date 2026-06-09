@@ -174,14 +174,7 @@ export function SixMExplorerPage() {
     }
 
     setDetailsLoading(true);
-    trackImpactCounter("solutions_discovered", 1, {
-      kind: "view",
-      action: "view_details",
-      itemId: solution.offeringId,
-      itemLabel: solution.title,
-      itemSource: solution.sourceLabel || "gre",
-      detailPath: solution.detailHref || `/offering/${solution.offeringId}`
-    });
+    trackImpactCounter("solutions_discovered", 1);
 
     try {
       const detail = await getSolutionDetails(solution.offeringId);
