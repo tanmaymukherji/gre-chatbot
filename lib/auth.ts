@@ -3,9 +3,12 @@ import { ADMIN_COOKIE_NAME, getAdminSession } from "@/lib/grameee-admin-auth";
 
 const SHARED_SUMMARY_COOKIE = "grameee_user_summary";
 
-type SharedUserSummary = {
+export type SharedUserSummary = {
   email?: string;
   fullName?: string;
+  organization?: string;
+  organizationLink?: string;
+  phone?: string;
   username?: string;
   role?: string;
   privileges?: {
@@ -26,13 +29,36 @@ function parseSharedUserSummary(rawValue: string | undefined) {
   }
 }
 
+export function parseSharedUserSummaryCookie(rawValue: string | undefined) {
+  return parseSharedUserSummary(rawValue);
+}
+
+export function canViewProtectedPhones(summary: SharedUserSummary | null | undefined) {
+  const role = String(summary?.role || "").trim().toLowerCase();
+  return ["admin", "moderator", "curator"].includes(role);
+}
+
+export function maskPhoneNumber(value: unknown, summary: SharedUserSummary | null | undefined) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (canViewProtectedPhones(summary)) return text;
+  const digits = text.replace(/\D/g, "");
+  if (digits.length < 4) return "Hidden";
+  const visible = digits.slice(-4);
+  return `Hidden for users (ending ${visible})`;
+}
+
+export function getSharedUserSummary(request: NextRequest) {
+  return parseSharedUserSummary(request.cookies.get(SHARED_SUMMARY_COOKIE)?.value);
+}
+
 function isSharedAdmin(summary: SharedUserSummary | null) {
   const role = String(summary?.role || "").trim().toLowerCase();
   return role === "admin";
 }
 
 export function getSharedGrameeeAdminSession(request: NextRequest) {
-  const summary = parseSharedUserSummary(request.cookies.get(SHARED_SUMMARY_COOKIE)?.value);
+  const summary = getSharedUserSummary(request);
 
   if (!isSharedAdmin(summary)) {
     return null;

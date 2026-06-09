@@ -32,13 +32,13 @@ const ASK_GRE_SURFACE: GreSurfaceConfig = {
 const SUPER_GRE_SURFACE: GreSurfaceConfig = {
   slug: "supergre",
   hostnames: ["supergre.grameee.org"],
-  heading: "SuperGRE",
+  heading: "Super GRE",
   adminDataLabel: "SuperGRE Data",
   heroDescription:
     "A protected SuperGRE workspace that starts with the AskGRE experience and expands toward multi-source discovery across GramEEE and Beyond GRE datasets.",
   appBaseUrl: "https://supergre.grameee.org",
   enableBeyondGre: true,
-  forceLoginOnEntry: true,
+  forceLoginOnEntry: false,
   portalLabel: "View on Portal",
   copilotLabel: "SuperGRE Copilot",
   datasetLabel: "GRE and connected source datasets"
