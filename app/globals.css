@@ -114,6 +114,174 @@ textarea {
   margin-top: 20px;
 }
 
+.hero-title-block {
+  display: grid;
+  gap: 10px;
+}
+
+.hero-kicker {
+  margin: 0;
+  font-size: 0.84rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 249, 227, 0.82);
+}
+
+.hero-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.hero-link-super-lines {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 3px;
+  text-align: center;
+  line-height: 1.02;
+}
+
+.hero-link-super-lines span {
+  display: block;
+}
+
+.hero-link-super-lines span:nth-child(1) {
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(45, 106, 79, 0.82);
+}
+
+.hero-link-super-lines span:nth-child(2) {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: rgba(45, 106, 79, 0.9);
+}
+
+.hero-link-super-lines span:nth-child(3) {
+  font-size: 1.16rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--brand);
+}
+
+.hero .hero-link-super {
+  min-width: 176px;
+  min-height: 94px;
+  padding: 14px 20px;
+  border: 1px solid rgba(255, 248, 227, 0.72);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(255, 218, 122, 0.95), transparent 34%),
+    linear-gradient(145deg, #fffdf5 0%, #fff4cf 42%, #f8ffea 100%);
+  color: var(--brand);
+  box-shadow:
+    0 20px 38px rgba(14, 58, 37, 0.26),
+    0 0 0 1px rgba(255, 255, 255, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.96);
+  cursor: pointer;
+  pointer-events: auto;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  text-transform: none;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    filter 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.hero .hero-link-super::before {
+  content: "";
+  position: absolute;
+  inset: -8% -18% auto auto;
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(45, 106, 79, 0.2), transparent 72%);
+  z-index: 0;
+}
+
+.hero .hero-link-super::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 16%, rgba(255, 255, 255, 0.72) 32%, transparent 48%);
+  transform: translateX(-135%);
+  transition: transform 0.45s ease;
+  z-index: 0;
+}
+
+.hero .hero-link-super:hover {
+  transform: translateY(-3px) scale(1.03) rotate(-1deg);
+  box-shadow:
+    0 24px 42px rgba(14, 58, 37, 0.32),
+    0 0 0 1px rgba(255, 255, 255, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.98);
+  border-color: rgba(255, 253, 238, 0.94);
+  filter: saturate(1.06);
+}
+
+.hero .hero-link-super:hover::after {
+  transform: translateX(135%);
+}
+
+.hero .hero-link-super .hero-link-super-lines span:nth-child(1) {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  color: rgba(45, 106, 79, 0.78);
+}
+
+.hero .hero-link-super .hero-link-super-lines span:nth-child(2) {
+  font-size: 0.84rem;
+  font-weight: 800;
+  color: rgba(34, 87, 64, 0.92);
+}
+
+.hero .hero-link-super .hero-link-super-lines span:nth-child(3) {
+  font-size: 1.22rem;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  color: #1d5a42;
+}
+
+.hero-supergre {
+  background:
+    radial-gradient(circle at top left, rgba(255, 218, 122, 0.92), transparent 30%),
+    linear-gradient(145deg, #fffdf5 0%, #fff4cf 42%, #f8ffea 100%);
+  color: #1d5a42;
+  box-shadow:
+    0 24px 42px rgba(14, 58, 37, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.96);
+}
+
+.hero-supergre::after {
+  width: 320px;
+  height: 320px;
+  background: radial-gradient(circle, rgba(45, 106, 79, 0.18), transparent 70%);
+  inset: auto -9% -36% auto;
+  filter: blur(4px);
+}
+
+.hero-supergre h1,
+.hero-supergre h2 {
+  color: #1d5a42;
+}
+
+.hero-supergre p {
+  color: rgba(29, 90, 66, 0.9);
+}
+
+.hero-supergre .hero-kicker {
+  color: rgba(45, 106, 79, 0.76);
+}
+
 .pill {
   display: inline-flex;
   align-items: center;
@@ -992,6 +1160,11 @@ textarea {
 
   .hero {
     padding: 24px;
+  }
+
+  .hero-head {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 
