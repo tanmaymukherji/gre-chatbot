@@ -70,8 +70,9 @@ export async function POST(request: NextRequest) {
     if (!summaryStr) {
       return NextResponse.json({ error: "Login required." }, { status: 401 });
     }
-    const summary = JSON.parse(summaryStr);
-    const userEmail = summary?.email || summary?.username || "";
+    const session = JSON.parse(summaryStr);
+    const senderName = session?.fullName || session?.username || "User";
+    const sessionEmail = session?.email || session?.username || "";
     const surface = getSurfaceConfigByHost(request.headers.get("host"));
 
     const body = requestSchema.parse(await request.json());
@@ -97,12 +98,13 @@ export async function POST(request: NextRequest) {
     const DEFAULT_TEMPLATE = `Hello,\n\nThis is the selected mix of 6M Solutions for the thematic area of {{keyword}}.\n\n{{solutions}}\n\nRegards,\nTeam GRE`;
     const template = rawTemplate || DEFAULT_TEMPLATE;
     const textBody = template
+      .replace(/\{\{name\}\}/g, senderName)
       .replace(/\{\{keyword\}\}/g, body.keyword)
       .replace(/\{\{solutions\}\}/g, solutionLines);
 
     const raw = [
       `From: ${senderEmail}`,
-      `To: ${userEmail || body.senderEmail}`,
+      `To: ${sessionEmail || body.senderEmail}`,
       `Subject: =?utf-8?B?${Buffer.from(subject).toString("base64")}?=`,
       "MIME-Version: 1.0",
       "Content-Type: text/plain; charset=utf-8",

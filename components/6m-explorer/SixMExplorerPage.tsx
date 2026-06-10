@@ -26,6 +26,12 @@ function readCookie(name: string) {
   return "";
 }
 
+function getUserSummary() {
+  try { return JSON.parse(readCookie("grameee_user_summary") || "{}"); } catch { return {}; }
+}
+function getUserEmail() { return getUserSummary().email || getUserSummary().username || ""; }
+function getUserName() { return getUserSummary().fullName || getUserSummary().username || "User"; }
+
 function promptSharedLogin() {
   if (typeof window === "undefined") {
     return;
@@ -295,8 +301,8 @@ export function SixMExplorerPage() {
               </div>
               <div style={{ padding: "10px 14px", background: "#f8faf8", borderRadius: 12, border: "1px solid #e7efe8" }}>
                 <div style={{ fontSize: "0.82rem", color: "#64806a", marginBottom: 4 }}>To</div>
-                <strong>You</strong>
-                <small style={{ display: "block", color: "#607064" }}>(logged-in email)</small>
+                <strong>{getUserName()}</strong>
+                <small style={{ display: "block", color: "#607064" }}>{getUserEmail()}</small>
               </div>
               <div style={{ padding: "10px 14px", background: "#f8faf8", borderRadius: 12, border: "1px solid #e7efe8" }}>
                 <div style={{ fontSize: "0.82rem", color: "#64806a", marginBottom: 4 }}>Subject</div>
@@ -306,8 +312,11 @@ export function SixMExplorerPage() {
 
             <div style={{ padding: 16, background: "#fcfdfc", borderRadius: 12, border: "1px solid #edf3ee", whiteSpace: "pre-wrap", fontSize: "0.88rem", lineHeight: 1.6, maxHeight: 320, overflow: "auto" }}>
               {(() => {
+                const userName = getUserName();
+                const userEmail = getUserEmail();
                 const solLines = selectedSolutions.map((s, i) => `${i + 1}. [${s.sixMDomains?.[0] || "M"}] ${s.providerName} — ${s.title}\n   ${window.location.origin}/offering/${s.offeringId}`).join("\n\n");
-                return (emailTemplate || "Hello,\n\nThis is the selected mix of 6M Solutions for the thematic area of {{keyword}}.\n\n{{solutions}}\n\nRegards,\nTeam GRE")
+                return (emailTemplate || "Hello {{name}},\n\nThis is the selected mix of 6M Solutions for the thematic area of {{keyword}}.\n\n{{solutions}}\n\nRegards,\nTeam GRE")
+                  .replace(/\{\{name\}\}/g, userName)
                   .replace(/\{\{keyword\}\}/g, currentKeyword)
                   .replace(/\{\{solutions\}\}/g, solLines);
               })()}
