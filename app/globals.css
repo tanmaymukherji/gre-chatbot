@@ -2371,10 +2371,20 @@ textarea {
 
 .sixm-search-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
   margin-top: 24px;
   align-items: center;
+}
+
+.sixm-search-row .sixm-primary-btn {
+  min-width: 110px;
+  text-align: center;
+}
+
+.sixm-search-row .btn {
+  min-width: 110px;
+  text-align: center;
 }
 
 .sixm-search-head {
