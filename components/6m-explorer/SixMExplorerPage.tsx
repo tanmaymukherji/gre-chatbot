@@ -206,7 +206,9 @@ export function SixMExplorerPage() {
 
   return (
     <main className="page-shell sixm-page-shell">
-      <SixMSearchBar keyword={keyword} onKeywordChange={setKeyword} onSubmit={() => void handleSearch()} onClearAll={() => { setKeyword(""); setCurrentKeyword(""); setSelectedSolutions([]); setActiveM(null); setDrawerOpen(false); setCurrentResults({}); }} loading={loading} />
+      {!selectedVisualisationOpen ? (
+        <SixMSearchBar keyword={keyword} onKeywordChange={setKeyword} onSubmit={() => void handleSearch()} onClearAll={() => { setKeyword(""); setCurrentKeyword(""); setSelectedSolutions([]); setActiveM(null); setDrawerOpen(false); setCurrentResults({}); }} loading={loading} />
+      ) : null}
 
       {notice ? <div className="sixm-toast notice">{notice}</div> : null}
 
