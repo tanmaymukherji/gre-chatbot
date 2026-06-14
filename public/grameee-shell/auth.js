@@ -1210,6 +1210,7 @@ async function initializeAuthUi() {
   const logoutRequested = applyLogoutRequestFromUrl();
   const transferredSummary = await applySessionTransferFromUrl().catch(() => null);
   const handoffSummary = applySessionHandoffFromUrl();
+  const immediateSummary = logoutRequested ? null : (transferredSummary || handoffSummary || getStoredSummary());
 
   if (!authUiInitialized) {
     authUiInitialized = attachLoginModalBehavior();
@@ -1219,6 +1220,10 @@ async function initializeAuthUi() {
   attachDelegatedLogoutBehavior();
   attachAuthLinkBehavior();
   attachSessionAwareNavigation();
+  if (immediateSummary) {
+    updateNavForUser(immediateSummary);
+    notifyAuthStateChanged(immediateSummary);
+  }
   const hydratedUser = await refreshAuthUi();
   const fallbackSummary = transferredSummary || handoffSummary;
   const user = logoutRequested ? null : (hydratedUser || fallbackSummary);

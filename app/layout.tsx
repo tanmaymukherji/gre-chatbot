@@ -34,7 +34,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             })};`
           }}
         />
-        <script defer src="https://grameee.org/auth.js?v=20260531b"></script>
+        <script defer src="https://grameee.org/auth.js?v=20260614a"></script>
       </head>
       <body data-gre-surface={surface.slug}>
         <div id="grameeeShellSlot" suppressHydrationWarning />
