@@ -3457,13 +3457,7 @@ async function runSearchInternal(filters: SearchFilters) {
       String(left.row.offering_name || "").localeCompare(String(right.row.offering_name || ""))
     );
 
-  const topScore = ranked[0]?.matchScore || ranked[0]?.score || 0;
-  const relevanceFloor = q && topScore > 0
-    ? Math.max(4, Math.ceil(topScore * 0.55), topScore - 4)
-    : 0;
-
   const filtered = ranked
-    .filter(({ score, matchScore }) => inferredFilters.solutionProvider || !q || structuredFilterCount > 0 || matchScore >= relevanceFloor || score >= relevanceFloor)
     .slice(0, limit)
     .map(({ row, matchScore }) => ({
       ...row,
