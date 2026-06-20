@@ -4020,18 +4020,24 @@ export async function getDirectorySummaryStats(surface: GreSurfaceSlug = "askgre
   }
 
   if (cached.data) {
+    const value = {
+      offeringCount: Number(cached.data.offering_count || 0),
+      providerCount: Number(cached.data.provider_count || 0),
+      sourceCount: Number(cached.data.source_count || 0)
+    };
+    directorySummaryCache[surface] = {
+      expiresAt: now + FILTER_CACHE_TTL_MS,
+      value
+    };
+
     try {
-      return await refreshDirectorySummaryCache(surface);
+      return await Promise.race([
+        refreshDirectorySummaryCache(surface),
+        new Promise<DirectorySummaryStats>((resolve) =>
+          setTimeout(() => resolve(value), 3000)
+        )
+      ]);
     } catch {
-      const value = {
-        offeringCount: Number(cached.data.offering_count || 0),
-        providerCount: Number(cached.data.provider_count || 0),
-        sourceCount: Number(cached.data.source_count || 0)
-      };
-      directorySummaryCache[surface] = {
-        expiresAt: now + FILTER_CACHE_TTL_MS,
-        value
-      };
       return value;
     }
   }
