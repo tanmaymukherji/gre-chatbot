@@ -890,6 +890,21 @@ function normalizeVikalpSangamTags(story: any) {
   ].map((value) => String(value || "").trim()).filter(Boolean));
 }
 
+function normalizedHttpUrl(value: unknown) {
+  try {
+    const parsed = new URL(String(value || "").trim());
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function isLikelyImageUrl(value: unknown) {
+  const url = normalizedHttpUrl(value);
+  if (!url || /cropped-siteicon|(?:^|[\/_-])(logo|avatar|icon)(?:[\/_\-.]|$)/i.test(url)) return false;
+  return /\.(jpe?g|png|webp|gif|avif)(?:[?#]|$)/i.test(url) || /\/wp-content\/uploads\//i.test(url);
+}
+
 function buildVikalpSangamSearchDocument(story: any, geographies: string[], tags: string[]) {
   const aiSummary = story?.ai_summary && typeof story.ai_summary === "object" ? story.ai_summary : {};
   return [
@@ -1755,14 +1770,16 @@ function normalizeVikalpSangamRow(story: any) {
   const domains = inferVikalpSangamDomains(story);
   const offeringType = inferVikalpSangamOfferingType(domains, story);
   const detailId = String(story?.story_uid || "").trim();
-  const galleryUrls = Array.isArray(story?.story_image_urls)
+  const rawGalleryUrls = Array.isArray(story?.story_image_urls)
     ? story.story_image_urls
     : flattenObjectStrings(story?.story_image_urls || {});
+  const galleryUrls = uniqueSorted(rawGalleryUrls.map(normalizedHttpUrl).filter((url): url is string => Boolean(url && isLikelyImageUrl(url))));
   const videoUrls = Array.isArray(story?.video_urls)
     ? story.video_urls
     : flattenObjectStrings(story?.video_urls || {});
   const aiSummary = story?.ai_summary && typeof story.ai_summary === "object" ? story.ai_summary : {};
-  const sourceUrl = String(story?.story_url || "").trim() || null;
+  const sourceUrl = normalizedHttpUrl(story?.story_url) || normalizedHttpUrl(story?.original_source_url);
+  const coverImageUrl = isLikelyImageUrl(story?.cover_image_url) ? normalizedHttpUrl(story.cover_image_url) : null;
   const contactName = String(story?.contact_name || story?.community_or_group || story?.organizations_involved?.[0] || story?.people_involved?.[0] || story?.author_name || "").trim() || null;
 
   return {
@@ -1807,7 +1824,7 @@ function normalizeVikalpSangamRow(story: any) {
       solution_id: `vikalp-sangam:${detailId}`,
       solution_name: story?.title || "Vikalp Sangam story",
       about_solution_text: String(story?.story_excerpt || story?.summary_of_work || "").trim() || null,
-      solution_image_url: story?.cover_image_url || galleryUrls[0] || null,
+      solution_image_url: coverImageUrl || galleryUrls[0] || null,
       trader: {
         trader_id: detailId,
         trader_name: contactName,
@@ -2117,6 +2134,7 @@ async function getCachedVikalpSangamRows() {
     .from("vikalp_sangam_stories")
     .select("story_uid,story_url,title,original_source,original_source_url,author_name,thematic_areas,thematic_area,story_type,geography,place_label,location_text,state,district_or_region,country,contact_name,contact_email,contact_phone,people_involved,organizations_involved,community_or_group,summary_of_work,story_excerpt,keywords,story_tags,tags,six_m_categories,six_m_details,actionability_class,actionability_score,actionability_reasons,problem_critique_signals,classification_confidence,review_status,processes_or_methods,machinery_or_tools,materials_or_inputs,products_or_outputs,market_linkage,money_or_finance,cover_image_url,story_image_urls,video_urls,latitude,longitude,source_published_at,source_status,evidence_notes,source_citation,reviewer_notes,enrichment_status,admin_notes,ai_model,ai_summary,raw_story,search_text")
     .eq("actionability_class", "actionable_6m")
+    .not("story_url", "ilike", "%/tag/%")
     .order("source_published_at", { ascending: false, nullsFirst: false });
 
   if (error) {
@@ -3959,6 +3977,7 @@ export async function getExternalOfferingDetail(source: string, recordId: string
       .select("story_uid,story_url,title,original_source,original_source_url,author_name,thematic_areas,thematic_area,story_type,geography,place_label,location_text,state,district_or_region,country,contact_name,contact_email,contact_phone,people_involved,organizations_involved,community_or_group,summary_of_work,story_excerpt,keywords,story_tags,tags,six_m_categories,six_m_details,actionability_class,actionability_score,actionability_reasons,problem_critique_signals,classification_confidence,review_status,processes_or_methods,machinery_or_tools,materials_or_inputs,products_or_outputs,market_linkage,money_or_finance,cover_image_url,story_image_urls,video_urls,latitude,longitude,source_published_at,source_status,evidence_notes,source_citation,reviewer_notes,enrichment_status,admin_notes,ai_model,ai_summary,raw_story,search_text")
       .eq("story_uid", recordId)
       .eq("actionability_class", "actionable_6m")
+      .not("story_url", "ilike", "%/tag/%")
       .single();
 
     if (storyError || !story) {
@@ -4333,7 +4352,7 @@ async function buildSuperGreFilterOptionsLightweight(supabase: ReturnType<typeof
     supabase.from("grid_practices").select("product_categories,product_subcategories,tags,reviewed_tags,six_m_categories"),
     supabase.from("grid_innovators").select("vendor_name,city,state,country,service_locations,tags"),
     supabase.from("better_india_stories").select("person_name,thematic_area,tags,six_m_categories,place_label,state,country"),
-    supabase.from("vikalp_sangam_stories").select("title,contact_name,community_or_group,organizations_involved,thematic_areas,thematic_area,tags,story_tags,keywords,six_m_categories,place_label,district_or_region,state,country").eq("actionability_class", "actionable_6m"),
+    supabase.from("vikalp_sangam_stories").select("title,contact_name,community_or_group,organizations_involved,thematic_areas,thematic_area,tags,story_tags,keywords,six_m_categories,place_label,district_or_region,state,country").eq("actionability_class", "actionable_6m").not("story_url", "ilike", "%/tag/%"),
     supabase.from("ecosystem_directory_entities").select("entity_name,entity_type_slug,entity_type_label,tags,keywords,location_label,state,country,office_locations,type_specific_data")
   ]);
 
@@ -4612,7 +4631,7 @@ async function refreshDirectorySummaryCache(surface: GreSurfaceSlug) {
       supabase.from("gian_innovations").select("portal_product_id", { count: "exact", head: true }),
       supabase.from("grid_practices").select("portal_product_id", { count: "exact", head: true }),
       supabase.from("better_india_stories").select("story_uid", { count: "exact", head: true }),
-      supabase.from("vikalp_sangam_stories").select("story_uid", { count: "exact", head: true }).eq("actionability_class", "actionable_6m"),
+      supabase.from("vikalp_sangam_stories").select("story_uid", { count: "exact", head: true }).eq("actionability_class", "actionable_6m").not("story_url", "ilike", "%/tag/%"),
       supabase.from("ecosystem_directory_entities").select("entity_uid", { count: "exact", head: true })
     ]);
 
@@ -4630,7 +4649,7 @@ async function refreshDirectorySummaryCache(surface: GreSurfaceSlug) {
       supabase.from("gian_innovators").select("vendor_name"),
       supabase.from("grid_innovators").select("vendor_name"),
       supabase.from("better_india_stories").select("person_name"),
-      supabase.from("vikalp_sangam_stories").select("title,contact_name,community_or_group,organizations_involved").eq("actionability_class", "actionable_6m"),
+      supabase.from("vikalp_sangam_stories").select("title,contact_name,community_or_group,organizations_involved").eq("actionability_class", "actionable_6m").not("story_url", "ilike", "%/tag/%"),
       supabase.from("ecosystem_directory_entities").select("entity_name")
     ]);
 

@@ -63,6 +63,11 @@ function uniqueMediaUrls(values: unknown) {
   return [...new Set(urls)];
 }
 
+function isRenderableImageUrl(value: string) {
+  if (/cropped-siteicon|(?:^|[\/_-])(logo|avatar|icon)(?:[\/_\-.]|$)/i.test(value)) return false;
+  return /\.(jpe?g|png|webp|gif|avif)(?:[?#]|$)/i.test(value) || /\/wp-content\/uploads\//i.test(value);
+}
+
 function isVideoUrl(url: string) {
   return /\.(mp4|webm|ogg|mov)(\?|#|$)/i.test(url) ||
     /youtube\.com\/watch\?/i.test(url) ||
@@ -96,7 +101,7 @@ function toEmbedUrl(url: string) {
 }
 
 function mediaSection(title: string, values: unknown, kind?: "image" | "video"): DetailExtraSection | null {
-  const urls = uniqueMediaUrls(values);
+  const urls = uniqueMediaUrls(values).filter((url) => kind !== "image" || isRenderableImageUrl(url));
   if (!urls.length) {
     return null;
   }
@@ -276,7 +281,8 @@ function buildStructuredDetailSections(offering: any, viewerSummary: any) {
         ["Market Linkage", story.market_linkage],
         ["Money / Finance", story.money_or_finance],
         ["Evidence Notes", story.evidence_notes],
-        ["Source Story", story.story_url]
+        ["Source Story", story.story_url],
+        ["Original Source", story.original_source_url]
       ]),
       providerRows: rowsOf([
         ["Contact Name", story.contact_name || story.community_or_group],
@@ -411,7 +417,7 @@ function MediaCard({ item }: { item: DetailMediaItem }) {
   return (
     <div className="detail-media-card">
       {item.kind === "image" ? (
-        <img className="detail-media-image" src={item.url} alt={item.label || "Detail media"} loading="lazy" />
+        <img className="detail-media-image" src={item.url} alt={item.label || "Detail media"} loading="lazy" referrerPolicy="no-referrer" />
       ) : isHostedVideo ? (
         <video className="detail-media-video" controls preload="metadata">
           <source src={item.url} />
@@ -529,7 +535,7 @@ export default async function ExternalDetailPage({
           </div>
           {offering.solution?.solution_image_url ? (
             <div className="detail-hero-image-wrap">
-              <img className="detail-hero-image" src={offering.solution.solution_image_url} alt={offering.offering_name || "Offering image"} />
+              <img className="detail-hero-image" src={offering.solution.solution_image_url} alt={offering.offering_name || "Offering image"} referrerPolicy="no-referrer" />
             </div>
           ) : null}
         </div>
