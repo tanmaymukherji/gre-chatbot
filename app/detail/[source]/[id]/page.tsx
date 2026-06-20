@@ -282,7 +282,7 @@ function buildStructuredDetailSections(offering: any, viewerSummary: any) {
         ["Money / Finance", story.money_or_finance],
         ["Evidence Notes", story.evidence_notes],
         ["Source Story", story.story_url],
-        ["Original Source", story.original_source_url]
+        ["Original Source", payload.originalSourceUrl]
       ]),
       providerRows: rowsOf([
         ["Contact Name", story.contact_name || story.community_or_group],

@@ -1779,6 +1779,10 @@ function normalizeVikalpSangamRow(story: any) {
     : flattenObjectStrings(story?.video_urls || {});
   const aiSummary = story?.ai_summary && typeof story.ai_summary === "object" ? story.ai_summary : {};
   const sourceUrl = normalizedHttpUrl(story?.story_url) || normalizedHttpUrl(story?.original_source_url);
+  const rawOriginalSourceUrl = normalizedHttpUrl(story?.original_source_url);
+  const originalSourceUrl = rawOriginalSourceUrl && !/^https?:\/\/(?:www\.)?vikalpsangam\.org\/article\/?$/i.test(rawOriginalSourceUrl)
+    ? rawOriginalSourceUrl
+    : null;
   const coverImageUrl = isLikelyImageUrl(story?.cover_image_url) ? normalizedHttpUrl(story.cover_image_url) : null;
   const contactName = String(story?.contact_name || story?.community_or_group || story?.organizations_involved?.[0] || story?.people_involved?.[0] || story?.author_name || "").trim() || null;
 
@@ -1844,6 +1848,7 @@ function normalizeVikalpSangamRow(story: any) {
       galleryUrls,
       videoUrls,
       aiSummary,
+      originalSourceUrl,
       inferredDomains: domains
     }
   };
