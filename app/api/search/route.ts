@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
       tag: params.get("tag") || undefined,
       language: params.get("language") || undefined,
       geography: params.get("geography") || undefined,
-      beyondGre: params.get("beyondGre") === "true",
+      beyondGre: surface.enableBeyondGre || params.get("beyondGre") === "true",
       limit: Number(params.get("limit") || 250)
     };
     const inferredFilters = inferSearchFilters(baseFilters, baseFilters.q);

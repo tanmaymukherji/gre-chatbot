@@ -241,6 +241,75 @@ function buildStructuredDetailSections(offering: any, viewerSummary: any) {
     };
   }
 
+  if (source === "vikalp-sangam") {
+    const story = payload.story || {};
+    const aiSummary = payload.aiSummary || {};
+    return {
+      introTitle: "About the Actionable Story",
+      introText: story.summary_of_work || story.story_excerpt || offering.solution?.about_solution_text || null,
+      primaryRows: rowsOf([
+        ["Story Title", story.title || offering.offering_name],
+        ["Source", "Vikalp Sangam"],
+        ["Original Source", story.original_source],
+        ["Author", story.author_name],
+        ["Story Type", story.story_type],
+        ["Thematic Areas", story.thematic_areas || story.thematic_area],
+        ["6M Domain", offering.domain_6m],
+        ["Actionability Score", story.actionability_score],
+        ["Actionability Reasons", story.actionability_reasons],
+        ["Tags", offering.tags],
+        ["Place", story.place_label],
+        ["District / Region", story.district_or_region],
+        ["State", story.state],
+        ["Published", story.source_published_at]
+      ]),
+      secondaryRows: rowsOf([
+        ["Summary of Work", story.summary_of_work],
+        ["Excerpt", story.story_excerpt],
+        ["People Involved", story.people_involved],
+        ["Organizations Involved", story.organizations_involved],
+        ["Community / Group", story.community_or_group],
+        ["Processes / Methods", story.processes_or_methods],
+        ["Machinery / Tools", story.machinery_or_tools],
+        ["Materials / Inputs", story.materials_or_inputs],
+        ["Products / Outputs", story.products_or_outputs],
+        ["Market Linkage", story.market_linkage],
+        ["Money / Finance", story.money_or_finance],
+        ["Evidence Notes", story.evidence_notes],
+        ["Source Story", story.story_url]
+      ]),
+      providerRows: rowsOf([
+        ["Contact Name", story.contact_name || story.community_or_group],
+        ["Email", story.contact_email],
+        ["Phone", maskPhoneNumber(story.contact_phone, viewerSummary)],
+        ["Location", story.location_text || story.place_label],
+        ["Portal Page", story.story_url]
+      ]),
+      extraSections: [
+        story.six_m_details ? {
+          title: "6M Action Details",
+          rows: rowsOf(Object.entries(story.six_m_details).map(([key, value]) => [
+            key
+              .replace(/_/g, " ")
+              .replace(/\b\w/g, (char) => char.toUpperCase()),
+            value
+          ] as [string, unknown]))
+        } : null,
+        aiSummary && Object.keys(aiSummary).length ? {
+          title: "AI Enrichment",
+          rows: rowsOf([
+            ["Summary", aiSummary.summary || aiSummary.summary_of_work],
+            ["Thematic Area", aiSummary.thematic_area],
+            ["Process Steps", aiSummary.process_steps],
+            ["Contributors", Array.isArray(aiSummary.contributors) ? aiSummary.contributors.map((item: any) => [item?.name, item?.contribution].filter(Boolean).join(": ")) : []]
+          ])
+        } : null,
+        mediaSection("Story Images", [story.cover_image_url, payload.galleryUrls], "image"),
+        mediaSection("Videos", payload.videoUrls, "video")
+      ].filter(Boolean)
+    };
+  }
+
   if (source === "livelihood") {
     const entity = payload.entity || {};
     const typeSpecific = entity.type_specific_data || {};
