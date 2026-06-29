@@ -95,12 +95,6 @@ let betterIndiaSearchCache:
       rows: any[];
     }
   | null = null;
-let vikalpSangamSearchCache:
-  | {
-      expiresAt: number;
-      rows: any[];
-    }
-  | null = null;
 let livelihoodSearchCache:
   | {
       expiresAt: number;
@@ -117,7 +111,6 @@ export function invalidateSearchCaches() {
   gianSearchCache = null;
   gridSearchCache = null;
   betterIndiaSearchCache = null;
-  vikalpSangamSearchCache = null;
   livelihoodSearchCache = null;
 }
 
@@ -861,94 +854,6 @@ function buildBetterIndiaSearchDocument(story: any, geographies: string[], tags:
     .join(" ");
 }
 
-function normalizeVikalpSangamGeographies(story: any) {
-  return uniqueSorted([
-    story?.place_label,
-    story?.location_text,
-    story?.geography,
-    story?.district_or_region,
-    story?.state,
-    story?.country
-  ].flatMap((value) => asArrayOfStrings(value)));
-}
-
-function normalizeVikalpSangamTags(story: any) {
-  const aiSummary = story?.ai_summary && typeof story.ai_summary === "object" ? story.ai_summary : {};
-  return uniqueSorted([
-    ...(story?.tags || []),
-    ...(story?.story_tags || []),
-    ...(story?.keywords || []),
-    ...(story?.thematic_areas || []),
-    ...(story?.six_m_categories || []),
-    ...(story?.actionability_reasons || []),
-    ...(Array.isArray(aiSummary?.tags) ? aiSummary.tags : []),
-    ...(Array.isArray(aiSummary?.six_m_categories) ? aiSummary.six_m_categories : []),
-    story?.thematic_area,
-    story?.story_type,
-    story?.author_name,
-    story?.original_source
-  ].map((value) => String(value || "").trim()).filter(Boolean));
-}
-
-function normalizedHttpUrl(value: unknown) {
-  try {
-    const parsed = new URL(String(value || "").trim());
-    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.toString() : null;
-  } catch {
-    return null;
-  }
-}
-
-function isLikelyImageUrl(value: unknown) {
-  const url = normalizedHttpUrl(value);
-  if (!url || /cropped-siteicon|(?:^|[\/_-])(logo|avatar|icon)(?:[\/_\-.]|$)/i.test(url)) return false;
-  return /\.(jpe?g|png|webp|gif|avif)(?:[?#]|$)/i.test(url) || /\/wp-content\/uploads\//i.test(url);
-}
-
-function buildVikalpSangamSearchDocument(story: any, geographies: string[], tags: string[]) {
-  const aiSummary = story?.ai_summary && typeof story.ai_summary === "object" ? story.ai_summary : {};
-  return [
-    story?.title,
-    story?.author_name,
-    story?.original_source,
-    story?.thematic_area,
-    ...(story?.thematic_areas || []),
-    story?.story_type,
-    story?.geography,
-    story?.place_label,
-    story?.location_text,
-    story?.district_or_region,
-    story?.state,
-    story?.country,
-    story?.community_or_group,
-    ...(story?.people_involved || []),
-    ...(story?.organizations_involved || []),
-    story?.summary_of_work,
-    story?.story_excerpt,
-    story?.processes_or_methods,
-    story?.machinery_or_tools,
-    story?.materials_or_inputs,
-    story?.products_or_outputs,
-    story?.market_linkage,
-    story?.money_or_finance,
-    ...(story?.six_m_categories || []),
-    ...(story?.actionability_reasons || []),
-    story?.evidence_notes,
-    story?.source_citation,
-    story?.search_text,
-    aiSummary?.summary,
-    aiSummary?.summary_of_work,
-    aiSummary?.thematic_area,
-    aiSummary?.place,
-    ...flattenObjectStrings(story?.six_m_details || {}),
-    ...geographies,
-    ...tags
-  ]
-    .map((value) => String(value || "").trim())
-    .filter(Boolean)
-    .join(" ");
-}
-
 function flattenObjectStrings(value: unknown): string[] {
   if (Array.isArray(value)) {
     return value.flatMap((item) => flattenObjectStrings(item));
@@ -1144,62 +1049,6 @@ function inferBetterIndiaPrimaryApplication(story: any, tags: string[]) {
 
 function inferBetterIndiaPrimaryValueChain(story: any, tags: string[]) {
   return String(tags[1] || tags[0] || story?.thematic_area || "").trim() || null;
-}
-
-function inferVikalpSangamDomains(story: any) {
-  const structured = uniqueSorted(
-    asArrayOfStrings(story?.six_m_categories)
-      .map((value) => canonicalize6MValue(value) || "")
-      .filter(Boolean)
-  );
-  if (structured.length > 0) {
-    return structured;
-  }
-
-  const haystack = normalizeComparable(buildVikalpSangamSearchDocument(story, normalizeVikalpSangamGeographies(story), normalizeVikalpSangamTags(story)));
-  const domains: string[] = [];
-  const add = (value: string) => {
-    if (value && !domains.includes(value)) domains.push(value);
-  };
-
-  if (/(loan|finance|funding|credit|investment|money|income|profit|capital|grant)/.test(haystack)) add("Money");
-  if (/(market|buyer|sell|selling|branding|packaging|demand|orders|commercial|value chain)/.test(haystack)) add("Market");
-  if (/(training|mentor|mentoring|guide|process|practice|awareness|campaign|method|workshop|knowledge|collective action|institution)/.test(haystack)) add("Method");
-  if (/(employment|livelihood|women|youth|artisan|community|farmer|worker|people|shg|producer group)/.test(haystack)) add("Manpower");
-  if (/(seed|raw material|material|leaf|leaves|fiber|soil|compost|bamboo|cow dung|input|water|forest)/.test(haystack)) add("Material");
-  if (/(machine|device|tool|equipment|technology|prototype|system|dryer|cooler|filter|solar|irrigation)/.test(haystack)) add("Machine");
-
-  if (domains.length === 0) add("Method");
-  return domains;
-}
-
-function inferVikalpSangamOfferingType(domains: string[], story: any) {
-  const haystack = normalizeComparable(buildVikalpSangamSearchDocument(story, [], []));
-  if (/(guide|manual|how to|steps|process)/.test(haystack)) return "SOP Manuals";
-  if (domains.includes("Money")) return "Financial Support";
-  if (domains.includes("Market")) return "Market Reports";
-  if (domains.includes("Machine")) return "Practice";
-  return "Practice";
-}
-
-function inferVikalpSangamPrimaryApplication(story: any, tags: string[]) {
-  return String(
-    story?.thematic_area ||
-    story?.thematic_areas?.[0] ||
-    tags[0] ||
-    ""
-  ).trim() || null;
-}
-
-function inferVikalpSangamPrimaryValueChain(story: any, tags: string[]) {
-  return String(
-    story?.thematic_areas?.[1] ||
-    story?.thematic_areas?.[0] ||
-    story?.thematic_area ||
-    tags[1] ||
-    tags[0] ||
-    ""
-  ).trim() || null;
 }
 
 function inferGridDomains(vendor: any, practice: any) {
@@ -1764,96 +1613,6 @@ function normalizeBetterIndiaRow(story: any) {
   };
 }
 
-function normalizeVikalpSangamRow(story: any) {
-  const geographies = normalizeVikalpSangamGeographies(story);
-  const tags = normalizeVikalpSangamTags(story);
-  const domains = inferVikalpSangamDomains(story);
-  const offeringType = inferVikalpSangamOfferingType(domains, story);
-  const detailId = String(story?.story_uid || "").trim();
-  const rawGalleryUrls = Array.isArray(story?.story_image_urls)
-    ? story.story_image_urls
-    : flattenObjectStrings(story?.story_image_urls || {});
-  const galleryUrls = uniqueSorted(rawGalleryUrls.map(normalizedHttpUrl).filter((url): url is string => Boolean(url && isLikelyImageUrl(url))));
-  const videoUrls = Array.isArray(story?.video_urls)
-    ? story.video_urls
-    : flattenObjectStrings(story?.video_urls || {});
-  const aiSummary = story?.ai_summary && typeof story.ai_summary === "object" ? story.ai_summary : {};
-  const sourceUrl = normalizedHttpUrl(story?.story_url) || normalizedHttpUrl(story?.original_source_url);
-  const rawOriginalSourceUrl = normalizedHttpUrl(story?.original_source_url);
-  const originalSourceUrl = rawOriginalSourceUrl && !/^https?:\/\/(?:www\.)?vikalpsangam\.org\/article\/?$/i.test(rawOriginalSourceUrl)
-    ? rawOriginalSourceUrl
-    : null;
-  const coverImageUrl = isLikelyImageUrl(story?.cover_image_url) ? normalizedHttpUrl(story.cover_image_url) : null;
-  const contactName = String(story?.contact_name || story?.community_or_group || story?.organizations_involved?.[0] || story?.people_involved?.[0] || story?.author_name || "").trim() || null;
-
-  return {
-    source_slug: "vikalp-sangam",
-    source_label: "Vikalp Sangam",
-    source_record_id: detailId,
-    offering_id: `vikalp-sangam:${detailId}`,
-    detail_source: "vikalp-sangam",
-    detail_id: detailId,
-    offering_name: story?.title || "Untitled Vikalp Sangam story",
-    offering_category: "Knowledge",
-    offering_group: "Knowledge",
-    offering_type: offeringType,
-    domain_6m: domains.join("; "),
-    primary_valuechain: inferVikalpSangamPrimaryValueChain(story, tags),
-    primary_application: inferVikalpSangamPrimaryApplication(story, tags),
-    valuechains: uniqueSorted([...(story?.thematic_areas || []), story?.thematic_area, ...tags.slice(0, 6)].filter(Boolean) as string[]),
-    applications: uniqueSorted([story?.thematic_area, ...(story?.thematic_areas || []), ...tags.slice(0, 6)].filter(Boolean) as string[]),
-    tags,
-    languages: [],
-    geographies,
-    geographies_raw: geographies.join(", "),
-    about_offering_text: String(story?.summary_of_work || story?.story_excerpt || "").trim() || null,
-    product_cost: null,
-    lead_time: null,
-    grade_capacity: null,
-    support_details: story?.evidence_notes || story?.reviewer_notes || story?.admin_notes || null,
-    product_brochure_url: null,
-    knowledge_content_url: sourceUrl,
-    service_brochure_url: null,
-    gre_link: sourceUrl,
-    portal_url: sourceUrl,
-    detail_href: `/detail/vikalp-sangam/${encodeURIComponent(detailId)}`,
-    search_document: buildVikalpSangamSearchDocument(story, geographies, tags),
-    preferred_contact_name: contactName,
-    preferred_contact_email: String(story?.contact_email || "").trim() || null,
-    preferred_contact_phone: String(story?.contact_phone || "").trim() || null,
-    preferred_contact_details: [story?.contact_email, story?.contact_phone, story?.place_label].filter(Boolean).join(" | ") || null,
-    map_lat: Number(story?.latitude) || null,
-    map_lng: Number(story?.longitude) || null,
-    solution: {
-      solution_id: `vikalp-sangam:${detailId}`,
-      solution_name: story?.title || "Vikalp Sangam story",
-      about_solution_text: String(story?.story_excerpt || story?.summary_of_work || "").trim() || null,
-      solution_image_url: coverImageUrl || galleryUrls[0] || null,
-      trader: {
-        trader_id: detailId,
-        trader_name: contactName,
-        organisation_name: story?.organizations_involved?.[0] || contactName || story?.original_source || "Vikalp Sangam",
-        email: String(story?.contact_email || "").trim() || null,
-        website: sourceUrl,
-        mobile: String(story?.contact_phone || "").trim() || null,
-        poc_name: contactName,
-        description: story?.summary_of_work || story?.story_excerpt || null,
-        short_description: story?.story_excerpt || null,
-        tagline: story?.thematic_area || story?.thematic_areas?.[0] || null,
-        association_status: "External Source: Vikalp Sangam"
-      }
-    },
-    raw_payload: {
-      story,
-      galleryUrls,
-      videoUrls,
-      aiSummary,
-      originalSourceUrl,
-      inferredDomains: domains
-    }
-  };
-}
-
 function normalizeLivelihoodRow(entity: any) {
   const geographies = normalizeLivelihoodGeographies(entity);
   const tags = normalizeLivelihoodTags(entity);
@@ -2122,32 +1881,6 @@ async function getCachedBetterIndiaRows() {
 
   const rows = (data || []).map((story: any) => normalizeBetterIndiaRow(story)).filter(Boolean);
   betterIndiaSearchCache = {
-    expiresAt: now + SEARCH_DATA_CACHE_TTL_MS,
-    rows
-  };
-  return rows;
-}
-
-async function getCachedVikalpSangamRows() {
-  const now = Date.now();
-  if (vikalpSangamSearchCache && vikalpSangamSearchCache.expiresAt > now) {
-    return vikalpSangamSearchCache.rows;
-  }
-
-  const supabase = createServerSupabaseClient();
-  const { data, error } = await supabase
-    .from("vikalp_sangam_stories")
-    .select("story_uid,story_url,title,original_source,original_source_url,author_name,thematic_areas,thematic_area,story_type,geography,place_label,location_text,state,district_or_region,country,contact_name,contact_email,contact_phone,people_involved,organizations_involved,community_or_group,summary_of_work,story_excerpt,keywords,story_tags,tags,six_m_categories,six_m_details,actionability_class,actionability_score,actionability_reasons,problem_critique_signals,classification_confidence,review_status,processes_or_methods,machinery_or_tools,materials_or_inputs,products_or_outputs,market_linkage,money_or_finance,cover_image_url,story_image_urls,video_urls,latitude,longitude,source_published_at,source_status,evidence_notes,source_citation,reviewer_notes,enrichment_status,admin_notes,ai_model,ai_summary,raw_story,search_text")
-    .eq("actionability_class", "actionable_6m")
-    .not("story_url", "ilike", "%/tag/%")
-    .order("source_published_at", { ascending: false, nullsFirst: false });
-
-  if (error) {
-    throw error;
-  }
-
-  const rows = (data || []).map((story: any) => normalizeVikalpSangamRow(story)).filter(Boolean);
-  vikalpSangamSearchCache = {
     expiresAt: now + SEARCH_DATA_CACHE_TTL_MS,
     rows
   };
@@ -3012,7 +2745,6 @@ export async function runSearch(filters: SearchFilters) {
   const shouldIncludeGian = Boolean(filters.beyondGre);
   const shouldIncludeGrid = Boolean(filters.beyondGre);
   const shouldIncludeBetterIndia = Boolean(filters.beyondGre);
-  const shouldIncludeVikalpSangam = Boolean(filters.beyondGre);
   const shouldIncludeLivelihood = Boolean(filters.beyondGre);
   const externalResults: any[] = [];
 
@@ -3027,10 +2759,6 @@ export async function runSearch(filters: SearchFilters) {
   if (shouldIncludeBetterIndia) {
     const betterIndiaResults = await runBetterIndiaSearch(baseFilters);
     externalResults.push(...betterIndiaResults);
-  }
-  if (shouldIncludeVikalpSangam) {
-    const vikalpSangamResults = await runVikalpSangamSearch(baseFilters);
-    externalResults.push(...vikalpSangamResults);
   }
   if (shouldIncludeLivelihood) {
     const directLivelihoodResults = await runLivelihoodDirectEntityLookup(baseFilters);
@@ -3071,44 +2799,124 @@ export async function runSearch(filters: SearchFilters) {
       geography: undefined
     });
 
-    const fallbackFilters = {
-      ...baseFilters,
-      strictKeyword: false,
-      disableKeywordPromotion: true,
-      solutionProvider: undefined,
-      category: undefined,
-      domain6m: undefined,
-      offeringType: undefined,
-      valueChain: undefined,
-      application: undefined,
-      tag: undefined,
-      language: undefined,
-      geography: undefined
-    };
-    const fallbackExternalResults: any[] = [];
+    if (shouldIncludeMachineSources) {
+      const fallbackExternalResults: any[] = [];
+      const fallbackFilters = {
+        ...baseFilters,
+        strictKeyword: false,
+        disableKeywordPromotion: true,
+        solutionProvider: undefined,
+        category: undefined,
+        domain6m: undefined,
+        offeringType: undefined,
+        valueChain: undefined,
+        application: undefined,
+        tag: undefined,
+        language: undefined,
+        geography: undefined
+      };
+
+      if (shouldIncludeGian) {
+        fallbackExternalResults.push(...await runGianSearch(fallbackFilters));
+      }
+      if (shouldIncludeGrid) {
+        fallbackExternalResults.push(...await runGridSearch(fallbackFilters));
+      }
+      if (shouldIncludeBetterIndia) {
+        fallbackExternalResults.push(...await runBetterIndiaSearch(fallbackFilters));
+      }
+      if (shouldIncludeLivelihood) {
+        fallbackExternalResults.push(...await runLivelihoodDirectEntityLookup(fallbackFilters));
+        fallbackExternalResults.push(...await runLivelihoodSearch(fallbackFilters));
+      }
+      fallbackExternalResults.push(...await runExternalMachineSourceSearch(fallbackFilters));
+      return mergeSuperGreResults(fallbackResults, fallbackExternalResults, filters);
+    }
 
     if (shouldIncludeGian) {
-      fallbackExternalResults.push(...await runGianSearch(fallbackFilters));
-    }
-    if (shouldIncludeGrid) {
-      fallbackExternalResults.push(...await runGridSearch(fallbackFilters));
-    }
-    if (shouldIncludeBetterIndia) {
-      fallbackExternalResults.push(...await runBetterIndiaSearch(fallbackFilters));
-    }
-    if (shouldIncludeVikalpSangam) {
-      fallbackExternalResults.push(...await runVikalpSangamSearch(fallbackFilters));
-    }
-    if (shouldIncludeLivelihood) {
-      fallbackExternalResults.push(...await runLivelihoodDirectEntityLookup(fallbackFilters));
-      fallbackExternalResults.push(...await runLivelihoodSearch(fallbackFilters));
-    }
-    if (shouldIncludeMachineSources) {
-      fallbackExternalResults.push(...await runExternalMachineSourceSearch(fallbackFilters));
+      const gianResults = await runGianSearch({
+        ...baseFilters,
+        strictKeyword: false,
+        disableKeywordPromotion: true,
+        solutionProvider: undefined,
+        category: undefined,
+        domain6m: undefined,
+        offeringType: undefined,
+        valueChain: undefined,
+        application: undefined,
+        tag: undefined,
+        language: undefined,
+        geography: undefined
+      });
+      return mergeSuperGreResults(fallbackResults, gianResults, filters);
     }
 
-    if (fallbackExternalResults.length) {
-      return mergeSuperGreResults(fallbackResults, fallbackExternalResults, filters);
+    if (shouldIncludeGrid) {
+      const gridResults = await runGridSearch({
+        ...baseFilters,
+        strictKeyword: false,
+        disableKeywordPromotion: true,
+        solutionProvider: undefined,
+        category: undefined,
+        domain6m: undefined,
+        offeringType: undefined,
+        valueChain: undefined,
+        application: undefined,
+        tag: undefined,
+        language: undefined,
+        geography: undefined
+      });
+      return mergeSuperGreResults(fallbackResults, gridResults, filters);
+    }
+
+    if (shouldIncludeBetterIndia) {
+      const betterIndiaResults = await runBetterIndiaSearch({
+        ...baseFilters,
+        strictKeyword: false,
+        disableKeywordPromotion: true,
+        solutionProvider: undefined,
+        category: undefined,
+        domain6m: undefined,
+        offeringType: undefined,
+        valueChain: undefined,
+        application: undefined,
+        tag: undefined,
+        language: undefined,
+        geography: undefined
+      });
+      return mergeSuperGreResults(fallbackResults, betterIndiaResults, filters);
+    }
+
+    if (shouldIncludeLivelihood) {
+      const directLivelihoodResults = await runLivelihoodDirectEntityLookup({
+        ...baseFilters,
+        strictKeyword: false,
+        disableKeywordPromotion: true,
+        solutionProvider: undefined,
+        category: undefined,
+        domain6m: undefined,
+        offeringType: undefined,
+        valueChain: undefined,
+        application: undefined,
+        tag: undefined,
+        language: undefined,
+        geography: undefined
+      });
+      const livelihoodResults = await runLivelihoodSearch({
+        ...baseFilters,
+        strictKeyword: false,
+        disableKeywordPromotion: true,
+        solutionProvider: undefined,
+        category: undefined,
+        domain6m: undefined,
+        offeringType: undefined,
+        valueChain: undefined,
+        application: undefined,
+        tag: undefined,
+        language: undefined,
+        geography: undefined
+      });
+      return mergeSuperGreResults(fallbackResults, [...directLivelihoodResults, ...livelihoodResults], filters);
     }
 
     return fallbackResults;
@@ -3385,61 +3193,6 @@ async function runGridSearch(filters: SearchFilters) {
 
 async function runBetterIndiaSearch(filters: SearchFilters) {
   const rows = await getCachedBetterIndiaRows();
-  const preserveKeywordForExplicitSearch = hasExplicitNonKeywordFilters(filters);
-  const inferredFilters = filters.disableKeywordPromotion || preserveKeywordForExplicitSearch
-    ? { ...filters }
-    : inferSearchFilters(filters, filters.q);
-  const q = simplifyQueryText(inferredFilters.q, inferredFilters).trim() || String(inferredFilters.q || "").trim();
-
-  const structuredFilterCount = [
-    inferredFilters.solutionProvider,
-    inferredFilters.category,
-    inferredFilters.domain6m,
-    inferredFilters.offeringType,
-    inferredFilters.valueChain,
-    inferredFilters.application,
-    inferredFilters.language,
-    inferredFilters.geography
-  ].filter(Boolean).length;
-
-  const storyRows = rows
-    .filter((row: any) =>
-      (!inferredFilters.category || row.offering_group === inferredFilters.category) &&
-      matchesDomain6M(row.domain_6m, inferredFilters.domain6m) &&
-      matchesOfferingType(row.offering_type, inferredFilters.offeringType) &&
-      matchesProvider(row, inferredFilters.solutionProvider) &&
-      matchesArray(row.tags, inferredFilters.tag) &&
-      matchesGeography(row, inferredFilters.geography) &&
-      matchesScalar(row.primary_valuechain, inferredFilters.valueChain) &&
-      matchesScalar(row.primary_application, inferredFilters.application) &&
-      (!filters.strictKeyword || strictKeywordMatch(row, q, true))
-    )
-    .map((row: any) => ({
-      ...row,
-      score: scoreRow(row, q) + providerScore(row, inferredFilters.solutionProvider),
-      matchScore: computeRelevanceScore(row, q || inferredFilters.q, inferredFilters, filters)
-    }));
-
-  const positive = storyRows.filter((row: any) => !q || Number(row.score || 0) > 0);
-  const ranked = (positive.length || structuredFilterCount === 0 ? positive : storyRows)
-    .sort((left: any, right: any) =>
-      Number(right.matchScore || 0) - Number(left.matchScore || 0) ||
-      Number(right.score || 0) - Number(left.score || 0) ||
-      String(left.offering_name || "").localeCompare(String(right.offering_name || ""))
-    );
-
-  const topScore = Number(ranked[0]?.matchScore || ranked[0]?.score || 0);
-  const relevanceFloor = q && topScore > 0
-    ? Math.max(4, Math.ceil(topScore * 0.55), topScore - 4)
-    : 0;
-
-  return ranked
-    .filter((row: any) => inferredFilters.solutionProvider || !q || structuredFilterCount > 0 || Number(row.matchScore || 0) >= relevanceFloor || Number(row.score || 0) >= relevanceFloor)
-    .slice(0, Math.min(filters.limit || 100, 150));
-}
-
-async function runVikalpSangamSearch(filters: SearchFilters) {
-  const rows = await getCachedVikalpSangamRows();
   const preserveKeywordForExplicitSearch = hasExplicitNonKeywordFilters(filters);
   const inferredFilters = filters.disableKeywordPromotion || preserveKeywordForExplicitSearch
     ? { ...filters }
@@ -3976,22 +3729,6 @@ export async function getExternalOfferingDetail(source: string, recordId: string
     return normalizeBetterIndiaRow(story);
   }
 
-  if (source === "vikalp-sangam" || source === "vikalp_sangam") {
-    const { data: story, error: storyError } = await supabase
-      .from("vikalp_sangam_stories")
-      .select("story_uid,story_url,title,original_source,original_source_url,author_name,thematic_areas,thematic_area,story_type,geography,place_label,location_text,state,district_or_region,country,contact_name,contact_email,contact_phone,people_involved,organizations_involved,community_or_group,summary_of_work,story_excerpt,keywords,story_tags,tags,six_m_categories,six_m_details,actionability_class,actionability_score,actionability_reasons,problem_critique_signals,classification_confidence,review_status,processes_or_methods,machinery_or_tools,materials_or_inputs,products_or_outputs,market_linkage,money_or_finance,cover_image_url,story_image_urls,video_urls,latitude,longitude,source_published_at,source_status,evidence_notes,source_citation,reviewer_notes,enrichment_status,admin_notes,ai_model,ai_summary,raw_story,search_text")
-      .eq("story_uid", recordId)
-      .eq("actionability_class", "actionable_6m")
-      .not("story_url", "ilike", "%/tag/%")
-      .single();
-
-    if (storyError || !story) {
-      throw storyError || new Error("Vikalp Sangam story not found.");
-    }
-
-    return normalizeVikalpSangamRow(story);
-  }
-
   if (source === "livelihood" || source === "livelihood-directory") {
     const { data: entity, error: entityError } = await supabase
       .from("ecosystem_directory_entities")
@@ -4053,24 +3790,14 @@ export async function getDirectorySummaryStats(surface: GreSurfaceSlug = "askgre
       expiresAt: now + FILTER_CACHE_TTL_MS,
       value
     };
-
-    try {
-      return await Promise.race([
-        refreshDirectorySummaryCache(surface),
-        new Promise<DirectorySummaryStats>((resolve) =>
-          setTimeout(() => resolve(value), 3000)
-        )
-      ]);
-    } catch {
-      return value;
-    }
+    return value;
   }
 
   try {
     return await refreshDirectorySummaryCache(surface);
   } catch {
     const fallback = surface === "supergre"
-      ? { offeringCount: 0, providerCount: 0, sourceCount: 8 }
+      ? { offeringCount: 0, providerCount: 0, sourceCount: 7 }
       : { offeringCount: 0, providerCount: 0, sourceCount: 1 };
     void seedDirectorySummaryCache(surface, fallback);
     directorySummaryCache[surface] = {
@@ -4104,13 +3831,12 @@ async function getUnifiedRowsForSurface(surface: GreSurfaceSlug = "askgre") {
     return { offerings, traders, rows: offerings };
   }
 
-  const [selcoRows, innovationGuildRows, gianRows, gridRows, betterIndiaRows, vikalpSangamRows, livelihoodRows] = await Promise.all([
+  const [selcoRows, innovationGuildRows, gianRows, gridRows, betterIndiaRows, livelihoodRows] = await Promise.all([
     getCachedSelcoRows(),
     getCachedInnovationGuildRows(),
     getCachedGianRows(),
     getCachedGridRows(),
     getCachedBetterIndiaRows(),
-    getCachedVikalpSangamRows(),
     getCachedLivelihoodRows()
   ]);
 
@@ -4121,7 +3847,6 @@ async function getUnifiedRowsForSurface(surface: GreSurfaceSlug = "askgre") {
     ...gianRows,
     ...gridRows,
     ...betterIndiaRows,
-    ...vikalpSangamRows,
     ...livelihoodRows
   ]);
 
@@ -4346,7 +4071,7 @@ async function buildAskGreFilterOptionsLightweight(supabase: ReturnType<typeof c
 
 async function buildSuperGreFilterOptionsLightweight(supabase: ReturnType<typeof createServerSupabaseClient>) {
   const defaultOptions = defaultServerFilterOptions("supergre");
-  const [greOfferings, greTraders, selcoVendors, innovationProducts, innovationVendors, gianProducts, gianVendors, gridPractices, gridInnovators, betterIndiaStories, vikalpSangamStories, livelihoodEntities] = await Promise.all([
+  const [greOfferings, greTraders, selcoVendors, innovationProducts, innovationVendors, gianProducts, gianVendors, gridPractices, gridInnovators, betterIndiaStories, livelihoodEntities] = await Promise.all([
     supabase.from("offerings").select("offering_group,domain_6m,offering_type,primary_valuechain,primary_application,tags,languages,geographies"),
     supabase.from("traders").select("organisation_name,trader_name"),
     supabase.from("selco_vendors").select("vendor_name,city,state,country,service_locations,tags"),
@@ -4357,7 +4082,6 @@ async function buildSuperGreFilterOptionsLightweight(supabase: ReturnType<typeof
     supabase.from("grid_practices").select("product_categories,product_subcategories,tags,reviewed_tags,six_m_categories"),
     supabase.from("grid_innovators").select("vendor_name,city,state,country,service_locations,tags"),
     supabase.from("better_india_stories").select("person_name,thematic_area,tags,six_m_categories,place_label,state,country"),
-    supabase.from("vikalp_sangam_stories").select("title,contact_name,community_or_group,organizations_involved,thematic_areas,thematic_area,tags,story_tags,keywords,six_m_categories,place_label,district_or_region,state,country").eq("actionability_class", "actionable_6m").not("story_url", "ilike", "%/tag/%"),
     supabase.from("ecosystem_directory_entities").select("entity_name,entity_type_slug,entity_type_label,tags,keywords,location_label,state,country,office_locations,type_specific_data")
   ]);
 
@@ -4372,7 +4096,6 @@ async function buildSuperGreFilterOptionsLightweight(supabase: ReturnType<typeof
     gridPractices,
     gridInnovators,
     betterIndiaStories,
-    vikalpSangamStories,
     livelihoodEntities
   ].forEach((result, index) => {
     if (result.error) {
@@ -4387,7 +4110,6 @@ async function buildSuperGreFilterOptionsLightweight(supabase: ReturnType<typeof
         "GRID practices",
         "GRID innovators",
         "Better India stories",
-        "Vikalp Sangam stories",
         "Livelihood entities"
       ];
       throw toError(result.error, `Failed to load ${labels[index]} for filter cache.`);
@@ -4479,22 +4201,6 @@ async function buildSuperGreFilterOptionsLightweight(supabase: ReturnType<typeof
   }
   addValues(categories, "Knowledge");
   addValues(offeringTypes, ["Blogs", "Market Reports"]);
-
-  for (const story of vikalpSangamStories.data || []) {
-    addValues(solutionProviders, [
-      story.contact_name,
-      story.community_or_group,
-      ...(Array.isArray(story.organizations_involved) ? story.organizations_involved : []),
-      story.title
-    ]);
-    addValues(valueChains, [story.thematic_area, ...(story.thematic_areas || []), ...(story.tags || []), ...(story.keywords || [])]);
-    addValues(applications, [story.thematic_area, ...(story.thematic_areas || []), ...(story.tags || []), ...(story.story_tags || [])]);
-    addValues(tags, [...(story.tags || []), ...(story.story_tags || []), ...(story.keywords || [])]);
-    addDomains(domains6m, story.six_m_categories);
-    addGeographies(geographies, [story.place_label, story.district_or_region, story.state, story.country]);
-  }
-  addValues(categories, "Knowledge");
-  addValues(offeringTypes, ["Practice", "SOP Manuals", "Market Reports", "Financial Support"]);
 
   for (const entity of livelihoodEntities.data || []) {
     addValues(solutionProviders, entity.entity_name);
@@ -4636,13 +4342,12 @@ async function refreshDirectorySummaryCache(surface: GreSurfaceSlug) {
       supabase.from("gian_innovations").select("portal_product_id", { count: "exact", head: true }),
       supabase.from("grid_practices").select("portal_product_id", { count: "exact", head: true }),
       supabase.from("better_india_stories").select("story_uid", { count: "exact", head: true }),
-      supabase.from("vikalp_sangam_stories").select("story_uid", { count: "exact", head: true }).eq("actionability_class", "actionable_6m").not("story_url", "ilike", "%/tag/%"),
       supabase.from("ecosystem_directory_entities").select("entity_uid", { count: "exact", head: true })
     ]);
 
     countQueries.forEach((result, index) => {
       if (result.error) {
-        const labels = ["GRE offerings", "SELCO products", "Innovation Guild products", "GIAN innovations", "GRID practices", "Better India stories", "Vikalp Sangam stories", "Livelihood entities"];
+        const labels = ["GRE offerings", "SELCO products", "Innovation Guild products", "GIAN innovations", "GRID practices", "Better India stories", "Livelihood entities"];
         throw toError(result.error, `Failed to count ${labels[index]}.`);
       }
     });
@@ -4654,13 +4359,12 @@ async function refreshDirectorySummaryCache(surface: GreSurfaceSlug) {
       supabase.from("gian_innovators").select("vendor_name"),
       supabase.from("grid_innovators").select("vendor_name"),
       supabase.from("better_india_stories").select("person_name"),
-      supabase.from("vikalp_sangam_stories").select("title,contact_name,community_or_group,organizations_involved").eq("actionability_class", "actionable_6m").not("story_url", "ilike", "%/tag/%"),
       supabase.from("ecosystem_directory_entities").select("entity_name")
     ]);
 
     providerQueries.forEach((result, index) => {
       if (result.error) {
-        const labels = ["GRE providers", "SELCO vendors", "Innovation Guild vendors", "GIAN innovators", "GRID innovators", "Better India people", "Vikalp Sangam entities", "Livelihood entities"];
+        const labels = ["GRE providers", "SELCO vendors", "Innovation Guild vendors", "GIAN innovators", "GRID innovators", "Better India people", "Livelihood entities"];
         throw toError(result.error, `Failed to load ${labels[index]}.`);
       }
     });
@@ -4672,19 +4376,13 @@ async function refreshDirectorySummaryCache(surface: GreSurfaceSlug) {
       ...(providerQueries[3].data || []).map((row: any) => row.vendor_name),
       ...(providerQueries[4].data || []).map((row: any) => row.vendor_name),
       ...(providerQueries[5].data || []).map((row: any) => row.person_name),
-      ...(providerQueries[6].data || []).flatMap((row: any) => [
-        row.contact_name,
-        row.community_or_group,
-        ...(Array.isArray(row.organizations_involved) ? row.organizations_involved : []),
-        row.title
-      ]),
-      ...(providerQueries[7].data || []).map((row: any) => row.entity_name)
+      ...(providerQueries[6].data || []).map((row: any) => row.entity_name)
     ].filter(Boolean)).length;
 
     stats = {
       offeringCount: countQueries.reduce((sum, result) => sum + Number(result.count || 0), 0),
       providerCount,
-      sourceCount: 8
+      sourceCount: 7
     };
   }
 
@@ -4743,6 +4441,9 @@ async function refreshFilterOptionsCache(surface: GreSurfaceSlug) {
     ...normalizedOptions,
     ...(typeof existingCache?.payload?.providerEmailTemplate === "string" && existingCache.payload.providerEmailTemplate.trim()
       ? { providerEmailTemplate: existingCache.payload.providerEmailTemplate }
+      : {}),
+    ...(existingCache?.payload?.greShowcase !== undefined
+      ? { greShowcase: existingCache.payload.greShowcase }
       : {})
   };
 
@@ -4794,6 +4495,9 @@ async function seedFilterOptionsCache(surface: GreSurfaceSlug, options: CachedFi
         ...options,
         ...(typeof existingCache?.payload?.providerEmailTemplate === "string" && existingCache.payload.providerEmailTemplate.trim()
           ? { providerEmailTemplate: existingCache.payload.providerEmailTemplate }
+          : {}),
+        ...(existingCache?.payload?.greShowcase !== undefined
+          ? { greShowcase: existingCache.payload.greShowcase }
           : {})
       },
       updated_at: new Date().toISOString()

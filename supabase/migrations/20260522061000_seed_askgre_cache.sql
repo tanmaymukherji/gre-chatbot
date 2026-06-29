@@ -43,7 +43,8 @@ values (
     "applications": [],
     "tags": [],
     "languages": ["English", "Hindi", "KANNADA", "MARATHI", "ODIA", "TELUGU", "TAMIL", "GUJARATI"],
-    "geographies": ["India", "Karnataka", "Madhya Pradesh", "Odisha", "Maharashtra", "Telangana", "Jharkhand", "Bihar"]
+    "geographies": ["India", "Karnataka", "Madhya Pradesh", "Odisha", "Maharashtra", "Telangana", "Jharkhand", "Bihar"],
+    "greShowcase": {}
   }'::jsonb,
   now()
 )
