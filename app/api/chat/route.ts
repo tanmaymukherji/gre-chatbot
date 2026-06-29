@@ -2,7 +2,46 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { formatGroundedResults, generateGroundedAnswer, getHeuristicSearchIntent, interpretSearchIntent, mergeSearchIntents, shouldTranslateFirst, shouldUseAiInterpretation, translateSearchText } from "@/lib/chat";
 import { getFilterOptions, inferSearchFilters, runSearch } from "@/lib/database";
+import { createServerSupabaseClient } from "@/lib/supabase";
 import { getSurfaceConfigByHost } from "@/lib/surface";
+
+async function validateApiKey(request: NextRequest): Promise<boolean> {
+  const apiKey =
+    request.nextUrl.searchParams.get("api_key") ||
+    request.headers.get("Authorization")?.replace("Bearer ", "");
+
+  if (!apiKey || apiKey.length < 8) return false;
+
+  const prefix = apiKey.slice(0, 12);
+  const supabase = createServerSupabaseClient();
+
+  const { data, error } = await supabase
+    .from("gre_api_keys")
+    .select("id, is_active")
+    .eq("api_key_prefix", prefix)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (error || !data) return false;
+
+  const bcrypt = await import("bcryptjs");
+  const { data: keyData } = await supabase
+    .from("gre_api_keys")
+    .select("api_key_hash")
+    .eq("id", data.id)
+    .single();
+
+  if (!keyData?.api_key_hash) return false;
+
+  const valid = await bcrypt.compare(apiKey, keyData.api_key_hash);
+  if (valid) {
+    await supabase
+      .from("gre_api_keys")
+      .update({ last_used_at: new Date().toISOString() })
+      .eq("id", data.id);
+  }
+  return valid;
+}
 
 function get6mType(domain6m: string | null | undefined): string {
   if (!domain6m) return "Method";
@@ -35,6 +74,14 @@ const payloadSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    const valid = await validateApiKey(request);
+    if (!valid) {
+      return NextResponse.json(
+        { error: "API key required. Pass ?api_key=<key> or Authorization: Bearer <key>" },
+        { status: 401 }
+      );
+    }
+
     const body = payloadSchema.parse(await request.json());
     const surface = getSurfaceConfigByHost(request.headers.get("host"));
     const normalizedMessage = body.message.toLowerCase();
