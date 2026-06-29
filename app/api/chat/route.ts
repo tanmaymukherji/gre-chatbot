@@ -72,13 +72,25 @@ const payloadSchema = z.object({
   beyondGre: z.boolean().optional().default(false)
 });
 
+function corsHeaders() {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  };
+}
+
+export async function OPTIONS() {
+  return NextResponse.json(null, { headers: corsHeaders() });
+}
+
 export async function POST(request: NextRequest) {
   try {
     const valid = await validateApiKey(request);
     if (!valid) {
       return NextResponse.json(
         { error: "API key required. Pass ?api_key=<key> or Authorization: Bearer <key>" },
-        { status: 401 }
+        { status: 401, headers: corsHeaders() }
       );
     }
 
@@ -335,11 +347,11 @@ export async function POST(request: NextRequest) {
       offering_link: `https://askgre.grameee.org/offering/${row.offering_id}`,
     }));
 
-    return NextResponse.json({ solutions });
+    return NextResponse.json({ solutions }, { headers: corsHeaders() });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Chat request failed." },
-      { status: 500 }
+      { status: 500, headers: corsHeaders() }
     );
   }
 }
