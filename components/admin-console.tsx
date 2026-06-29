@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { ConsortiumPartnerItem, GreFeatureItem } from "@/lib/showcase-content";
 import { ApiKeyManager } from "@/components/admin/api-key-manager";
+import { createBrowserSupabaseClient } from "@/lib/supabase";
 
 type ShowcaseDraft = {
   features: GreFeatureItem[];
@@ -29,13 +30,14 @@ function createDraftId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.round(Math.random() * 100000)}`;
 }
 
-function readFileAsDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(reader.error || new Error("File could not be read."));
-    reader.readAsDataURL(file);
-  });
+async function uploadToStorage(file: File, prefix: string): Promise<string> {
+  const supabase = createBrowserSupabaseClient();
+  const ext = file.name.split('.').pop() || 'png';
+  const path = `showcase/${prefix}-${Date.now()}-${Math.round(Math.random() * 100000)}.${ext}`;
+  const { error } = await supabase.storage.from("grameee-gallery").upload(path, file, { cacheControl: "3600", upsert: false });
+  if (error) throw new Error("Image upload failed: " + error.message);
+  const { data: publicUrl } = supabase.storage.from("grameee-gallery").getPublicUrl(path);
+  return publicUrl?.publicUrl || "";
 }
 
 export function AdminConsole() {
@@ -272,11 +274,15 @@ export function AdminConsole() {
                   onChange={async (event) => {
                     const file = event.target.files?.[0];
                     if (!file) return;
-                    const imageUrl = await readFileAsDataUrl(file);
-                    updateShowcase((current) => ({
-                      ...current,
-                      features: current.features.map((item) => item.id === feature.id ? { ...item, imageUrl } : item)
-                    }));
+                    try {
+                      const imageUrl = await uploadToStorage(file, "feature");
+                      updateShowcase((current) => ({
+                        ...current,
+                        features: current.features.map((item) => item.id === feature.id ? { ...item, imageUrl } : item)
+                      }));
+                    } catch (e) {
+                      alert(e instanceof Error ? e.message : "Upload failed");
+                    }
                   }}
                 />
               </div>
@@ -333,11 +339,15 @@ export function AdminConsole() {
                   onChange={async (event) => {
                     const file = event.target.files?.[0];
                     if (!file) return;
-                    const logoUrl = await readFileAsDataUrl(file);
-                    updateShowcase((current) => ({
-                      ...current,
-                      partners: current.partners.map((item) => item.id === partner.id ? { ...item, logoUrl } : item)
-                    }));
+                    try {
+                      const logoUrl = await uploadToStorage(file, "partner");
+                      updateShowcase((current) => ({
+                        ...current,
+                        partners: current.partners.map((item) => item.id === partner.id ? { ...item, logoUrl } : item)
+                      }));
+                    } catch (e) {
+                      alert(e instanceof Error ? e.message : "Upload failed");
+                    }
                   }}
                 />
               </div>
