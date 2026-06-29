@@ -463,130 +463,138 @@ export function AdminConsole() {
         </>
       )}
 
-      <div className="panel panel-pad">
-        <div className="split">
-          <div>
-            <h2 className="section-title">Provider Email Templates</h2>
-            <p className="section-copy">
-              Edit the locked email text shown in AskGRE and SuperGRE before a user sends mail to a provider.
-            </p>
+      {activeTab === "provider-template" && (
+        <div className="panel panel-pad">
+          <div className="split">
+            <div>
+              <h2 className="section-title">Provider Email Templates</h2>
+              <p className="section-copy">
+                Edit the locked email text shown in AskGRE and SuperGRE before a user sends mail to a provider.
+              </p>
+            </div>
+          </div>
+
+          <div className="stack">
+            <div className="field">
+              <label htmlFor="askgre-provider-template">AskGRE Email Text</label>
+              <textarea
+                id="askgre-provider-template"
+                value={askgreTemplate}
+                onChange={(event) => setAskgreTemplate(event.target.value)}
+              />
+            </div>
+
+            <div className="field">
+              <label htmlFor="supergre-provider-template">SuperGRE Email Text</label>
+              <textarea
+                id="supergre-provider-template"
+                value={supergreTemplate}
+                onChange={(event) => setSupergreTemplate(event.target.value)}
+              />
+            </div>
+
+            <div className="notice">
+              Supported placeholders: {"{{providerName}}"}, {"{{providerEmail}}"}, {"{{senderName}}"}, {"{{senderEmail}}"}, {"{{senderPhone}}"}, {"{{solutionTitle}}"}, {"{{solutionSummary}}"}, {"{{detailUrl}}"}, {"{{surfaceHeading}}"}
+            </div>
+
+            <div className="actions">
+              <button
+                className="btn secondary"
+                type="button"
+                onClick={() => saveTemplate("askgre", askgreTemplate)}
+                disabled={templateBusy || !askgreTemplate.trim()}
+              >
+                {templateBusy ? "Saving..." : "Save AskGRE Text"}
+              </button>
+              <button
+                className="btn secondary"
+                type="button"
+                onClick={() => saveTemplate("supergre", supergreTemplate)}
+                disabled={templateBusy || !supergreTemplate.trim()}
+              >
+                {templateBusy ? "Saving..." : "Save SuperGRE Text"}
+              </button>
+            </div>
+
+            <div className="notice">{templateStatus}</div>
           </div>
         </div>
+      )}
 
-        <div className="stack">
-          <div className="field">
-            <label htmlFor="askgre-provider-template">AskGRE Email Text</label>
-            <textarea
-              id="askgre-provider-template"
-              value={askgreTemplate}
-              onChange={(event) => setAskgreTemplate(event.target.value)}
-            />
+      {activeTab === "sixm-template" && (
+        <div className="panel panel-pad">
+          <div className="split">
+            <div>
+              <h2 className="section-title">6M Explorer Email Template</h2>
+              <p className="section-copy">
+                Edit the email text sent when a user emails their 6M solution selection to themselves.
+              </p>
+            </div>
           </div>
 
-          <div className="field">
-            <label htmlFor="supergre-provider-template">SuperGRE Email Text</label>
-            <textarea
-              id="supergre-provider-template"
-              value={supergreTemplate}
-              onChange={(event) => setSupergreTemplate(event.target.value)}
-            />
-          </div>
+          <div className="stack">
+            <div className="field">
+              <label htmlFor="sixm-email-template">6M Email Body</label>
+              <textarea
+                id="sixm-email-template"
+                value={sixmTemplate}
+                onChange={(event) => setSixmTemplate(event.target.value)}
+                rows={12}
+              />
+            </div>
 
-          <div className="notice">
-            Supported placeholders: {"{{providerName}}"}, {"{{providerEmail}}"}, {"{{senderName}}"}, {"{{senderEmail}}"}, {"{{senderPhone}}"}, {"{{solutionTitle}}"}, {"{{solutionSummary}}"}, {"{{detailUrl}}"}, {"{{surfaceHeading}}"}
-          </div>
+            <div className="notice">
+              Supported placeholders: {"{{keyword}}"}, {"{{solutions}}"}
+            </div>
 
-          <div className="actions">
-            <button
-              className="btn secondary"
-              type="button"
-              onClick={() => saveTemplate("askgre", askgreTemplate)}
-              disabled={templateBusy || !askgreTemplate.trim()}
-            >
-              {templateBusy ? "Saving..." : "Save AskGRE Text"}
-            </button>
-            <button
-              className="btn secondary"
-              type="button"
-              onClick={() => saveTemplate("supergre", supergreTemplate)}
-              disabled={templateBusy || !supergreTemplate.trim()}
-            >
-              {templateBusy ? "Saving..." : "Save SuperGRE Text"}
-            </button>
-          </div>
+            <div className="actions">
+              <button
+                className="btn secondary"
+                type="button"
+                onClick={() => saveSixmTemplate(sixmTemplate)}
+                disabled={!sixmTemplate.trim()}
+              >
+                Save 6M Email Template
+              </button>
+            </div>
 
-          <div className="notice">{templateStatus}</div>
-        </div>
-      </div>
-
-      <div className="panel panel-pad">
-        <div className="split">
-          <div>
-            <h2 className="section-title">6M Explorer Email Template</h2>
-            <p className="section-copy">
-              Edit the email text sent when a user emails their 6M solution selection to themselves.
-            </p>
+            <div className="notice">{sixmTemplateStatus}</div>
           </div>
         </div>
+      )}
 
-        <div className="stack">
-          <div className="field">
-            <label htmlFor="sixm-email-template">6M Email Body</label>
-            <textarea
-              id="sixm-email-template"
-              value={sixmTemplate}
-              onChange={(event) => setSixmTemplate(event.target.value)}
-              rows={12}
-            />
+      {activeTab === "showcase" && (
+        <div className="panel panel-pad">
+          <div className="split">
+            <div>
+              <h2 className="section-title">GRE Feature and Consortium Partner Content</h2>
+              <p className="section-copy">
+                Manage the shared public carousel below search results and the partner logo strip at the bottom of both AskGRE and SuperGRE.
+              </p>
+            </div>
           </div>
 
-          <div className="notice">
-            Supported placeholders: {"{{keyword}}"}, {"{{solutions}}"}
+          <div className="admin-showcase-grid">
+            {renderShowcaseEditor(sharedShowcase)}
           </div>
 
-          <div className="actions">
-            <button
-              className="btn secondary"
-              type="button"
-              onClick={() => saveSixmTemplate(sixmTemplate)}
-              disabled={!sixmTemplate.trim()}
-            >
-              Save 6M Email Template
-            </button>
-          </div>
-
-          <div className="notice">{sixmTemplateStatus}</div>
+          <div className="notice">{showcaseStatus}</div>
         </div>
-      </div>
+      )}
 
-      <div className="panel panel-pad">
-        <div className="split">
-          <div>
-            <h2 className="section-title">GRE Feature and Consortium Partner Content</h2>
-            <p className="section-copy">
-              Manage the shared public carousel below search results and the partner logo strip at the bottom of both AskGRE and SuperGRE.
-            </p>
+      {activeTab === "api-keys" && (
+        <div className="panel panel-pad">
+          <div className="split">
+            <div>
+              <h2 className="section-title">API Keys</h2>
+              <p className="section-copy">
+                Create and manage API keys for the /api/match endpoint. Keys are shown once at creation — store them safely.
+              </p>
+            </div>
           </div>
+          <ApiKeyManager />
         </div>
-
-        <div className="admin-showcase-grid">
-          {renderShowcaseEditor(sharedShowcase)}
-        </div>
-
-        <div className="notice">{showcaseStatus}</div>
-      </div>
-
-      <div className="panel panel-pad">
-        <div className="split">
-          <div>
-            <h2 className="section-title">API Keys</h2>
-            <p className="section-copy">
-              Create and manage API keys for the /api/match endpoint. Keys are shown once at creation — store them safely.
-            </p>
-          </div>
-        </div>
-        <ApiKeyManager />
-      </div>
+      )}
     </div>
   );
 }

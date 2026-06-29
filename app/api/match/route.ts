@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const revalidate = 0;
 
-const MIN_RELEVANCE_SCORE = 100;
+const MIN_RELEVANCE_SCORE = 20;
 const CATEGORY_ORDER: Record<string, number> = {
   Service: 1,
   Product: 2,
