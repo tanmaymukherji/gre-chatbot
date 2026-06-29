@@ -40,6 +40,27 @@ function applyCategoryPrioritization(rows: any[]): any[] {
   });
 }
 
+function splitQuery(query: string): string[] {
+  const parts = query
+    .split(/[,;.]+/)
+    .map((p) => p.trim().replace(/\s+/g, " "))
+    .filter((p) => p.split(/\s+/).filter(Boolean).length >= 2);
+  return parts.length > 1 ? parts : [];
+}
+
+async function searchSingleQuery(searchQuery: string) {
+  const inferredFilters = inferSearchFilters({ surfaceSlug: "askgre" as any, q: searchQuery, limit: 50 }, searchQuery);
+
+  const results = await runSearch({
+    ...inferredFilters,
+    surfaceSlug: "askgre" as any,
+    q: inferredFilters.q,
+    strictKeyword: false,
+  });
+
+  return results.filter((row) => (row.matchScore || row.score || 0) > MIN_RELEVANCE_SCORE);
+}
+
 export async function GET(request: NextRequest) {
   try {
     const params = request.nextUrl.searchParams;
@@ -64,17 +85,28 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const inferredFilters = inferSearchFilters({ surfaceSlug: "askgre" as any, q: searchQuery, limit: 50 }, searchQuery);
+    const subQueries = splitQuery(searchQuery);
+    let allResults: any[];
 
-    const results = await runSearch({
-      ...inferredFilters,
-      surfaceSlug: "askgre" as any,
-      q: inferredFilters.q,
-      strictKeyword: false,
-    });
+    if (subQueries.length > 0) {
+      const resultSets = await Promise.all(subQueries.map((sq) => searchSingleQuery(sq)));
+      const merged = new Map<string, any>();
+      for (const set of resultSets) {
+        for (const row of set) {
+          const key = row.offering_id || row.offering_name;
+          if (!key) continue;
+          const existing = merged.get(key);
+          if (!existing || (row.matchScore || 0) > (existing.matchScore || 0)) {
+            merged.set(key, row);
+          }
+        }
+      }
+      allResults = Array.from(merged.values());
+    } else {
+      allResults = await searchSingleQuery(searchQuery);
+    }
 
-    const filtered = results.filter((row) => (row.matchScore || row.score || 0) > MIN_RELEVANCE_SCORE);
-    const prioritized = applyCategoryPrioritization(filtered);
+    const prioritized = applyCategoryPrioritization(allResults).slice(0, 50);
 
     const solutions = prioritized.map((row, index) => ({
       serial: index + 1,
@@ -96,18 +128,6 @@ export async function GET(request: NextRequest) {
     if (translatedFrom) {
       response.translated_from = translatedFrom;
       response.translated_query = searchQuery;
-    }
-
-    const inferred: Record<string, string> = {};
-    const filters = inferredFilters as SearchFilters;
-    if (filters.language) inferred.language = filters.language;
-    if (filters.geography) inferred.geography = filters.geography;
-    if (filters.application) inferred.application = filters.application;
-    if (filters.valueChain) inferred.valueChain = filters.valueChain;
-    if (filters.domain6m) inferred.domain6m = filters.domain6m;
-    if (filters.offeringType) inferred.offeringType = filters.offeringType;
-    if (Object.keys(inferred).length > 0) {
-      response.filters_inferred = inferred;
     }
 
     return NextResponse.json(response, {
