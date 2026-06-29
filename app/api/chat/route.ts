@@ -4,6 +4,17 @@ import { formatGroundedResults, generateGroundedAnswer, getHeuristicSearchIntent
 import { getFilterOptions, inferSearchFilters, runSearch } from "@/lib/database";
 import { getSurfaceConfigByHost } from "@/lib/surface";
 
+function get6mType(domain6m: string | null | undefined): string {
+  if (!domain6m) return "Method";
+  const d = domain6m.toLowerCase();
+  if (d.includes("manpower") || d.includes("man")) return "Manpower";
+  if (d.includes("machine") || d.includes("equipment")) return "Machine";
+  if (d.includes("material") || d.includes("raw material")) return "Material";
+  if (d.includes("market")) return "Market";
+  if (d.includes("money") || d.includes("finance") || d.includes("fund")) return "Money";
+  return "Method";
+}
+
 const payloadSchema = z.object({
   message: z.string().min(2),
   filters: z
@@ -265,11 +276,19 @@ export async function POST(request: NextRequest) {
             }, results)
         : "I could not find a matching solution in the current GRE dataset. Try a different value chain, offering type, 6M domain, geography, or language.";
 
-    return NextResponse.json({
-      answer,
-      interpreted,
-      results
-    });
+    const solutions = results.map((row, index) => ({
+      serial: index + 1,
+      relevance_score: row.matchScore ?? 0,
+      "6m_type": get6mType(row.domain_6m),
+      provider_name:
+        row.solution?.trader?.organisation_name ||
+        row.solution?.trader?.trader_name ||
+        "Unknown",
+      offering_name: row.offering_name || "Untitled offering",
+      offering_link: `https://askgre.grameee.org/offering/${row.offering_id}`,
+    }));
+
+    return NextResponse.json({ solutions });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Chat request failed." },
