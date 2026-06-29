@@ -463,7 +463,6 @@ export function AdminConsole() {
         </>
       )}
 
-      {activeTab === "provider-template" && (
       <div className="panel panel-pad">
         <div className="split">
           <div>
@@ -519,9 +518,7 @@ export function AdminConsole() {
           <div className="notice">{templateStatus}</div>
         </div>
       </div>
-      )}
 
-      {activeTab === "sixm-template" && (
       <div className="panel panel-pad">
         <div className="split">
           <div>
@@ -561,9 +558,7 @@ export function AdminConsole() {
           <div className="notice">{sixmTemplateStatus}</div>
         </div>
       </div>
-      )}
 
-      {activeTab === "showcase" && (
       <div className="panel panel-pad">
         <div className="split">
           <div>
@@ -580,9 +575,7 @@ export function AdminConsole() {
 
         <div className="notice">{showcaseStatus}</div>
       </div>
-      )}
 
-      {activeTab === "api-keys" && (
       <div className="panel panel-pad">
         <div className="split">
           <div>
@@ -594,7 +587,6 @@ export function AdminConsole() {
         </div>
         <ApiKeyManager />
       </div>
-      )}
     </div>
   );
 }
