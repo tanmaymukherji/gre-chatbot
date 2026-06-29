@@ -2,11 +2,20 @@
 
 import { useEffect, useState } from "react";
 import type { ConsortiumPartnerItem, GreFeatureItem } from "@/lib/showcase-content";
+import { ApiKeyManager } from "@/components/admin/api-key-manager";
 
 type ShowcaseDraft = {
   features: GreFeatureItem[];
   partners: ConsortiumPartnerItem[];
 };
+
+const TABS = [
+  { id: "data", label: "Data Sync" },
+  { id: "provider-template", label: "Provider Email Template" },
+  { id: "sixm-template", label: "6M Email Template" },
+  { id: "showcase", label: "GRE Features & Partners" },
+  { id: "api-keys", label: "API Keys" },
+];
 
 const EMPTY_SHOWCASE_DRAFT: ShowcaseDraft = {
   features: [],
@@ -45,6 +54,7 @@ export function AdminConsole() {
   const [sharedShowcase, setSharedShowcase] = useState<ShowcaseDraft>(EMPTY_SHOWCASE_DRAFT);
   const [busy, setBusy] = useState(false);
   const [templateBusy, setTemplateBusy] = useState(false);
+  const [activeTab, setActiveTab] = useState("data");
 
   useEffect(() => {
     fetch("/api/gre-admin/session")
@@ -393,41 +403,67 @@ export function AdminConsole() {
           <div className="notice" style={{ marginTop: 16 }}>{status}</div>
         </div>
       ) : (
-        <div className="panel panel-pad">
-          <div className="split">
-            <div>
-              <h2 className="section-title">Data sync moved to GRE MIS Dashboard</h2>
-              <p className="section-copy">
-                The solution and trader workbook upload feature has been consolidated into the{" "}
-                <a href="https://gre.grameee.org/" target="_blank" rel="noopener noreferrer">GRE MIS Dashboard</a>.
-                Use the <strong>Desk - Data Sync</strong> tab there to upload workbooks or sync live from the GRE platform.
-              </p>
+        <>
+          <div className="panel panel-pad">
+            <div className="split">
+              <div>
+                <h2 className="section-title">Data sync moved to GRE MIS Dashboard</h2>
+                <p className="section-copy">
+                  The solution and trader workbook upload feature has been consolidated into the{" "}
+                  <a href="https://gre.grameee.org/" target="_blank" rel="noopener noreferrer">GRE MIS Dashboard</a>.
+                  Use the <strong>Desk - Data Sync</strong> tab there to upload workbooks or sync live from the GRE platform.
+                </p>
+              </div>
+              {sessionSource === "legacy" ? (
+                <button className="btn ghost" type="button" onClick={signOut} disabled={busy}>
+                  Sign out
+                </button>
+              ) : null}
             </div>
-            {sessionSource === "legacy" ? (
-              <button className="btn ghost" type="button" onClick={signOut} disabled={busy}>
-                Sign out
+
+            <div className="stack">
+              <div className="notice">
+                Signed in as: <span className="mono">{sessionUsername}</span>
+              </div>
+
+              {sessionSource === "grameee" ? (
+                <div className="notice">Access is being provided by your active GramEEE admin session.</div>
+              ) : null}
+
+              <div className="notice">
+                <strong>Dataset upload is now available in the&nbsp;
+                <a href="https://gre.grameee.org/" target="_blank" rel="noopener noreferrer">GRE MIS Dashboard</a>
+                &nbsp;→ Desk → Data Sync.</strong>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 0, borderBottom: "2px solid #e5e7eb", marginBottom: 24, overflowX: "auto" }}>
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                style={{
+                  padding: "10px 18px",
+                  border: "none",
+                  borderBottom: activeTab === tab.id ? "3px solid #16a34a" : "3px solid transparent",
+                  background: activeTab === tab.id ? "#f0fdf4" : "transparent",
+                  color: activeTab === tab.id ? "#16a34a" : "#6b7280",
+                  fontWeight: activeTab === tab.id ? 600 : 400,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  fontSize: "0.9em",
+                }}
+              >
+                {tab.label}
               </button>
-            ) : null}
+            ))}
           </div>
-
-          <div className="stack">
-            <div className="notice">
-              Signed in as: <span className="mono">{sessionUsername}</span>
-            </div>
-
-            {sessionSource === "grameee" ? (
-              <div className="notice">Access is being provided by your active GramEEE admin session.</div>
-            ) : null}
-
-            <div className="notice">
-              <strong>Dataset upload is now available in the&nbsp;
-              <a href="https://gre.grameee.org/" target="_blank" rel="noopener noreferrer">GRE MIS Dashboard</a>
-              &nbsp;→ Desk → Data Sync.</strong>
-            </div>
-          </div>
-        </div>
+        </>
       )}
 
+      {activeTab === "provider-template" && (
       <div className="panel panel-pad">
         <div className="split">
           <div>
@@ -483,7 +519,9 @@ export function AdminConsole() {
           <div className="notice">{templateStatus}</div>
         </div>
       </div>
+      )}
 
+      {activeTab === "sixm-template" && (
       <div className="panel panel-pad">
         <div className="split">
           <div>
@@ -523,7 +561,9 @@ export function AdminConsole() {
           <div className="notice">{sixmTemplateStatus}</div>
         </div>
       </div>
+      )}
 
+      {activeTab === "showcase" && (
       <div className="panel panel-pad">
         <div className="split">
           <div>
@@ -540,6 +580,21 @@ export function AdminConsole() {
 
         <div className="notice">{showcaseStatus}</div>
       </div>
+      )}
+
+      {activeTab === "api-keys" && (
+      <div className="panel panel-pad">
+        <div className="split">
+          <div>
+            <h2 className="section-title">API Keys</h2>
+            <p className="section-copy">
+              Create and manage API keys for the /api/match endpoint. Keys are shown once at creation — store them safely.
+            </p>
+          </div>
+        </div>
+        <ApiKeyManager />
+      </div>
+      )}
     </div>
   );
 }
