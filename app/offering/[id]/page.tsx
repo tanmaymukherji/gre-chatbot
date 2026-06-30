@@ -2,10 +2,129 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { cookies } from "next/headers";
-import { OfferingDetailChat } from "@/components/offering-detail-chat";
+import { OfferingDetailTabs } from "@/components/offering-detail-tabs";
+import { ProviderEmailButton } from "@/components/provider-email-button";
+import { TrackedAnchor } from "@/components/tracked-links";
+import { getOfferingDetail } from "@/lib/database";
+import { maskPhoneNumber, parseSharedUserSummaryCookie } from "@/lib/auth";
+import { getSurfaceConfigByHost } from "@/lib/surface";
+
+type DetailRow = {
+  label: string;
+  value: string;
+};
+
+type DocumentItem = {
+  title: string;
+  url: string;
+  typeLabel: string;
+};
+
+type MediaItem = {
+  title: string;
+  url: string;
+  kind: "image" | "video" | "external";
+  embedUrl?: string;
+};
+
+type QuickCard = {
+  label: string;
+  value: string;
+};
+
+type TabItem = {
+  id: string;
+  label: string;
+  intro?: string;
+  rows?: DetailRow[];
+  cards?: Array<{
+    title: string;
+    body: string;
+  }>;
+  documents?: DocumentItem[];
+  media?: MediaItem[];
+  note?: string;
+};
+
+function cleanText(value: unknown) {
+  return String(value || "").trim();
+}
+
+function formatValue(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.map((item) => cleanText(item)).filter(Boolean).join(", ");
+  }
+  return cleanText(value);
+}
+
+function present(value: unknown) {
+  return formatValue(value).length > 0;
+}
+
+function normalizeLabel(value: unknown) {
+  return cleanText(value).toLowerCase();
+}
+
+function uniqueValues(values: unknown[]) {
+  const seen = new Set<string>();
+  return values
+    .flatMap((value) => {
+      if (Array.isArray(value)) return value;
+      return cleanText(value).split(/[;,|\n]/);
+    })
+    .map((value) => cleanText(value))
+    .filter((value) => {
+      if (!value) return false;
+      const key = value.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function getPayload(offering: any) {
+  return offering?.raw_payload?.payload && typeof offering.raw_payload.payload === "object"
+    ? offering.raw_payload.payload
+    : {};
+}
+
+function getAttachmentUrl(value: any) {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object") {
+    return cleanText(value.dataUrl || value.url || value.href || value.link);
+  }
+  return "";
+}
+
+function normalizeResourceUrl(url: string) {
+  const text = cleanText(url);
+  if (!text) return "";
+  if (/^data:/i.test(text) || /^https?:\/\//i.test(text)) return text;
+  if (/^(www\.|youtube\.com|youtu\.be|vimeo\.com)/i.test(text)) return `https://${text}`;
+  return text;
+}
+
+function urlList(...values: unknown[]) {
+  return uniqueValues(values.flatMap((value: any) => {
+    if (Array.isArray(value)) return value.map(getAttachmentUrl);
+    return [getAttachmentUrl(value)];
+  }).map(normalizeResourceUrl)).filter((url) => /^https?:\/\//i.test(url) || /^data:/i.test(url));
+}
+
+function isPdfUrl(url: string) {
+  return /\.pdf(?:[?#]|$)/i.test(url) || /^data:application\/pdf/i.test(url);
+}
+
+function isImageUrl(url: string) {
+  return /^data:image\//i.test(url) || /\.(jpe?g|png|webp|gif|avif)(?:[?#]|$)/i.test(url);
+}
+
+function isDirectVideoUrl(url: string) {
+  return /\.(mp4|webm|ogg|mov)(?:[?#]|$)/i.test(url);
+}
 
 function isVideoUrl(url: string) {
-  return /\.(mp4|webm|ogg|mov)(\?|#|$)/i.test(url) ||
+  return isDirectVideoUrl(url) ||
     /youtube\.com\/watch\?/i.test(url) ||
     /youtube\.com\/embed\//i.test(url) ||
     /youtu\.be\//i.test(url) ||
@@ -13,7 +132,7 @@ function isVideoUrl(url: string) {
 }
 
 function toEmbedUrl(url: string) {
-  const text = String(url || "");
+  const text = cleanText(url);
   const youtubeWatch = text.match(/[?&]v=([^&]+)/i);
   if (/youtube\.com\/watch\?/i.test(text) && youtubeWatch?.[1]) {
     return `https://www.youtube.com/embed/${youtubeWatch[1]}`;
@@ -29,111 +148,374 @@ function toEmbedUrl(url: string) {
   if (vimeoMatch?.[1]) {
     return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
   }
-  return text;
+  return "";
 }
-import { ProviderEmailButton } from "@/components/provider-email-button";
-import { TrackedAnchor } from "@/components/tracked-links";
-import { getOfferingDetail } from "@/lib/database";
-import { maskPhoneNumber, parseSharedUserSummaryCookie } from "@/lib/auth";
-import { getSurfaceConfigByHost } from "@/lib/surface";
 
-function formatValue(value: unknown) {
-  if (Array.isArray(value)) {
-    return value.filter(Boolean).join(", ");
+function documentType(url: string) {
+  if (isPdfUrl(url)) return "PDF";
+  const extension = url.split(/[?#]/)[0]?.split(".").pop()?.toUpperCase();
+  return extension && extension.length <= 5 ? extension : "DOC";
+}
+
+function offeringKind(offering: any): "product" | "service" | "knowledge" {
+  const text = [
+    offering.offering_group,
+    offering.offering_category,
+    offering.offering_type
+  ].map(normalizeLabel).join(" ");
+  if (text.includes("knowledge") || text.includes("manual") || text.includes("video") || text.includes("sop") || text.includes("blog")) {
+    return "knowledge";
   }
-  return String(value || "").trim();
+  if (text.includes("product") || text.includes("machinery") || text.includes("plant setup") || text.includes("raw material")) {
+    return "product";
+  }
+  return "service";
 }
 
-function isPresent(value: unknown) {
-  return formatValue(value).length > 0;
+function rowsOf(rows: Array<[string, unknown]>): DetailRow[] {
+  return rows
+    .map(([label, value]) => ({ label, value: formatValue(value) }))
+    .filter((row) => row.value);
 }
 
-function isLinkValue(value: unknown) {
-  const text = String(value || "").trim().toLowerCase();
-  return text.startsWith("http://") || text.startsWith("https://") || text.startsWith("data:");
+function chipList(offering: any, kind: "product" | "service" | "knowledge") {
+  return uniqueValues([
+    kind === "product" ? "Product offering" : kind === "service" ? "Service offering" : "Knowledge offering",
+    offering.offering_type,
+    offering.domain_6m ? `${offering.domain_6m} - 6M` : "",
+    offering.primary_valuechain,
+    offering.primary_application
+  ]).slice(0, 6);
 }
 
-function buildOfferingRows(offering: any, viewerSummary: any) {
-  const primaryRows = [
-    ["Offering Category", offering.offering_category],
-    ["Offering Group", offering.offering_group],
-    ["Offering Type", offering.offering_type],
-    ["6M Domain", offering.domain_6m],
-    ["Primary Value Chain", offering.primary_valuechain],
-    ["Primary Application", offering.primary_application],
-    ["All Value Chains", offering.valuechains],
-    ["All Applications", offering.applications],
-    ["Tags", offering.tags],
-    ["Languages", offering.languages],
-    ["Geography", offering.geographies],
-    ["Location Availability", offering.location_availability],
-    ["Audience", offering.audience]
+function buildDocuments(offering: any, kind: "product" | "service" | "knowledge"): DocumentItem[] {
+  const payload = getPayload(offering);
+  const values = [
+    kind === "service" ? offering.service_brochure_url : "",
+    kind === "product" ? offering.product_brochure_url : "",
+    kind === "knowledge" && isPdfUrl(cleanText(offering.knowledge_content_url)) ? offering.knowledge_content_url : "",
+    payload.service_brochure_attachment,
+    payload.product_brochure_attachment,
+    payload.knowledge_content_attachment,
+    payload.documents,
+    payload.document_urls,
+    payload.attachmentUrls,
+    payload.attachments
   ];
+  const urls = urlList(...values).filter((url) => !isImageUrl(url) && !isVideoUrl(url));
+  return urls.map((url, index) => ({
+    title: index === 0 ? (kind === "knowledge" ? "Knowledge guide" : kind === "service" ? "Service brochure" : "Product brochure") : `Resource ${index + 1}`,
+    url,
+    typeLabel: documentType(url)
+  }));
+}
 
-  const secondaryRows = [
-    ["Contact Details", offering.preferred_contact_details || offering.contact_details]
-  ];
+function buildMedia(offering: any): MediaItem[] {
+  const payload = getPayload(offering);
+  const primaryImage = offering.solution?.solution_image_url;
+  const gallery = urlList(
+    primaryImage,
+    payload.offering_image_attachment,
+    payload.galleryUrls,
+    payload.imageUrls,
+    payload.images,
+    payload.product_gallery_urls
+  ).filter(isImageUrl);
 
-  const serviceRows = [
-    ["Trainer Name", offering.trainer_name],
-    ["Trainer Email", offering.trainer_email],
-    ["Trainer Phone", maskPhoneNumber(offering.trainer_phone, viewerSummary)],
-    ["Trainer Details", offering.trainer_details_text],
-    ["Duration", offering.duration],
-    ["Prerequisites", offering.prerequisites],
-    ["Service Cost", offering.service_cost],
-    ["Support Post Service", offering.support_post_service],
-    ["Support Post Service Cost", offering.support_post_service_cost],
-    ["Delivery Mode", offering.delivery_mode],
-    ["Certification Offered", offering.certification_offered],
-    ["Cost Remarks", offering.cost_remarks],
-    ["Service Brochure", offering.service_brochure_url || offering.product_brochure_url]
-  ];
+  const videos = urlList(
+    offering.knowledge_content_url,
+    payload.videoUrls,
+    payload.videos,
+    payload.product_video_urls
+  ).filter(isVideoUrl);
 
-  const productRows = [
-    ["Grade or Capacity", offering.grade_capacity],
-    ["Product Cost", offering.product_cost],
-    ["Lead Time", offering.lead_time],
-    ["Support Details", offering.support_details],
-    ["Cost Remarks", offering.cost_remarks],
-    ["Product Brochure", offering.product_brochure_url]
-  ];
-
-  const knowledgeRows = [
-    ["Delivery Mode", offering.delivery_mode],
-    ["Duration", offering.duration],
-    ["Prerequisites", offering.prerequisites],
-    ["Certification Offered", offering.certification_offered],
-  ];
-
-  const group = String(offering.offering_group || "").toLowerCase();
-  const category = String(offering.offering_category || "").toLowerCase();
-  const relevantRows =
-    (group === "service" || category.includes("service")) ? serviceRows :
-    (group === "product" || category.includes("product")) ? productRows :
-    (group === "knowledge" || category.includes("knowledge")) ? knowledgeRows :
-    [];
-
-  return {
-    primaryRows: primaryRows.filter(([, value]) => isPresent(value)),
-    secondaryRows: [...secondaryRows, ...relevantRows].filter(([, value]) => isPresent(value))
-  };
+  const media: MediaItem[] = [];
+  gallery.forEach((url, index) => {
+    media.push({
+      title: index === 0 ? cleanText(offering.offering_name) || "Offering image" : `Image ${index + 1}`,
+      url,
+      kind: "image"
+    });
+  });
+  videos.forEach((url, index) => {
+    media.push({
+      title: index === 0 ? cleanText(offering.offering_name) || "Offering video" : `Video ${index + 1}`,
+      url,
+      kind: isDirectVideoUrl(url) ? "video" : "video",
+      embedUrl: isDirectVideoUrl(url) ? undefined : toEmbedUrl(url)
+    });
+  });
+  return media;
 }
 
 function buildProviderRows(offering: any, viewerSummary: any) {
   const trader = offering.solution?.trader;
-  return [
-    ["Solution Name", offering.solution?.solution_name],
+  return rowsOf([
     ["Provider", trader?.organisation_name || trader?.trader_name],
-    ["Association Status", trader?.association_status],
+    ["Point of contact", offering.preferred_contact_name || trader?.poc_name],
     ["Email", offering.preferred_contact_email || trader?.email],
-    ["Website", trader?.website],
     ["Phone", maskPhoneNumber(offering.preferred_contact_phone || trader?.mobile, viewerSummary)],
-    ["Point of Contact", offering.preferred_contact_name || trader?.poc_name],
-    ["Contact Details", offering.preferred_contact_details || offering.contact_details],
+    ["Website", trader?.website],
+    ["Association status", trader?.association_status],
+    ["Contact details", offering.preferred_contact_details || offering.contact_details],
     ["Tagline", trader?.tagline],
-    ["Short Description", trader?.short_description]
-  ].filter(([, value]) => isPresent(value));
+    ["Short description", trader?.short_description]
+  ]);
+}
+
+function buildQuickCards(offering: any, kind: "product" | "service" | "knowledge", providerName: string, documents: DocumentItem[], media: MediaItem[]): QuickCard[] {
+  if (kind === "product") {
+    return rowsOf([
+      ["Capacity / Grade", offering.grade_capacity || "To be discussed"],
+      ["Product cost", offering.product_cost || offering.cost_remarks || "Quote after scope"],
+      ["Lead time", offering.lead_time || "To be discussed"],
+      ["Support", offering.support_details || "To be discussed"],
+      ["Audience", offering.audience || "Groups, individuals, organisations, SHGs"]
+    ]);
+  }
+
+  if (kind === "knowledge") {
+    const format = [
+      media.some((item) => item.kind === "video") ? "Video" : "",
+      documents.length ? "PDF" : "",
+      media.some((item) => item.kind === "image") ? "Images" : ""
+    ].filter(Boolean).join(" + ") || "Content";
+    return rowsOf([
+      ["Format", format],
+      ["Value chain", offering.primary_valuechain],
+      ["Applications", offering.applications || offering.primary_application],
+      ["Best for", offering.primary_application || offering.tags],
+      ["Provider", providerName]
+    ]);
+  }
+
+  return rowsOf([
+    ["Duration", offering.duration || "To be discussed"],
+    ["Service cost", offering.service_cost || offering.cost_remarks || "Quote after scope"],
+    ["Languages", offering.languages],
+    ["Delivery mode", offering.delivery_mode || offering.location_availability],
+    ["Certification", offering.certification_offered || "To be discussed"],
+    ["Support", offering.support_post_service || offering.support_details || "At service location"]
+  ]);
+}
+
+function summaryBullets(offering: any, kind: "product" | "service" | "knowledge") {
+  const source = cleanText(offering.solution?.about_solution_text || offering.about_offering_text);
+  const parts = source
+    .split(/(?<=[.!?])\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .slice(0, kind === "knowledge" ? 4 : 3);
+
+  if (parts.length) return parts;
+
+  if (kind === "product") return ["Helps evaluate the product quickly for deployment decisions."];
+  if (kind === "knowledge") return ["Helps understand the practice, process, or knowledge resource."];
+  return ["Helps evaluate the service, training, or advisory support."];
+}
+
+function buildTabs(
+  offering: any,
+  kind: "product" | "service" | "knowledge",
+  providerRows: DetailRow[],
+  documents: DocumentItem[],
+  media: MediaItem[]
+): TabItem[] {
+  const commonRows = rowsOf([
+    ["Offering category", offering.offering_category],
+    ["Offering group", offering.offering_group],
+    ["Offering type", offering.offering_type],
+    ["6M domain", offering.domain_6m],
+    ["Primary value chain", offering.primary_valuechain],
+    ["Primary application", offering.primary_application],
+    ["All value chains", offering.valuechains],
+    ["All applications", offering.applications],
+    ["Tags", offering.tags],
+    ["Languages", offering.languages],
+    ["Geography", offering.geographies],
+    ["Location availability", offering.location_availability],
+    ["Audience", offering.audience]
+  ]);
+
+  if (kind === "product") {
+    return [
+      {
+        id: "overview",
+        label: "Overview",
+        intro: offering.about_offering_text || offering.solution?.about_solution_text,
+        rows: commonRows,
+        cards: summaryBullets(offering, kind).map((body, index) => ({ title: index === 0 ? "Product use case" : `Decision point ${index + 1}`, body }))
+      },
+      {
+        id: "specs",
+        label: "Specs",
+        rows: rowsOf([
+          ["Capacity / Grade", offering.grade_capacity],
+          ["Product cost", offering.product_cost],
+          ["Lead time", offering.lead_time],
+          ["Support details", offering.support_details],
+          ["Cost remarks", offering.cost_remarks]
+        ])
+      },
+      {
+        id: "deployment",
+        label: "Deployment",
+        rows: rowsOf([
+          ["Geography", offering.geographies],
+          ["Location availability", offering.location_availability],
+          ["Audience", offering.audience],
+          ["Contact details", offering.preferred_contact_details || offering.contact_details]
+        ])
+      },
+      { id: "documents", label: "Documents", documents, media: media.filter((item) => item.kind === "image"), note: documents.length ? "" : "No documents added." },
+      { id: "provider", label: "Provider", rows: providerRows },
+      { id: "chat", label: "Chat" }
+    ];
+  }
+
+  if (kind === "knowledge") {
+    return [
+      {
+        id: "overview",
+        label: "Overview",
+        intro: offering.about_offering_text || offering.solution?.about_solution_text,
+        rows: commonRows,
+        cards: summaryBullets(offering, kind).map((body, index) => ({ title: index === 0 ? "What you will learn" : `Learning point ${index + 1}`, body }))
+      },
+      { id: "media", label: "Media", media, documents, note: !media.length && !documents.length ? "No media resources added." : "" },
+      {
+        id: "step-by-step",
+        label: "Step-by-step",
+        cards: summaryBullets(offering, kind).map((body, index) => ({ title: `Step ${index + 1}`, body }))
+      },
+      { id: "downloads", label: "Downloads", documents, note: documents.length ? "" : "No downloadable guides added." },
+      { id: "provider", label: "Provider", rows: providerRows },
+      { id: "chat", label: "Chat" }
+    ];
+  }
+
+  return [
+    {
+      id: "overview",
+      label: "Overview",
+      intro: offering.about_offering_text || offering.solution?.about_solution_text,
+      rows: commonRows,
+      cards: summaryBullets(offering, kind).map((body, index) => ({ title: index === 0 ? "Service use case" : `Outcome ${index + 1}`, body }))
+    },
+    {
+      id: "training-format",
+      label: "Training format",
+      rows: rowsOf([
+        ["Trainer", offering.trainer_name],
+        ["Trainer details", offering.trainer_details_text],
+        ["Duration", offering.duration],
+        ["Delivery mode", offering.delivery_mode],
+        ["Training venue", offering.geographies || offering.location_availability],
+        ["Languages", offering.languages]
+      ])
+    },
+    {
+      id: "costs",
+      label: "Costs",
+      rows: rowsOf([
+        ["Service cost", offering.service_cost],
+        ["Cost remarks", offering.cost_remarks],
+        ["Support post service", offering.support_post_service],
+        ["Support post service cost", offering.support_post_service_cost]
+      ])
+    },
+    {
+      id: "eligibility",
+      label: "Eligibility",
+      rows: rowsOf([
+        ["Prerequisites", offering.prerequisites],
+        ["Certification offered", offering.certification_offered],
+        ["Audience", offering.audience],
+        ["Contact details", offering.preferred_contact_details || offering.contact_details]
+      ]),
+      documents,
+      media
+    },
+    { id: "provider", label: "Provider", rows: providerRows },
+    { id: "chat", label: "Chat" }
+  ];
+}
+
+function SnapshotCard({ title, rows }: { title: string; rows: DetailRow[] }) {
+  return (
+    <section className="offering-summary-card">
+      <h2>{title}</h2>
+      <div className="offering-snapshot-rows">
+        {rows.slice(0, 7).map((row) => (
+          <div key={row.label}>
+            <span>{row.label}</span>
+            {/^https?:\/\//i.test(row.value) ? (
+              <a href={row.value} target="_blank" rel="noreferrer">{row.value}</a>
+            ) : (
+              <strong>{row.value}</strong>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SummaryCard({ title, bullets }: { title: string; bullets: string[] }) {
+  return (
+    <section className="offering-summary-card">
+      <h2>{title}</h2>
+      <div className="offering-help-list">
+        {bullets.map((bullet, index) => (
+          <div key={`${title}-${index}`}>
+            <span aria-hidden="true">OK</span>
+            <p>{bullet}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function HeroMedia({ media, documents, title }: { media: MediaItem[]; documents: DocumentItem[]; title: string }) {
+  const primaryVideo = media.find((item) => item.kind === "video");
+  const primaryImage = media.find((item) => item.kind === "image");
+  const primaryDoc = documents[0];
+
+  return (
+    <div className="offering-hero-media">
+      {primaryVideo ? (
+        <div className="offering-hero-video-card">
+          {primaryVideo.embedUrl ? (
+            <iframe
+              src={primaryVideo.embedUrl}
+              title={primaryVideo.title}
+              allow="fullscreen; accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          ) : (
+            <video controls preload="metadata">
+              <source src={primaryVideo.url} />
+              Your browser does not support embedded video playback.
+            </video>
+          )}
+        </div>
+      ) : primaryImage ? (
+        <figure className="offering-hero-image-card">
+          <img src={primaryImage.url} alt={primaryImage.title || title} referrerPolicy="no-referrer" />
+          <figcaption>{primaryImage.title || title}</figcaption>
+        </figure>
+      ) : null}
+
+      {primaryDoc ? (
+        <a className="offering-hero-doc-card" href={primaryDoc.url} target="_blank" rel="noreferrer">
+          <span>{primaryDoc.typeLabel}</span>
+          <strong>{primaryDoc.title}</strong>
+          <small>Open resource</small>
+        </a>
+      ) : null}
+    </div>
+  );
 }
 
 export default async function OfferingDetailPage({
@@ -154,8 +536,9 @@ export default async function OfferingDetailPage({
     notFound();
   }
 
-  const { primaryRows, secondaryRows } = buildOfferingRows(offering, viewerSummary);
-  const providerRows = buildProviderRows(offering, viewerSummary);
+  const kind = offeringKind(offering);
+  const title = offering.offering_name || offering.solution?.solution_name || "Untitled offering";
+  const description = offering.about_offering_text || offering.solution?.about_solution_text || "This page shows the available GRE dataset details for this offering.";
   const providerName =
     offering.preferred_contact_name ||
     offering.solution?.trader?.organisation_name ||
@@ -163,188 +546,136 @@ export default async function OfferingDetailPage({
     offering.trainer_name ||
     "Solution Provider";
   const providerEmail = offering.preferred_contact_email || offering.solution?.trader?.email || offering.trainer_email || "";
-  const solutionTitle = offering.solution?.solution_name || offering.offering_name || "GRE solution";
-  const solutionSummary =
-    offering.solution?.solution_name ||
-    offering.about_offering_text ||
-    offering.solution?.about_solution_text ||
-    offering.offering_name ||
-    "this solution";
+  const providerRows = buildProviderRows(offering, viewerSummary);
+  const documents = buildDocuments(offering, kind);
+  const media = buildMedia(offering);
+  const quickCards = buildQuickCards(offering, kind, providerRows[0]?.value || providerName, documents, media);
+  const tabs = buildTabs(offering, kind, providerRows, documents, media);
+  const chips = chipList(offering, kind);
+  const primaryDoc = documents[0];
+  const hasVideo = media.some((item) => item.kind === "video");
+  const summaryTitle =
+    kind === "product" ? "What this product helps with" :
+    kind === "knowledge" ? "What you will learn" :
+    "What this service helps with";
+  const snapshotTitle =
+    kind === "product" ? "Provider snapshot" :
+    kind === "knowledge" ? "Knowledge source snapshot" :
+    "Trainer & provider snapshot";
 
   return (
-    <main className="page-shell">
-      <section className="hero">
-        <div className="detail-hero-top">
-          <div className="detail-hero-actions-left">
-            {offering.gre_link ? (
-              <TrackedAnchor
-                className="btn hero-link"
-                href={offering.gre_link}
-                target="_blank"
-                rel="noreferrer"
-                auditEvent={{
-                  kind: "view",
-                  surface: surface.slug,
-                  action: "view_portal",
-                  actorEmail: viewerSummary?.email,
-                  actorName: viewerSummary?.fullName || viewerSummary?.username,
-                  itemId: offering.offering_id,
-                  itemLabel: offering.offering_name || solutionTitle,
-                  itemSource: surface.slug,
-                  portalUrl: offering.gre_link,
-                }}
-              >
-                {surface.portalLabel}
-              </TrackedAnchor>
-            ) : null}
+    <main className="page-shell offering-page-shell">
+      <section className="offering-page-intro">
+        <p className="offering-page-kicker">
+          {kind === "product" ? "Product Offering View" : kind === "knowledge" ? "Knowledge Offering View" : "Service Offering View"}
+        </p>
+        <h1>{title}</h1>
+        <p>{description}</p>
+      </section>
+
+      <section className={`offering-action-hero offering-${kind}`} aria-labelledby="offering-hero-title">
+        <div className="offering-hero-copy">
+          <h2 id="offering-hero-title">{title}</h2>
+          <p>{description}</p>
+          <div className="offering-chip-row">
+            {chips.map((chip) => (
+              <span key={chip}>{chip}</span>
+            ))}
+          </div>
+        </div>
+
+        <HeroMedia media={media} documents={documents} title={title} />
+
+        <div className="offering-hero-actions" aria-label="Offering actions">
+          {kind === "knowledge" && hasVideo ? (
+            <a className="offering-cta offering-cta-primary" href="#media">Watch video</a>
+          ) : kind === "knowledge" ? (
+            <a className="offering-cta offering-cta-primary" href="#overview">View content</a>
+          ) : (
             <ProviderEmailButton
               providerEmail={providerEmail}
               providerName={providerName}
               offeringId={offering.offering_id}
-              solutionTitle={solutionTitle}
-              solutionSummary={solutionSummary}
+              solutionTitle={title}
+              solutionSummary={description}
               unavailableLabel={surface.slug === "supergre" ? "Contact currently unavailable." : ""}
             />
-          </div>
-          <Link className="btn hero-link detail-hero-back" href="/">
-            Back to Search
-          </Link>
-        </div>
-        <div className="detail-hero-main">
-          <div className="detail-hero-copy">
-            <h1>{offering.offering_name || "Untitled offering"}</h1>
-            <p className="hero-copy">
-              {offering.about_offering_text || offering.solution?.about_solution_text || "This page shows the available GRE dataset details for this offering."}
-            </p>
-          </div>
-          {offering.solution?.solution_image_url ? (
-            <div className="detail-hero-image-wrap">
-              <img
-                className="detail-hero-image"
-                src={offering.solution.solution_image_url}
-                alt={offering.offering_name || "Offering image"}
-              />
-            </div>
+          )}
+
+          <a className="offering-cta offering-cta-secondary" href="#offering-chat">
+            Ask {surface.copilotLabel}
+          </a>
+
+          {primaryDoc ? (
+            <a className="offering-cta offering-cta-soft" href={primaryDoc.url} target="_blank" rel="noreferrer">
+              {kind === "knowledge" ? "Download guide" : "Download brochure"}
+            </a>
+          ) : null}
+
+          {offering.gre_link ? (
+            <TrackedAnchor
+              className="offering-cta offering-cta-outline"
+              href={offering.gre_link}
+              target="_blank"
+              rel="noreferrer"
+              auditEvent={{
+                kind: "view",
+                surface: surface.slug,
+                action: "view_portal",
+                actorEmail: viewerSummary?.email,
+                actorName: viewerSummary?.fullName || viewerSummary?.username,
+                itemId: offering.offering_id,
+                itemLabel: title,
+                itemSource: surface.slug,
+                portalUrl: offering.gre_link,
+              }}
+            >
+              {surface.portalLabel}
+            </TrackedAnchor>
           ) : null}
         </div>
       </section>
 
-      <section className="detail-stack" style={{ marginTop: 24 }}>
-        {isPresent(offering.solution?.about_solution_text) ? (
-          <section className="panel panel-pad">
-            <h2 className="section-title">About the Solution</h2>
-            <p className="section-copy detail-panel-copy" style={{ marginBottom: 0 }}>
-              {offering.solution?.about_solution_text}
-            </p>
-          </section>
-        ) : null}
-
-        <section className="detail-grid">
-          <section className="stack">
-            <section className="panel panel-pad">
-              <h2 className="section-title">Offering Category</h2>
-              <p className="section-copy">
-                Only the parameters relevant to this {String(offering.offering_group || "offering").toLowerCase()} offering are shown below.
-              </p>
-              <table className="detail-table">
-                <tbody>
-                  {primaryRows.map(([label, value]) => (
-                    <tr key={label}>
-                      <th>{label}</th>
-                      <td>
-                        {isLinkValue(value) ? (
-                          <a className="result-link" href={String(value)} target="_blank" rel="noreferrer">
-                            Open link
-                          </a>
-                        ) : (
-                          formatValue(value)
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
-
-            {secondaryRows.length ? (
-              <section className="panel panel-pad">
-                <h2 className="section-title">Offering Details</h2>
-                <table className="detail-table">
-                  <tbody>
-                    {secondaryRows.map(([label, value]) => (
-                      <tr key={label}>
-                        <th>{label}</th>
-                        <td>
-                          {isLinkValue(value) ? (
-                            <a className="result-link" href={String(value)} target="_blank" rel="noreferrer">
-                              Open link
-                            </a>
-                          ) : (
-                            formatValue(value)
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </section>
-            ) : null}
-
-            {offering.knowledge_content_url && isVideoUrl(offering.knowledge_content_url) ? (
-              <section className="panel panel-pad">
-                <h2 className="section-title">Video</h2>
-                <div className="detail-media-card">
-                  {/\.(mp4|webm|ogg|mov)(\?|#|$)/i.test(offering.knowledge_content_url) ? (
-                    <video className="detail-media-video" controls preload="metadata" style={{ maxWidth: "100%", borderRadius: 12 }}>
-                      <source src={offering.knowledge_content_url} />
-                      Your browser does not support embedded video playback.
-                    </video>
-                  ) : (
-                    <iframe
-                      src={toEmbedUrl(offering.knowledge_content_url)}
-                      title="Embedded video"
-                      style={{ width: "100%", height: 400, border: "none", borderRadius: 12 }}
-                      allow="fullscreen; accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
-                  )}
-                </div>
-              </section>
-            ) : null}
-          </section>
-
-          <section className="stack">
-            <section className="panel panel-pad">
-              <h2 className="section-title">Provider and Solution</h2>
-              <table className="detail-table">
-                <tbody>
-                  {providerRows.map(([label, value]) => (
-                    <tr key={label}>
-                      <th>{label}</th>
-                      <td>
-                        {isLinkValue(value) ? (
-                          <a className="result-link" href={String(value)} target="_blank" rel="noreferrer">
-                            Open link
-                          </a>
-                        ) : (
-                          formatValue(value)
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
-
-            <OfferingDetailChat offeringId={offering.offering_id} offeringName={offering.offering_name || "this offering"} />
-          </section>
-        </section>
+      <section className="offering-quick-grid" aria-label="Quick decision details">
+        {quickCards.map((card) => (
+          <article className="offering-quick-card" key={card.label}>
+            <span>{card.label}</span>
+            <strong>{card.value}</strong>
+          </article>
+        ))}
       </section>
 
-      <div className="page-bottom-actions">
-        <Link className="btn hero-link" href="/">
+      <section className="offering-summary-grid">
+        <SummaryCard title={summaryTitle} bullets={summaryBullets(offering, kind)} />
+        <SnapshotCard title={snapshotTitle} rows={providerRows} />
+      </section>
+
+      <OfferingDetailTabs tabs={tabs} offeringId={offering.offering_id} offeringName={title} />
+
+      <div className="offering-page-bottom-actions">
+        <Link className="offering-cta offering-cta-outline" href="/">
           Back to Search
         </Link>
+      </div>
+
+      <div className="offering-mobile-sticky-actions">
+        {kind === "knowledge" ? (
+          <a className="offering-cta offering-cta-primary" href={hasVideo ? "#media" : "#overview"}>
+            {hasVideo ? "Watch video" : "View content"}
+          </a>
+        ) : (
+          <ProviderEmailButton
+            providerEmail={providerEmail}
+            providerName={providerName}
+            offeringId={offering.offering_id}
+            solutionTitle={title}
+            solutionSummary={description}
+            unavailableLabel={surface.slug === "supergre" ? "Contact currently unavailable." : ""}
+          />
+        )}
+        <a className="offering-cta offering-cta-secondary" href="#offering-chat">
+          Ask GRE
+        </a>
       </div>
     </main>
   );
