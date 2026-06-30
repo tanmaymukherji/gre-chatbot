@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import type { ConsortiumPartnerItem, GreFeatureItem } from "@/lib/showcase-content";
 import { ApiKeyManager } from "@/components/admin/api-key-manager";
-import { createBrowserSupabaseClient } from "@/lib/supabase";
 
 type ShowcaseDraft = {
   features: GreFeatureItem[];
@@ -30,14 +29,33 @@ function createDraftId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.round(Math.random() * 100000)}`;
 }
 
-async function uploadToStorage(file: File, prefix: string): Promise<string> {
-  const supabase = createBrowserSupabaseClient();
-  const ext = file.name.split('.').pop() || 'png';
-  const path = `showcase/${prefix}-${Date.now()}-${Math.round(Math.random() * 100000)}.${ext}`;
-  const { error } = await supabase.storage.from("grameee-gallery").upload(path, file, { cacheControl: "3600", upsert: false });
-  if (error) throw new Error("Image upload failed: " + error.message);
-  const { data: publicUrl } = supabase.storage.from("grameee-gallery").getPublicUrl(path);
-  return publicUrl?.publicUrl || "";
+async function uploadToVercelBlob(base64: string, filename: string): Promise<string> {
+  const response = await fetch("/api/gre-admin/upload-image", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ base64, filename }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || "Upload failed");
+  }
+  const data = await response.json();
+  return data.url;
+}
+
+function isDataUrl(str: string): boolean {
+  return typeof str === "string" && str.startsWith("data:");
+}
+
+async function migrateDataUrls(obj: Record<string, unknown>, keys: string[], prefix: string): Promise<Record<string, unknown>> {
+  const result = { ...obj };
+  for (const key of keys) {
+    const val = result[key];
+    if (typeof val === "string" && isDataUrl(val)) {
+      result[key] = await uploadToVercelBlob(val, `${prefix}-${key}`);
+    }
+  }
+  return result;
 }
 
 export function AdminConsole() {
@@ -206,12 +224,36 @@ export function AdminConsole() {
 
   async function saveAllShowcase(features: GreFeatureItem[], partners: ConsortiumPartnerItem[]) {
     setShowcaseStatus("Saving GRE feature and partner content...");
+
+    const migratedFeatures: GreFeatureItem[] = [];
+    for (const f of features) {
+      if (isDataUrl(f.imageUrl)) {
+        const url = await uploadToVercelBlob(f.imageUrl, f.id);
+        migratedFeatures.push({ ...f, imageUrl: url });
+      } else {
+        migratedFeatures.push(f);
+      }
+    }
+
+    const migratedPartners: ConsortiumPartnerItem[] = [];
+    for (const p of partners) {
+      if (isDataUrl(p.logoUrl || "")) {
+        const url = await uploadToVercelBlob(p.logoUrl || "", p.id);
+        migratedPartners.push({ ...p, logoUrl: url });
+      } else {
+        migratedPartners.push(p);
+      }
+    }
+
     const response = await fetch("/api/gre-admin/showcase", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ features, partners })
+      body: JSON.stringify({ features: migratedFeatures, partners: migratedPartners })
     });
     const payload = await response.json();
+    if (response.ok) {
+      updateShowcase(() => ({ features: migratedFeatures, partners: migratedPartners }));
+    }
     setShowcaseStatus(response.ok ? "GRE feature and partner content saved." : payload.error || "Content could not be saved.");
   }
 
@@ -275,10 +317,16 @@ export function AdminConsole() {
                     const file = event.target.files?.[0];
                     if (!file) return;
                     try {
-                      const imageUrl = await uploadToStorage(file, "feature");
+                      const base64 = await new Promise<string>((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(String(reader.result || ""));
+                        reader.onerror = () => reject(reader.error || new Error("Read failed"));
+                        reader.readAsDataURL(file);
+                      });
+                      const url = await uploadToVercelBlob(base64, feature.id);
                       updateShowcase((current) => ({
                         ...current,
-                        features: current.features.map((item) => item.id === feature.id ? { ...item, imageUrl } : item)
+                        features: current.features.map((item) => item.id === feature.id ? { ...item, imageUrl: url } : item)
                       }));
                     } catch (e) {
                       alert(e instanceof Error ? e.message : "Upload failed");
@@ -340,10 +388,16 @@ export function AdminConsole() {
                     const file = event.target.files?.[0];
                     if (!file) return;
                     try {
-                      const logoUrl = await uploadToStorage(file, "partner");
+                      const base64 = await new Promise<string>((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(String(reader.result || ""));
+                        reader.onerror = () => reject(reader.error || new Error("Read failed"));
+                        reader.readAsDataURL(file);
+                      });
+                      const url = await uploadToVercelBlob(base64, partner.id);
                       updateShowcase((current) => ({
                         ...current,
-                        partners: current.partners.map((item) => item.id === partner.id ? { ...item, logoUrl } : item)
+                        partners: current.partners.map((item) => item.id === partner.id ? { ...item, logoUrl: url } : item)
                       }));
                     } catch (e) {
                       alert(e instanceof Error ? e.message : "Upload failed");
