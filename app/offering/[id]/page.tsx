@@ -83,9 +83,9 @@ function uniqueValues(values: unknown[]) {
 }
 
 function getPayload(offering: any) {
-  return offering?.raw_payload?.payload && typeof offering.raw_payload.payload === "object"
-    ? offering.raw_payload.payload
-    : {};
+  const raw = offering?.raw_payload && typeof offering.raw_payload === "object" ? offering.raw_payload : {};
+  const nested = raw?.payload && typeof raw.payload === "object" ? raw.payload : {};
+  return { ...raw, ...nested };
 }
 
 function getAttachmentUrl(value: any) {
@@ -94,6 +94,21 @@ function getAttachmentUrl(value: any) {
     return cleanText(value.dataUrl || value.url || value.href || value.link);
   }
   return "";
+}
+
+function collectResourceValues(value: unknown): string[] {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.flatMap(collectResourceValues);
+  if (typeof value === "object") {
+    const direct = getAttachmentUrl(value);
+    const nested = Object.values(value as Record<string, unknown>).flatMap(collectResourceValues);
+    return direct ? [direct, ...nested] : nested;
+  }
+
+  const text = cleanText(value);
+  if (!text) return [];
+  const urlMatches = text.match(/(?:https?:\/\/|www\.|youtube\.com|youtu\.be|vimeo\.com)[^\s<>"')]+/gi);
+  return urlMatches?.length ? urlMatches : [text];
 }
 
 function normalizeResourceUrl(url: string) {
@@ -105,10 +120,8 @@ function normalizeResourceUrl(url: string) {
 }
 
 function urlList(...values: unknown[]) {
-  return uniqueValues(values.flatMap((value: any) => {
-    if (Array.isArray(value)) return value.map(getAttachmentUrl);
-    return [getAttachmentUrl(value)];
-  }).map(normalizeResourceUrl)).filter((url) => /^https?:\/\//i.test(url) || /^data:/i.test(url));
+  return uniqueValues(values.flatMap(collectResourceValues).map(normalizeResourceUrl))
+    .filter((url) => /^https?:\/\//i.test(url) || /^data:/i.test(url));
 }
 
 function isPdfUrl(url: string) {
@@ -194,9 +207,18 @@ function buildDocuments(offering: any, kind: "product" | "service" | "knowledge"
     kind === "service" ? offering.service_brochure_url : "",
     kind === "product" ? offering.product_brochure_url : "",
     kind === "knowledge" && isPdfUrl(cleanText(offering.knowledge_content_url)) ? offering.knowledge_content_url : "",
+    kind === "service" ? payload["Service offering Brochure"] : "",
+    kind === "product" ? payload["Product Brochure"] : "",
+    kind === "knowledge" && isPdfUrl(cleanText(payload["Knowledge Offering Content"])) ? payload["Knowledge Offering Content"] : "",
+    payload.brochure,
+    payload.brochure_url,
     payload.service_brochure_attachment,
     payload.product_brochure_attachment,
     payload.knowledge_content_attachment,
+    payload.document,
+    payload.document_url,
+    payload.documentLink,
+    payload.documentLinks,
     payload.documents,
     payload.document_urls,
     payload.attachmentUrls,
@@ -212,9 +234,11 @@ function buildDocuments(offering: any, kind: "product" | "service" | "knowledge"
 
 function buildMedia(offering: any): MediaItem[] {
   const payload = getPayload(offering);
-  const primaryImage = offering.solution?.solution_image_url;
+  const primaryImage = offering.solution?.solution_image_url || payload.SolutionImage || payload.solutionImage;
   const gallery = urlList(
     primaryImage,
+    payload.OfferingImage,
+    payload.offering_image,
     payload.offering_image_attachment,
     payload.galleryUrls,
     payload.imageUrls,
@@ -222,12 +246,21 @@ function buildMedia(offering: any): MediaItem[] {
     payload.product_gallery_urls
   ).filter(isImageUrl);
 
-  const videos = urlList(
+  const knowledgeUrls = urlList(
     offering.knowledge_content_url,
+    payload["Knowledge Offering Content"],
+    payload.knowledge_content,
+    payload.knowledgeContent,
+    payload.video,
+    payload.video_url,
+    payload.Video,
+    payload.VideoUrl,
+    payload["Video Link"],
+    payload["Video URL"],
     payload.videoUrls,
     payload.videos,
     payload.product_video_urls
-  ).filter(isVideoUrl);
+  );
 
   const media: MediaItem[] = [];
   gallery.forEach((url, index) => {
@@ -237,11 +270,12 @@ function buildMedia(offering: any): MediaItem[] {
       kind: "image"
     });
   });
-  videos.forEach((url, index) => {
+  knowledgeUrls.forEach((url, index) => {
+    if (isPdfUrl(url) || isImageUrl(url)) return;
     media.push({
-      title: index === 0 ? cleanText(offering.offering_name) || "Offering video" : `Video ${index + 1}`,
+      title: index === 0 ? cleanText(offering.offering_name) || "Offering media" : `Media ${index + 1}`,
       url,
-      kind: isDirectVideoUrl(url) ? "video" : "video",
+      kind: isVideoUrl(url) ? "video" : "external",
       embedUrl: isDirectVideoUrl(url) ? undefined : toEmbedUrl(url)
     });
   });
@@ -478,29 +512,14 @@ function SummaryCard({ title, bullets }: { title: string; bullets: string[] }) {
 }
 
 function HeroMedia({ media, documents, title }: { media: MediaItem[]; documents: DocumentItem[]; title: string }) {
-  const primaryVideo = media.find((item) => item.kind === "video");
   const primaryImage = media.find((item) => item.kind === "image");
   const primaryDoc = documents[0];
 
+  if (!primaryImage && !primaryDoc) return null;
+
   return (
     <div className="offering-hero-media">
-      {primaryVideo ? (
-        <div className="offering-hero-video-card">
-          {primaryVideo.embedUrl ? (
-            <iframe
-              src={primaryVideo.embedUrl}
-              title={primaryVideo.title}
-              allow="fullscreen; accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
-          ) : (
-            <video controls preload="metadata">
-              <source src={primaryVideo.url} />
-              Your browser does not support embedded video playback.
-            </video>
-          )}
-        </div>
-      ) : primaryImage ? (
+      {primaryImage ? (
         <figure className="offering-hero-image-card">
           <img src={primaryImage.url} alt={primaryImage.title || title} referrerPolicy="no-referrer" />
           <figcaption>{primaryImage.title || title}</figcaption>
@@ -515,6 +534,64 @@ function HeroMedia({ media, documents, title }: { media: MediaItem[]; documents:
         </a>
       ) : null}
     </div>
+  );
+}
+
+function FeaturedMedia({ media, documents, title }: { media: MediaItem[]; documents: DocumentItem[]; title: string }) {
+  const featured = media.find((item) => item.kind === "video" || item.kind === "external");
+  const images = media.filter((item) => item.kind === "image").slice(0, 4);
+
+  if (!featured && !images.length && !documents.length) return null;
+
+  return (
+    <section className="offering-featured-media" id="media" aria-labelledby="offering-media-title">
+      <div>
+        <p className="offering-section-kicker">Embedded content and resources</p>
+        <h2 id="offering-media-title">Media and documents</h2>
+      </div>
+
+      <div className="offering-featured-media-grid">
+        {featured ? (
+          <div className="offering-featured-player">
+            {featured.kind === "video" && featured.embedUrl ? (
+              <iframe
+                src={featured.embedUrl}
+                title={featured.title}
+                allow="fullscreen; accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            ) : featured.kind === "video" ? (
+              <video controls preload="metadata">
+                <source src={featured.url} />
+                Your browser does not support embedded video playback.
+              </video>
+            ) : (
+              <a className="offering-external-media-card" href={featured.url} target="_blank" rel="noreferrer">
+                <span>External content</span>
+                <strong>{featured.title || title}</strong>
+                <small>Open video or learning page</small>
+              </a>
+            )}
+          </div>
+        ) : null}
+
+        <div className="offering-featured-resource-list">
+          {documents.map((document) => (
+            <a className="offering-featured-resource" key={`${document.title}-${document.url}`} href={document.url} target="_blank" rel="noreferrer">
+              <span>{document.typeLabel}</span>
+              <strong>{document.title}</strong>
+              <small>Open resource</small>
+            </a>
+          ))}
+          {images.map((image) => (
+            <a className="offering-featured-resource offering-featured-image-link" key={`${image.title}-${image.url}`} href={image.url} target="_blank" rel="noreferrer">
+              <img src={image.url} alt={image.title || title} referrerPolicy="no-referrer" />
+              <strong>{image.title || title}</strong>
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -553,7 +630,7 @@ export default async function OfferingDetailPage({
   const tabs = buildTabs(offering, kind, providerRows, documents, media);
   const chips = chipList(offering, kind);
   const primaryDoc = documents[0];
-  const hasVideo = media.some((item) => item.kind === "video");
+  const hasFeaturedMedia = media.some((item) => item.kind === "video" || item.kind === "external");
   const summaryTitle =
     kind === "product" ? "What this product helps with" :
     kind === "knowledge" ? "What you will learn" :
@@ -565,16 +642,16 @@ export default async function OfferingDetailPage({
 
   return (
     <main className="page-shell offering-page-shell">
-      <section className="offering-page-intro">
-        <p className="offering-page-kicker">
-          {kind === "product" ? "Product Offering View" : kind === "knowledge" ? "Knowledge Offering View" : "Service Offering View"}
-        </p>
-        <h1>{title}</h1>
-        <p>{description}</p>
-      </section>
-
       <section className={`offering-action-hero offering-${kind}`} aria-labelledby="offering-hero-title">
         <div className="offering-hero-copy">
+          <div className="offering-hero-topbar">
+            <p className="offering-page-kicker">
+              {kind === "product" ? "Product Offering View" : kind === "knowledge" ? "Knowledge Offering View" : "Service Offering View"}
+            </p>
+            <Link className="offering-hero-back" href="/">
+              Back to Search
+            </Link>
+          </div>
           <h2 id="offering-hero-title">{title}</h2>
           <p>{description}</p>
           <div className="offering-chip-row">
@@ -587,24 +664,24 @@ export default async function OfferingDetailPage({
         <HeroMedia media={media} documents={documents} title={title} />
 
         <div className="offering-hero-actions" aria-label="Offering actions">
-          {kind === "knowledge" && hasVideo ? (
-            <a className="offering-cta offering-cta-primary" href="#media">Watch video</a>
-          ) : kind === "knowledge" ? (
-            <a className="offering-cta offering-cta-primary" href="#overview">View content</a>
-          ) : (
-            <ProviderEmailButton
-              providerEmail={providerEmail}
-              providerName={providerName}
-              offeringId={offering.offering_id}
-              solutionTitle={title}
-              solutionSummary={description}
-              unavailableLabel={surface.slug === "supergre" ? "Contact currently unavailable." : ""}
-            />
-          )}
+          <ProviderEmailButton
+            providerEmail={providerEmail}
+            providerName={providerName}
+            offeringId={offering.offering_id}
+            solutionTitle={title}
+            solutionSummary={description}
+            unavailableLabel={surface.slug === "supergre" ? "Contact currently unavailable." : ""}
+          />
 
           <a className="offering-cta offering-cta-secondary" href="#offering-chat">
             Ask {surface.copilotLabel}
           </a>
+
+          {kind === "knowledge" ? (
+            <a className="offering-cta offering-cta-soft" href={hasFeaturedMedia ? "#media" : "#overview"}>
+              {hasFeaturedMedia ? "View content" : "Read overview"}
+            </a>
+          ) : null}
 
           {primaryDoc ? (
             <a className="offering-cta offering-cta-soft" href={primaryDoc.url} target="_blank" rel="noreferrer">
@@ -636,6 +713,8 @@ export default async function OfferingDetailPage({
         </div>
       </section>
 
+      <FeaturedMedia media={media} documents={documents} title={title} />
+
       <section className="offering-quick-grid" aria-label="Quick decision details">
         {quickCards.map((card) => (
           <article className="offering-quick-card" key={card.label}>
@@ -659,20 +738,14 @@ export default async function OfferingDetailPage({
       </div>
 
       <div className="offering-mobile-sticky-actions">
-        {kind === "knowledge" ? (
-          <a className="offering-cta offering-cta-primary" href={hasVideo ? "#media" : "#overview"}>
-            {hasVideo ? "Watch video" : "View content"}
-          </a>
-        ) : (
-          <ProviderEmailButton
-            providerEmail={providerEmail}
-            providerName={providerName}
-            offeringId={offering.offering_id}
-            solutionTitle={title}
-            solutionSummary={description}
-            unavailableLabel={surface.slug === "supergre" ? "Contact currently unavailable." : ""}
-          />
-        )}
+        <ProviderEmailButton
+          providerEmail={providerEmail}
+          providerName={providerName}
+          offeringId={offering.offering_id}
+          solutionTitle={title}
+          solutionSummary={description}
+          unavailableLabel={surface.slug === "supergre" ? "Contact currently unavailable." : ""}
+        />
         <a className="offering-cta offering-cta-secondary" href="#offering-chat">
           Ask GRE
         </a>
