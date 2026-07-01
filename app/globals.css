@@ -2101,6 +2101,15 @@ textarea {
   box-shadow: 0 24px 60px rgba(18, 61, 42, 0.24);
 }
 
+.offering-hero-no-media {
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.44fr);
+}
+
+.offering-hero-no-media .offering-hero-actions {
+  justify-self: end;
+  width: min(100%, 520px);
+}
+
 .offering-hero-topbar {
   display: flex;
   align-items: center;
@@ -2241,6 +2250,8 @@ textarea {
 .offering-hero-actions {
   display: grid;
   gap: 14px;
+  justify-self: end;
+  width: 100%;
 }
 
 .offering-cta,

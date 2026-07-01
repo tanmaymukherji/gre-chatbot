@@ -631,6 +631,10 @@ export default async function OfferingDetailPage({
   const chips = chipList(offering, kind);
   const primaryDoc = documents[0];
   const hasFeaturedMedia = media.some((item) => item.kind === "video" || item.kind === "external");
+  const hasHeroMedia = Boolean(primaryDoc || media.some((item) => item.kind === "image"));
+  const knowledgeContentUrl = kind === "knowledge"
+    ? primaryDoc?.url || media.find((item) => item.kind === "external")?.url || ""
+    : "";
   const summaryTitle =
     kind === "product" ? "What this product helps with" :
     kind === "knowledge" ? "What you will learn" :
@@ -642,7 +646,10 @@ export default async function OfferingDetailPage({
 
   return (
     <main className="page-shell offering-page-shell">
-      <section className={`offering-action-hero offering-${kind}`} aria-labelledby="offering-hero-title">
+      <section
+        className={`offering-action-hero offering-${kind}${hasHeroMedia ? "" : " offering-hero-no-media"}`}
+        aria-labelledby="offering-hero-title"
+      >
         <div className="offering-hero-copy">
           <div className="offering-hero-topbar">
             <p className="offering-page-kicker">
@@ -678,8 +685,13 @@ export default async function OfferingDetailPage({
           </a>
 
           {kind === "knowledge" ? (
-            <a className="offering-cta offering-cta-soft" href={hasFeaturedMedia ? "#media" : "#overview"}>
-              {hasFeaturedMedia ? "View content" : "Read overview"}
+            <a
+              className="offering-cta offering-cta-soft"
+              href={knowledgeContentUrl || (hasFeaturedMedia ? "#media" : "#overview")}
+              target={knowledgeContentUrl ? "_blank" : undefined}
+              rel={knowledgeContentUrl ? "noreferrer" : undefined}
+            >
+              {knowledgeContentUrl ? "View content" : hasFeaturedMedia ? "View media" : "Read overview"}
             </a>
           ) : null}
 
