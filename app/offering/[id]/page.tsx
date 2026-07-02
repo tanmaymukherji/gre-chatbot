@@ -1,10 +1,7 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { cookies } from "next/headers";
-import { OfferingDetailTabs } from "@/components/offering-detail-tabs";
-import { ProviderEmailButton } from "@/components/provider-email-button";
-import { TrackedAnchor } from "@/components/tracked-links";
+import { OfferingTranslatedDetail } from "@/components/offering-translated-detail";
 import { getOfferingDetail } from "@/lib/database";
 import { maskPhoneNumber, parseSharedUserSummaryCookie } from "@/lib/auth";
 import { getSurfaceConfigByHost } from "@/lib/surface";
@@ -475,126 +472,6 @@ function buildTabs(
   ];
 }
 
-function SnapshotCard({ title, rows }: { title: string; rows: DetailRow[] }) {
-  return (
-    <section className="offering-summary-card">
-      <h2>{title}</h2>
-      <div className="offering-snapshot-rows">
-        {rows.slice(0, 7).map((row) => (
-          <div key={row.label}>
-            <span>{row.label}</span>
-            {/^https?:\/\//i.test(row.value) ? (
-              <a href={row.value} target="_blank" rel="noreferrer">{row.value}</a>
-            ) : (
-              <strong>{row.value}</strong>
-            )}
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function SummaryCard({ title, bullets }: { title: string; bullets: string[] }) {
-  return (
-    <section className="offering-summary-card">
-      <h2>{title}</h2>
-      <div className="offering-help-list">
-        {bullets.map((bullet, index) => (
-          <div key={`${title}-${index}`}>
-            <span aria-hidden="true">OK</span>
-            <p>{bullet}</p>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function HeroMedia({ media, documents, title }: { media: MediaItem[]; documents: DocumentItem[]; title: string }) {
-  const primaryImage = media.find((item) => item.kind === "image");
-  const primaryDoc = documents[0];
-
-  if (!primaryImage && !primaryDoc) return null;
-
-  return (
-    <div className="offering-hero-media">
-      {primaryImage ? (
-        <figure className="offering-hero-image-card">
-          <img src={primaryImage.url} alt={primaryImage.title || title} referrerPolicy="no-referrer" />
-          <figcaption>{primaryImage.title || title}</figcaption>
-        </figure>
-      ) : null}
-
-      {primaryDoc ? (
-        <a className="offering-hero-doc-card" href={primaryDoc.url} target="_blank" rel="noreferrer">
-          <span>{primaryDoc.typeLabel}</span>
-          <strong>{primaryDoc.title}</strong>
-          <small>Open resource</small>
-        </a>
-      ) : null}
-    </div>
-  );
-}
-
-function FeaturedMedia({ media, documents, title }: { media: MediaItem[]; documents: DocumentItem[]; title: string }) {
-  const featured = media.find((item) => item.kind === "video" || item.kind === "external");
-  const images = media.filter((item) => item.kind === "image").slice(0, 4);
-
-  if (!featured && !images.length && !documents.length) return null;
-
-  return (
-    <section className="offering-featured-media" id="media" aria-labelledby="offering-media-title">
-      <div>
-        <p className="offering-section-kicker">Embedded content and resources</p>
-        <h2 id="offering-media-title">Media and documents</h2>
-      </div>
-
-      <div className="offering-featured-media-grid">
-        {featured ? (
-          <div className="offering-featured-player">
-            {featured.kind === "video" && featured.embedUrl ? (
-              <iframe
-                src={featured.embedUrl}
-                title={featured.title}
-                allow="fullscreen; accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            ) : featured.kind === "video" ? (
-              <video controls preload="metadata">
-                <source src={featured.url} />
-                Your browser does not support embedded video playback.
-              </video>
-            ) : (
-              <a className="offering-external-media-card" href={featured.url} target="_blank" rel="noreferrer">
-                <span>External content</span>
-                <strong>{featured.title || title}</strong>
-                <small>Open video or learning page</small>
-              </a>
-            )}
-          </div>
-        ) : null}
-
-        <div className="offering-featured-resource-list">
-          {documents.map((document) => (
-            <a className="offering-featured-resource" key={`${document.title}-${document.url}`} href={document.url} target="_blank" rel="noreferrer">
-              <span>{document.typeLabel}</span>
-              <strong>{document.title}</strong>
-              <small>Open resource</small>
-            </a>
-          ))}
-          {images.map((image) => (
-            <a className="offering-featured-resource offering-featured-image-link" key={`${image.title}-${image.url}`} href={image.url} target="_blank" rel="noreferrer">
-              <img src={image.url} alt={image.title || title} referrerPolicy="no-referrer" />
-              <strong>{image.title || title}</strong>
-            </a>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 export default async function OfferingDetailPage({
   params,
 }: {
@@ -629,12 +506,6 @@ export default async function OfferingDetailPage({
   const quickCards = buildQuickCards(offering, kind, providerRows[0]?.value || providerName, documents, media);
   const tabs = buildTabs(offering, kind, providerRows, documents, media);
   const chips = chipList(offering, kind);
-  const primaryDoc = documents[0];
-  const hasFeaturedMedia = media.some((item) => item.kind === "video" || item.kind === "external");
-  const hasHeroMedia = Boolean(primaryDoc || media.some((item) => item.kind === "image"));
-  const knowledgeContentUrl = kind === "knowledge"
-    ? primaryDoc?.url || media.find((item) => item.kind === "external")?.url || ""
-    : "";
   const summaryTitle =
     kind === "product" ? "What this product helps with" :
     kind === "knowledge" ? "What you will learn" :
@@ -645,123 +516,42 @@ export default async function OfferingDetailPage({
     "Trainer & provider snapshot";
 
   return (
-    <main className="page-shell offering-page-shell">
-      <section
-        className={`offering-action-hero offering-${kind}${hasHeroMedia ? "" : " offering-hero-no-media"}`}
-        aria-labelledby="offering-hero-title"
-      >
-        <div className="offering-hero-copy">
-          <div className="offering-hero-topbar">
-            <p className="offering-page-kicker">
-              {kind === "product" ? "Product Offering View" : kind === "knowledge" ? "Knowledge Offering View" : "Service Offering View"}
-            </p>
-            <Link className="offering-hero-back" href="/">
-              Back to Search
-            </Link>
-          </div>
-          <h2 id="offering-hero-title">{title}</h2>
-          <p>{description}</p>
-          <div className="offering-chip-row">
-            {chips.map((chip) => (
-              <span key={chip}>{chip}</span>
-            ))}
-          </div>
-        </div>
-
-        <HeroMedia media={media} documents={documents} title={title} />
-
-        <div className="offering-hero-actions" aria-label="Offering actions">
-          <ProviderEmailButton
-            providerEmail={providerEmail}
-            providerName={providerName}
-            offeringId={offering.offering_id}
-            solutionTitle={title}
-            solutionSummary={description}
-            unavailableLabel={surface.slug === "supergre" ? "Contact currently unavailable." : ""}
-          />
-
-          <a className="offering-cta offering-cta-secondary" href="#offering-chat">
-            Ask {surface.copilotLabel}
-          </a>
-
-          {kind === "knowledge" ? (
-            <a
-              className="offering-cta offering-cta-soft"
-              href={knowledgeContentUrl || (hasFeaturedMedia ? "#media" : "#overview")}
-              target={knowledgeContentUrl ? "_blank" : undefined}
-              rel={knowledgeContentUrl ? "noreferrer" : undefined}
-            >
-              {knowledgeContentUrl ? "View content" : hasFeaturedMedia ? "View media" : "Read overview"}
-            </a>
-          ) : null}
-
-          {primaryDoc ? (
-            <a className="offering-cta offering-cta-soft" href={primaryDoc.url} target="_blank" rel="noreferrer">
-              {kind === "knowledge" ? "Download guide" : "Download brochure"}
-            </a>
-          ) : null}
-
-          {offering.gre_link ? (
-            <TrackedAnchor
-              className="offering-cta offering-cta-outline"
-              href={offering.gre_link}
-              target="_blank"
-              rel="noreferrer"
-              auditEvent={{
-                kind: "view",
-                surface: surface.slug,
-                action: "view_portal",
-                actorEmail: viewerSummary?.email,
-                actorName: viewerSummary?.fullName || viewerSummary?.username,
-                itemId: offering.offering_id,
-                itemLabel: title,
-                itemSource: surface.slug,
-                portalUrl: offering.gre_link,
-              }}
-            >
-              {surface.portalLabel}
-            </TrackedAnchor>
-          ) : null}
-        </div>
-      </section>
-
-      <FeaturedMedia media={media} documents={documents} title={title} />
-
-      <section className="offering-quick-grid" aria-label="Quick decision details">
-        {quickCards.map((card) => (
-          <article className="offering-quick-card" key={card.label}>
-            <span>{card.label}</span>
-            <strong>{card.value}</strong>
-          </article>
-        ))}
-      </section>
-
-      <section className="offering-summary-grid">
-        <SummaryCard title={summaryTitle} bullets={summaryBullets(offering, kind)} />
-        <SnapshotCard title={snapshotTitle} rows={providerRows} />
-      </section>
-
-      <OfferingDetailTabs tabs={tabs} offeringId={offering.offering_id} offeringName={title} />
-
-      <div className="offering-page-bottom-actions">
-        <Link className="offering-cta offering-cta-outline" href="/">
-          Back to Search
-        </Link>
-      </div>
-
-      <div className="offering-mobile-sticky-actions">
-        <ProviderEmailButton
-          providerEmail={providerEmail}
-          providerName={providerName}
-          offeringId={offering.offering_id}
-          solutionTitle={title}
-          solutionSummary={description}
-          unavailableLabel={surface.slug === "supergre" ? "Contact currently unavailable." : ""}
-        />
-        <a className="offering-cta offering-cta-secondary" href="#offering-chat">
-          Ask GRE
-        </a>
-      </div>
-    </main>
+    <OfferingTranslatedDetail
+      offeringId={offering.offering_id}
+      providerEmail={providerEmail}
+      providerName={providerName}
+      greLink={offering.gre_link || ""}
+      surfaceSlug={surface.slug}
+      surfaceCopilotLabel={surface.copilotLabel}
+      originalTitle={title}
+      originalDescription={description}
+      actorEmail={viewerSummary?.email}
+      actorName={viewerSummary?.fullName || viewerSummary?.username}
+      copy={{
+        kind,
+        kindLabel: kind === "product" ? "Product Offering View" : kind === "knowledge" ? "Knowledge Offering View" : "Service Offering View",
+        title,
+        description,
+        chips,
+        quickCards,
+        summaryTitle,
+        summaryBullets: summaryBullets(offering, kind),
+        snapshotTitle,
+        providerRows,
+        documents,
+        media,
+        tabs,
+        actionLabels: {
+          backToSearch: "Back to Search",
+          askCopilot: `Ask ${surface.copilotLabel}`,
+          viewContent: "View content",
+          viewMedia: "View media",
+          readOverview: "Read overview",
+          downloadGuide: "Download guide",
+          downloadBrochure: "Download brochure",
+          portalLabel: surface.portalLabel
+        }
+      }}
+    />
   );
 }

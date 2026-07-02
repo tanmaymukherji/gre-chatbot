@@ -2057,6 +2057,40 @@ textarea {
   padding-bottom: 96px;
 }
 
+.offering-language-card {
+  padding: 14px 18px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  border: 1px solid rgba(46, 106, 60, 0.16);
+  border-radius: 22px;
+  background: rgba(255, 252, 244, 0.84);
+  box-shadow: 0 12px 30px rgba(47, 74, 45, 0.08);
+}
+
+.offering-language-card label {
+  font-weight: 800;
+  color: #174d36;
+}
+
+.offering-language-card select {
+  min-width: 180px;
+  border: 1px solid rgba(46, 106, 60, 0.22);
+  border-radius: 999px;
+  padding: 10px 16px;
+  background: #ffffff;
+  color: #173b2d;
+  font: inherit;
+  font-weight: 800;
+}
+
+.offering-language-card span {
+  color: #5b6b5d;
+  font-size: 0.92rem;
+}
+
 .offering-page-intro {
   margin: 12px 0 22px;
   max-width: 800px;
