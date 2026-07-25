@@ -33,34 +33,38 @@ export async function recordSolutionDeliveryImpactOnServer({
   const env = getServerEnv();
   if (!env.supabaseUrl || !env.supabaseAnonKey || !solutions.length) return;
 
-  await fetch(`${env.supabaseUrl}/functions/v1/gre-mis-admin`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      apikey: env.supabaseAnonKey,
-      Authorization: `Bearer ${env.supabaseAnonKey}`,
-    },
-    body: JSON.stringify({
-      action: "recordExternalSolutionDeliveryImpact",
-      deliveryAction: action,
-      source,
-      actorEmail,
-      actorName,
-      actorRole,
-      recipientEmail,
-      recipientName,
-      keyword,
-      subject,
-      itemLabel: `${solutions.length} solution link${solutions.length === 1 ? "" : "s"} returned for ${keyword}`,
-      linkCount: solutions.length,
-      links: solutions.map((solution) => solution.detailUrl).filter(Boolean),
-      solutions: solutions.map((solution) => ({
-        providerName: solution.providerName || "",
-        offeringName: solution.offeringName || "",
-        detailUrl: solution.detailUrl || "",
-        mDomains: solution.mDomains || [],
-      })),
-    }),
-    cache: "no-store",
-  });
+  try {
+    await fetch(`${env.supabaseUrl}/functions/v1/gre-mis-admin`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: env.supabaseAnonKey,
+        Authorization: `Bearer ${env.supabaseAnonKey}`,
+      },
+      body: JSON.stringify({
+        action: "recordExternalSolutionDeliveryImpact",
+        deliveryAction: action,
+        source,
+        actorEmail,
+        actorName,
+        actorRole,
+        recipientEmail,
+        recipientName,
+        keyword,
+        subject,
+        itemLabel: `${solutions.length} solution link${solutions.length === 1 ? "" : "s"} returned for ${keyword}`,
+        linkCount: solutions.length,
+        links: solutions.map((solution) => solution.detailUrl).filter(Boolean),
+        solutions: solutions.map((solution) => ({
+          providerName: solution.providerName || "",
+          offeringName: solution.offeringName || "",
+          detailUrl: solution.detailUrl || "",
+          mDomains: solution.mDomains || [],
+        })),
+      }),
+      cache: "no-store",
+    });
+  } catch (error) {
+    console.error("[impact] Solution delivery impact logging failed:", error);
+  }
 }
