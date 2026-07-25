@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getServerEnv } from "@/lib/env";
 import { getSurfaceConfigByHost } from "@/lib/surface";
 import { createServerSupabaseClient } from "@/lib/supabase";
-import { getSharedUserSummary } from "@/lib/auth";
+import { incrementImpactCounterOnServer } from "@/lib/server-impact";
 
 const requestSchema = z.object({
   keyword: z.string().min(1),
@@ -45,21 +45,54 @@ async function refreshAccessToken() {
   return String(data.access_token || "");
 }
 
-async function trackEmailImpact(keyword: string, senderEmail: string) {
+async function recordGreMisSolutionDeliveryImpact({
+  keyword,
+  solutions,
+  senderEmail,
+  senderName,
+  recipientEmail,
+  subject,
+  surfaceSlug,
+}: {
+  keyword: string;
+  solutions: Array<z.infer<typeof requestSchema>["solutions"][number]>;
+  senderEmail: string;
+  senderName: string;
+  recipientEmail: string;
+  subject: string;
+  surfaceSlug: string;
+}) {
   try {
-    const supabase = createServerSupabaseClient();
-    const today = new Date().toISOString().slice(0, 10);
-    const { data: existing } = await supabase
-      .from("impact_tracker")
-      .select("id, daily_count")
-      .eq("counter_key", "connections_made")
-      .eq("tracking_date", today)
-      .maybeSingle();
-    if (existing) {
-      await supabase.from("impact_tracker").update({ daily_count: (existing.daily_count || 0) + 1 }).eq("id", existing.id);
-    } else {
-      await supabase.from("impact_tracker").insert({ counter_key: "connections_made", tracking_date: today, daily_count: 1 });
-    }
+    const env = getServerEnv();
+    if (!env.supabaseUrl || !env.supabaseAnonKey || !solutions.length) return;
+    await fetch(`${env.supabaseUrl}/functions/v1/gre-mis-admin`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: env.supabaseAnonKey,
+        Authorization: `Bearer ${env.supabaseAnonKey}`,
+      },
+      body: JSON.stringify({
+        action: "recordExternalSolutionDeliveryImpact",
+        source: `${surfaceSlug || "askgre"}-sixm-email`,
+        actorEmail: senderEmail,
+        actorName: senderName,
+        actorRole: "user",
+        recipientEmail,
+        keyword,
+        subject,
+        itemLabel: `${solutions.length} selected 6M solution${solutions.length === 1 ? "" : "s"} for ${keyword}`,
+        linkCount: solutions.length,
+        links: solutions.map((solution) => solution.detailUrl).filter(Boolean),
+        solutions: solutions.map((solution) => ({
+          providerName: solution.providerName,
+          offeringName: solution.offeringName,
+          detailUrl: solution.detailUrl,
+          mDomains: solution.mDomains || [],
+        })),
+      }),
+      cache: "no-store",
+    });
   } catch {}
 }
 
@@ -131,7 +164,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `Gmail send failed: ${errorText}` }, { status: 502 });
     }
 
-    await trackEmailImpact(body.keyword, body.senderEmail);
+    const recipientEmail = sessionEmail || body.senderEmail || "";
+    await Promise.all([
+      incrementImpactCounterOnServer("connections_made", 1, {
+        kind: "email",
+        surface: surface.slug,
+        action: "sixm_solution_mix_email",
+        senderEmail,
+        senderName,
+        recipientEmail,
+        itemLabel: `6M Mix for ${body.keyword}`,
+        itemSource: `${surface.slug}-sixm-email`,
+        meta: {
+          keyword: body.keyword,
+          solutionCount: body.solutions.length,
+        },
+      }),
+      recordGreMisSolutionDeliveryImpact({
+        keyword: body.keyword,
+        solutions: body.solutions,
+        senderEmail,
+        senderName,
+        recipientEmail,
+        subject,
+        surfaceSlug: surface.slug,
+      }),
+    ]);
 
     return NextResponse.json({ success: true, message: "6M selection emailed successfully." });
   } catch (error) {

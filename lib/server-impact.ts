@@ -1,7 +1,11 @@
 import { getServerEnv } from "@/lib/env";
 import { ImpactCounterKey } from "@/lib/impact";
 
-export async function incrementImpactCounterOnServer(counterKey: ImpactCounterKey, delta = 1) {
+export async function incrementImpactCounterOnServer(
+  counterKey: ImpactCounterKey,
+  delta = 1,
+  auditEvent?: Record<string, unknown> | null,
+) {
   const env = getServerEnv();
   if (!env.supabaseUrl || !env.supabaseAnonKey) {
     return;
@@ -19,6 +23,7 @@ export async function incrementImpactCounterOnServer(counterKey: ImpactCounterKe
         action: "incrementImpactCounter",
         counterKey,
         delta,
+        auditEvent: auditEvent || undefined,
       }),
       cache: "no-store",
     });
