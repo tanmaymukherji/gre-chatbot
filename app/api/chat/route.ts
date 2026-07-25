@@ -3,6 +3,7 @@ import { z } from "zod";
 import { formatGroundedResults, generateGroundedAnswer, getHeuristicSearchIntent, interpretSearchIntent, mergeSearchIntents, shouldTranslateFirst, shouldUseAiInterpretation, translateSearchText } from "@/lib/chat";
 import { getFilterOptions, inferSearchFilters, runSearch } from "@/lib/database";
 import { createServerSupabaseClient } from "@/lib/supabase";
+import { recordSolutionDeliveryImpactOnServer } from "@/lib/server-solution-delivery-impact";
 import { getSurfaceConfigByHost } from "@/lib/surface";
 
 async function validateApiKey(request: NextRequest): Promise<boolean> {
@@ -346,6 +347,30 @@ export async function POST(request: NextRequest) {
       offering_name: row.offering_name || "Untitled offering",
       offering_link: `https://askgre.grameee.org/offering/${row.offering_id}`,
     }));
+
+    if (solutions.length) {
+      recordSolutionDeliveryImpactOnServer({
+        source: `${surface.slug || "askgre"}-chat-api`,
+        action: "chat_api_solution_links_returned",
+        keyword: body.message,
+        solutions: solutions.map((solution) => ({
+          providerName: solution.provider_name,
+          offeringName: solution.offering_name,
+          detailUrl: solution.offering_link,
+          mDomains: [solution["6m_type"]].filter(Boolean),
+        })),
+        actorEmail:
+          request.nextUrl.searchParams.get("api_key") ||
+          request.headers.get("Authorization")?.replace("Bearer ", "") ||
+          "system:chat-api",
+        actorName: "AskGRE Chat API",
+        actorRole: "api",
+        recipientName: "API user",
+        subject: `Chat API returned ${solutions.length} solution link${solutions.length === 1 ? "" : "s"}`,
+      }).catch((error) => {
+        console.error("[/api/chat] Impact logging failed:", error);
+      });
+    }
 
     return NextResponse.json({ solutions }, { headers: corsHeaders() });
   } catch (error) {
