@@ -3767,30 +3767,32 @@ export async function getDirectorySummaryStats(surface: GreSurfaceSlug = "askgre
     throw toError(cached.error, "Failed to read directory summary cache.");
   }
 
-  if (!state.directory_dirty && cached.data) {
-    const value = {
+  const cachedValue = cached.data
+    ? {
       offeringCount: Number(cached.data.offering_count || 0),
       providerCount: Number(cached.data.provider_count || 0),
       sourceCount: Number(cached.data.source_count || 0)
-    };
-    directorySummaryCache[surface] = {
-      expiresAt: now + FILTER_CACHE_TTL_MS,
-      value
-    };
-    return value;
+    }
+    : null;
+
+  if (state.directory_dirty && cachedValue) {
+    try {
+      return await refreshDirectorySummaryCache(surface);
+    } catch {
+      directorySummaryCache[surface] = {
+        expiresAt: now + FILTER_CACHE_TTL_MS,
+        value: cachedValue
+      };
+      return cachedValue;
+    }
   }
 
-  if (cached.data) {
-    const value = {
-      offeringCount: Number(cached.data.offering_count || 0),
-      providerCount: Number(cached.data.provider_count || 0),
-      sourceCount: Number(cached.data.source_count || 0)
-    };
+  if (!state.directory_dirty && cachedValue) {
     directorySummaryCache[surface] = {
       expiresAt: now + FILTER_CACHE_TTL_MS,
-      value
+      value: cachedValue
     };
-    return value;
+    return cachedValue;
   }
 
   try {

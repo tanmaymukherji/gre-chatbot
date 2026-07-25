@@ -5,6 +5,9 @@ import { headers } from "next/headers";
 import { getSurfaceConfigByHost } from "@/lib/surface";
 import { getDirectorySummaryStats } from "@/lib/database";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const FALLBACK_DIRECTORY_STATS = {
   offeringCount: 0,
   providerCount: 0,
@@ -13,12 +16,7 @@ const FALLBACK_DIRECTORY_STATS = {
 
 async function loadDirectorySummaryStats(surfaceSlug: "askgre" | "supergre") {
   try {
-    return await Promise.race([
-      getDirectorySummaryStats(surfaceSlug),
-      new Promise<typeof FALLBACK_DIRECTORY_STATS>((resolve) =>
-        setTimeout(() => resolve(FALLBACK_DIRECTORY_STATS), 4000)
-      )
-    ]);
+    return await getDirectorySummaryStats(surfaceSlug);
   } catch {
     return FALLBACK_DIRECTORY_STATS;
   }
