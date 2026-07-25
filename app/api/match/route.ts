@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "@/lib/supabase";
 import { runSearch, inferSearchFilters } from "@/lib/database";
 import type { SearchFilters } from "@/lib/types";
 import { translateToEnglish, detectLanguage } from "@/lib/translate";
+import { recordSolutionDeliveryImpactOnServer } from "@/lib/server-solution-delivery-impact";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -128,6 +129,27 @@ export async function GET(request: NextRequest) {
     if (translatedFrom) {
       response.translated_from = translatedFrom;
       response.translated_query = searchQuery;
+    }
+
+    if (solutions.length) {
+      recordSolutionDeliveryImpactOnServer({
+        source: "askgre-match-api",
+        action: "match_api_solution_links_returned",
+        keyword: rawQuery,
+        solutions: solutions.map((solution) => ({
+          providerName: solution.provider_name,
+          offeringName: solution.offering_name,
+          detailUrl: solution.offering_link,
+          mDomains: [solution["6m_type"]].filter(Boolean),
+        })),
+        actorEmail: request.headers.get("api_key") || request.headers.get("x-api-key") || "system:match-api",
+        actorName: "AskGRE Match API",
+        actorRole: "api",
+        recipientName: "API user",
+        subject: `Match API returned ${solutions.length} solution link${solutions.length === 1 ? "" : "s"}`,
+      }).catch((error) => {
+        console.error("[/api/match] Impact logging failed:", error);
+      });
     }
 
     return NextResponse.json(response, {

@@ -4,6 +4,7 @@ import { getServerEnv } from "@/lib/env";
 import { getSurfaceConfigByHost } from "@/lib/surface";
 import { createServerSupabaseClient } from "@/lib/supabase";
 import { incrementImpactCounterOnServer } from "@/lib/server-impact";
+import { recordSolutionDeliveryImpactOnServer } from "@/lib/server-solution-delivery-impact";
 
 const requestSchema = z.object({
   keyword: z.string().min(1),
@@ -43,57 +44,6 @@ async function refreshAccessToken() {
   if (!response.ok) throw new Error("Failed to refresh Gmail access token.");
   const data = await response.json();
   return String(data.access_token || "");
-}
-
-async function recordGreMisSolutionDeliveryImpact({
-  keyword,
-  solutions,
-  senderEmail,
-  senderName,
-  recipientEmail,
-  subject,
-  surfaceSlug,
-}: {
-  keyword: string;
-  solutions: Array<z.infer<typeof requestSchema>["solutions"][number]>;
-  senderEmail: string;
-  senderName: string;
-  recipientEmail: string;
-  subject: string;
-  surfaceSlug: string;
-}) {
-  try {
-    const env = getServerEnv();
-    if (!env.supabaseUrl || !env.supabaseAnonKey || !solutions.length) return;
-    await fetch(`${env.supabaseUrl}/functions/v1/gre-mis-admin`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: env.supabaseAnonKey,
-        Authorization: `Bearer ${env.supabaseAnonKey}`,
-      },
-      body: JSON.stringify({
-        action: "recordExternalSolutionDeliveryImpact",
-        source: `${surfaceSlug || "askgre"}-sixm-email`,
-        actorEmail: senderEmail,
-        actorName: senderName,
-        actorRole: "user",
-        recipientEmail,
-        keyword,
-        subject,
-        itemLabel: `${solutions.length} selected 6M solution${solutions.length === 1 ? "" : "s"} for ${keyword}`,
-        linkCount: solutions.length,
-        links: solutions.map((solution) => solution.detailUrl).filter(Boolean),
-        solutions: solutions.map((solution) => ({
-          providerName: solution.providerName,
-          offeringName: solution.offeringName,
-          detailUrl: solution.detailUrl,
-          mDomains: solution.mDomains || [],
-        })),
-      }),
-      cache: "no-store",
-    });
-  } catch {}
 }
 
 export async function POST(request: NextRequest) {
@@ -180,14 +130,21 @@ export async function POST(request: NextRequest) {
           solutionCount: body.solutions.length,
         },
       }),
-      recordGreMisSolutionDeliveryImpact({
+      recordSolutionDeliveryImpactOnServer({
+        source: `${surface.slug || "askgre"}-sixm-email`,
+        action: "sixm_solution_mix_email",
         keyword: body.keyword,
-        solutions: body.solutions,
-        senderEmail,
-        senderName,
+        solutions: body.solutions.map((solution) => ({
+          providerName: solution.providerName,
+          offeringName: solution.offeringName,
+          detailUrl: solution.detailUrl,
+          mDomains: solution.mDomains || [],
+        })),
+        actorEmail: senderEmail,
+        actorName: senderName,
+        actorRole: "user",
         recipientEmail,
         subject,
-        surfaceSlug: surface.slug,
       }),
     ]);
 
