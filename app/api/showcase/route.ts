@@ -10,7 +10,32 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const SHOWCASE_ALLOWED_ORIGINS = new Set([
+  "https://grameee.org",
+  "https://www.grameee.org"
+]);
+
+function buildShowcaseCorsHeaders(request: NextRequest) {
+  const origin = request.headers.get("origin") || "";
+  const headers = new Headers();
+  if (SHOWCASE_ALLOWED_ORIGINS.has(origin)) {
+    headers.set("Access-Control-Allow-Origin", origin);
+    headers.set("Vary", "Origin");
+  }
+  headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+  headers.set("Access-Control-Allow-Headers", "Content-Type");
+  return headers;
+}
+
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, {
+    status: 204,
+    headers: buildShowcaseCorsHeaders(request)
+  });
+}
+
 export async function GET(request: NextRequest) {
+  const headers = buildShowcaseCorsHeaders(request);
   try {
     const surface = getSurfaceConfigByHost(request.headers.get("host"));
     const supabase = createServerSupabaseClient();
@@ -29,11 +54,13 @@ export async function GET(request: NextRequest) {
       .map((row) => normalizeShowcaseContentFromCachePayload(row?.payload))
       .find(hasShowcaseContent);
 
-    return NextResponse.json(hasShowcaseContent(ownContent) ? ownContent : (fallbackContent || ownContent));
+    return NextResponse.json(hasShowcaseContent(ownContent) ? ownContent : (fallbackContent || ownContent), {
+      headers
+    });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Showcase content could not be loaded." },
-      { status: 500 }
+      { status: 500, headers }
     );
   }
 }
