@@ -3,7 +3,7 @@ import type { SearchFilters } from "@/lib/types";
 import type { GreSurfaceSlug } from "@/lib/surface";
 
 const FILTER_CACHE_TTL_MS = 60 * 1000;
-const SEARCH_DATA_CACHE_TTL_MS = 30 * 1000;
+const SEARCH_DATA_CACHE_TTL_MS = 5 * 60 * 1000;
 
 type CachedFilterOptions = {
   solutionProviders: string[];
@@ -58,13 +58,15 @@ let directorySummaryCache: Partial<Record<GreSurfaceSlug, {
   expiresAt: number;
   value: DirectorySummaryStats;
 }>> = {};
-let searchDataCache:
-  | {
-      expiresAt: number;
-      offerings: SearchOfferingRow[];
-      traders: TraderLookupRow[];
-    }
-  | null = null;
+type SearchDataCacheValue = {
+  expiresAt: number;
+  offerings: SearchOfferingRow[];
+  traders: TraderLookupRow[];
+};
+
+let searchDataCache: SearchDataCacheValue | null = null;
+let searchDataCachePromise: Promise<SearchDataCacheValue> | null = null;
+let searchDataCacheGeneration = 0;
 let selcoSearchCache:
   | {
       expiresAt: number;
@@ -106,6 +108,8 @@ export function invalidateSearchCaches() {
   filterOptionsCache = {};
   directorySummaryCache = {};
   searchDataCache = null;
+  searchDataCachePromise = null;
+  searchDataCacheGeneration += 1;
   selcoSearchCache = null;
   innovationGuildSearchCache = null;
   gianSearchCache = null;
@@ -1962,6 +1966,24 @@ async function getCachedSearchData() {
     return searchDataCache;
   }
 
+  if (searchDataCachePromise) {
+    return searchDataCachePromise;
+  }
+
+  const generation = searchDataCacheGeneration;
+  const pending = loadSearchData(now, generation);
+  searchDataCachePromise = pending;
+
+  try {
+    return await pending;
+  } finally {
+    if (searchDataCachePromise === pending) {
+      searchDataCachePromise = null;
+    }
+  }
+}
+
+async function loadSearchData(now: number, generation: number): Promise<SearchDataCacheValue> {
   const supabase = createServerSupabaseClient();
 
   const offeringColumns = `
@@ -2030,13 +2052,17 @@ async function getCachedSearchData() {
     throw tradersError;
   }
 
-  searchDataCache = {
+  const loaded = {
     expiresAt: now + SEARCH_DATA_CACHE_TTL_MS,
     offerings: offeringPages.map(normalizeOfferingRow),
     traders: (traders || []) as TraderLookupRow[]
   };
 
-  return searchDataCache;
+  if (generation === searchDataCacheGeneration) {
+    searchDataCache = loaded;
+  }
+
+  return loaded;
 }
 
 function inferSolutionProvider(query: string | undefined, options: string[] = []) {

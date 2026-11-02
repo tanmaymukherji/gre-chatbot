@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { trackImpactCounter } from "@/lib/impact";
-import { SIX_M_DOMAINS, SIX_M_META, type SixMDomain, type Solution } from "@/lib/sixm-explorer";
-import { getSolutionDetails, searchSolutionsByKeywordAndM, type SolutionDetail } from "@/services/sixm-search-service";
+import { SIX_M_DOMAINS, type SixMDomain, type Solution } from "@/lib/sixm-explorer";
+import { getSolutionDetails, searchSolutionsByKeyword, searchSolutionsByKeywordAndM, type SolutionDetail } from "@/services/sixm-search-service";
 import { SelectedSolutionsBar } from "@/components/6m-explorer/SelectedSolutionsBar";
 import { SelectedSolutionsVisualization } from "@/components/6m-explorer/SelectedSolutionsVisualization";
 import { SixMHub } from "@/components/6m-explorer/SixMHub";
@@ -127,11 +127,8 @@ export function SixMExplorerPage() {
     router.replace(`/6m-explorer?q=${encodeURIComponent(trimmed)}`);
 
     try {
-      const responses = await Promise.all(SIX_M_META.map((item) => searchSolutionsByKeywordAndM(trimmed, item.key)));
-      const nextResults = responses.reduce((accumulator, response) => {
-        accumulator[response.sixMDomain] = response.results;
-        return accumulator;
-      }, {} as Partial<Record<SixMDomain, Solution[]>>);
+      const response = await searchSolutionsByKeyword(trimmed);
+      const nextResults = response.resultsByDomain;
 
       setCurrentResults(nextResults);
 
