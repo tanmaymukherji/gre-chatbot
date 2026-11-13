@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { ADMIN_COOKIE_NAME, getAdminSession } from "@/lib/grameee-admin-auth";
+import { isSecurityFlagEnabled, SECURITY_FLAGS } from "@/lib/security-flags";
 
 const SHARED_SUMMARY_COOKIE = "grameee_user_summary";
 
@@ -71,18 +72,20 @@ export function getSharedGrameeeAdminSession(request: NextRequest) {
 }
 
 export async function requireAdminUser(request: NextRequest) {
-  const sharedSession = getSharedGrameeeAdminSession(request);
-  if (sharedSession?.username) {
-    return sharedSession;
-  }
-
   const legacySession = await getAdminSession(request.cookies.get(ADMIN_COOKIE_NAME)?.value);
-  if (!legacySession?.username) {
-    throw new Error("Admin login required.");
+  if (legacySession?.username) {
+    return {
+      ...legacySession,
+      source: "legacy" as const
+    };
   }
 
-  return {
-    ...legacySession,
-    source: "legacy" as const
-  };
+  if (await isSecurityFlagEnabled(SECURITY_FLAGS.adminCookieBridge)) {
+    const sharedSession = getSharedGrameeeAdminSession(request);
+    if (sharedSession?.username) {
+      return sharedSession;
+    }
+  }
+
+  throw new Error("Admin login required.");
 }
