@@ -25,10 +25,13 @@ export class VerifiedSessionError extends Error {
   }
 }
 
-export async function getVerifiedPrincipal(request: NextRequest): Promise<VerifiedPrincipal | null> {
+export async function getVerifiedPrincipalFromCredentials(credentials: {
+  authorization?: string | null;
+  cookieToken?: string | null;
+}): Promise<VerifiedPrincipal | null> {
   const accessToken = extractAccessToken({
-    authorization: request.headers.get("authorization"),
-    cookieToken: request.cookies.get(ACCESS_TOKEN_COOKIE)?.value
+    authorization: credentials.authorization,
+    cookieToken: credentials.cookieToken
   });
 
   if (!accessToken) return null;
@@ -47,6 +50,13 @@ export async function getVerifiedPrincipal(request: NextRequest): Promise<Verifi
 
       return !error && data === true;
     }
+  });
+}
+
+export async function getVerifiedPrincipal(request: NextRequest): Promise<VerifiedPrincipal | null> {
+  return getVerifiedPrincipalFromCredentials({
+    authorization: request.headers.get("authorization"),
+    cookieToken: request.cookies.get(ACCESS_TOKEN_COOKIE)?.value
   });
 }
 

@@ -6,6 +6,7 @@ import {
   VerifiedSessionError
 } from "@/lib/verified-session";
 import type { PrincipalCapability } from "@/lib/verified-session";
+import type { VerifiedPrincipal } from "@/lib/verified-session";
 
 const SHARED_SUMMARY_COOKIE = "grameee_user_summary";
 
@@ -39,15 +40,17 @@ export function parseSharedUserSummaryCookie(rawValue: string | undefined) {
   return parseSharedUserSummary(rawValue);
 }
 
-export function canViewProtectedPhones(summary: SharedUserSummary | null | undefined) {
-  const role = String(summary?.role || "").trim().toLowerCase();
-  return ["admin", "moderator", "curator"].includes(role);
+export function canViewProtectedPhones(principal: Pick<VerifiedPrincipal, "capabilities"> | null | undefined) {
+  return principal?.capabilities.includes("phone:protected") === true;
 }
 
-export function maskPhoneNumber(value: unknown, summary: SharedUserSummary | null | undefined) {
+export function maskPhoneNumber(
+  value: unknown,
+  principal: Pick<VerifiedPrincipal, "capabilities"> | null | undefined
+) {
   const text = String(value || "").trim();
   if (!text) return "";
-  if (canViewProtectedPhones(summary)) return text;
+  if (canViewProtectedPhones(principal)) return text;
   const digits = text.replace(/\D/g, "");
   if (digits.length < 4) return "Hidden";
   const visible = digits.slice(-4);

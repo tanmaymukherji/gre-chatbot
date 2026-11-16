@@ -180,11 +180,7 @@ export function ProviderEmailButton({
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          providerEmail,
-          providerName,
           offeringId,
-          solutionTitle,
-          solutionSummary,
           detailPath
         })
       });

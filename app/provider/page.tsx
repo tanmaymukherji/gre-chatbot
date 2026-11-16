@@ -4,8 +4,9 @@ import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { ProviderDetailBrowser } from "@/components/provider-detail-browser";
 import { getProviderDetail } from "@/lib/database";
-import { maskPhoneNumber, parseSharedUserSummaryCookie } from "@/lib/auth";
+import { maskPhoneNumber } from "@/lib/auth";
 import { getSurfaceConfigByHost } from "@/lib/surface";
+import { getVerifiedPrincipalFromCredentials } from "@/lib/verified-session";
 
 function formatValue(value: unknown) {
   if (Array.isArray(value)) {
@@ -27,7 +28,10 @@ export default async function ProviderPage({
   const headerStore = await headers();
   const cookieStore = await cookies();
   const surface = getSurfaceConfigByHost(headerStore.get("host"));
-  const viewerSummary = parseSharedUserSummaryCookie(cookieStore.get("grameee_user_summary")?.value);
+  const viewerPrincipal = await getVerifiedPrincipalFromCredentials({
+    authorization: headerStore.get("authorization"),
+    cookieToken: cookieStore.get("grameee_access_token")?.value
+  });
   if (!name) {
     notFound();
   }
@@ -45,7 +49,7 @@ export default async function ProviderPage({
     ["Association Status", provider.association_status],
     ["Email", provider.email],
     ["Website", provider.website],
-    ["Phone", maskPhoneNumber(provider.mobile, viewerSummary)],
+    ["Phone", maskPhoneNumber(provider.mobile, viewerPrincipal)],
     ["Point of Contact", provider.poc_name],
     ["Tagline", provider.tagline]
   ].filter(([, value]) => isPresent(value));

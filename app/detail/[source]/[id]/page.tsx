@@ -6,8 +6,9 @@ import { ProviderEmailButton } from "@/components/provider-email-button";
 import { TrackedAnchor } from "@/components/tracked-links";
 import { DetailBackButton } from "@/components/detail-back-button";
 import { getExternalOfferingDetail } from "@/lib/database";
-import { maskPhoneNumber, parseSharedUserSummaryCookie } from "@/lib/auth";
+import { maskPhoneNumber } from "@/lib/auth";
 import { getSurfaceConfigByHost } from "@/lib/surface";
+import { getVerifiedPrincipalFromCredentials } from "@/lib/verified-session";
 
 type DetailMediaItem = {
   kind: "image" | "video";
@@ -126,7 +127,7 @@ function flattenObjectStrings(value: unknown): string[] {
   return text ? [text] : [];
 }
 
-function baseProviderRows(offering: any, viewerSummary: any) {
+function baseProviderRows(offering: any, viewerPrincipal: any) {
   const trader = offering.solution?.trader;
   return rowsOf([
     ["Solution Name", offering.solution?.solution_name],
@@ -134,7 +135,7 @@ function baseProviderRows(offering: any, viewerSummary: any) {
     ["Association Status", trader?.association_status],
     ["Email", offering.preferred_contact_email || trader?.email],
     ["Website", trader?.website || offering.portal_url],
-    ["Phone", maskPhoneNumber(offering.preferred_contact_phone || trader?.mobile, viewerSummary)],
+    ["Phone", maskPhoneNumber(offering.preferred_contact_phone || trader?.mobile, viewerPrincipal)],
     ["Point of Contact", offering.preferred_contact_name || trader?.poc_name],
     ["Contact Details", offering.preferred_contact_details],
     ["Tagline", trader?.tagline],
@@ -142,10 +143,10 @@ function baseProviderRows(offering: any, viewerSummary: any) {
   ]);
 }
 
-function buildStructuredDetailSections(offering: any, viewerSummary: any) {
+function buildStructuredDetailSections(offering: any, viewerPrincipal: any) {
   const source = String(offering.source_slug || "").trim();
   const payload = offering.raw_payload || {};
-  const providerRows = baseProviderRows(offering, viewerSummary);
+  const providerRows = baseProviderRows(offering, viewerPrincipal);
 
   if (source === "selco" || source === "innovation-guild" || source === "gian" || source === "grid") {
     const product = payload.product || payload.practice || {};
@@ -236,7 +237,7 @@ function buildStructuredDetailSections(offering: any, viewerSummary: any) {
       providerRows: rowsOf([
         ["Person / Entity", story.person_name],
         ["Email", story.contact_email],
-        ["Phone", maskPhoneNumber(story.contact_phone, viewerSummary)],
+        ["Phone", maskPhoneNumber(story.contact_phone, viewerPrincipal)],
         ["Address", story.contact_address],
         ["Portal Page", story.story_url]
       ]),
@@ -287,7 +288,7 @@ function buildStructuredDetailSections(offering: any, viewerSummary: any) {
       providerRows: rowsOf([
         ["Contact Name", story.contact_name || story.community_or_group],
         ["Email", story.contact_email],
-        ["Phone", maskPhoneNumber(story.contact_phone, viewerSummary)],
+        ["Phone", maskPhoneNumber(story.contact_phone, viewerPrincipal)],
         ["Location", story.location_text || story.place_label],
         ["Portal Page", story.story_url]
       ]),
@@ -354,7 +355,7 @@ function buildStructuredDetailSections(offering: any, viewerSummary: any) {
       providerRows: rowsOf([
         ["Contact Name", entity.entity_name],
         ["Email", entity.contact_email],
-        ["Phone", maskPhoneNumber(entity.contact_phone, viewerSummary)],
+        ["Phone", maskPhoneNumber(entity.contact_phone, viewerPrincipal)],
         ["Website", entity.website_url],
         ["Portal Page", entity.website_url || entity.source_url]
       ]),
@@ -470,7 +471,10 @@ export default async function ExternalDetailPage({
   const headerStore = await headers();
   const cookieStore = await cookies();
   const surface = getSurfaceConfigByHost(headerStore.get("host"));
-  const viewerSummary = parseSharedUserSummaryCookie(cookieStore.get("grameee_user_summary")?.value);
+  const viewerPrincipal = await getVerifiedPrincipalFromCredentials({
+    authorization: headerStore.get("authorization"),
+    cookieToken: cookieStore.get("grameee_access_token")?.value
+  });
 
   let offering: any;
   try {
@@ -486,7 +490,7 @@ export default async function ExternalDetailPage({
     "Solution Provider";
   const providerEmail = offering.preferred_contact_email || offering.solution?.trader?.email || "";
   const detailPath = `/detail/${encodeURIComponent(source)}/${encodeURIComponent(id)}`;
-  const sections = buildStructuredDetailSections(offering, viewerSummary);
+  const sections = buildStructuredDetailSections(offering, viewerPrincipal);
 
   return (
     <main className="page-shell">
@@ -503,8 +507,8 @@ export default async function ExternalDetailPage({
                   kind: "view",
                   surface: surface.slug,
                   action: "view_portal",
-                  actorEmail: viewerSummary?.email,
-                  actorName: viewerSummary?.fullName || viewerSummary?.username,
+                  actorEmail: viewerPrincipal?.email || undefined,
+                  actorName: viewerPrincipal?.displayName || undefined,
                   itemId: offering.offering_id,
                   itemLabel: offering.offering_name || "External offering",
                   itemSource: source,

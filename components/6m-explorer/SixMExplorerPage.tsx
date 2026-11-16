@@ -340,12 +340,7 @@ export function SixMExplorerPage() {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                       keyword: currentKeyword,
-                      solutions: selectedSolutions.map((s) => ({
-                        providerName: s.providerName,
-                        offeringName: s.title,
-                        detailUrl: `${window.location.origin}/offering/${s.offeringId}`,
-                        mDomains: s.sixMDomains || []
-                      }))
+                      offeringIds: selectedSolutions.map((solution) => solution.offeringId)
                     })
                   });
                   const result = await response.json();

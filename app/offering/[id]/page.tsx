@@ -3,8 +3,9 @@ import { headers } from "next/headers";
 import { cookies } from "next/headers";
 import { OfferingTranslatedDetail } from "@/components/offering-translated-detail";
 import { getOfferingDetail } from "@/lib/database";
-import { maskPhoneNumber, parseSharedUserSummaryCookie } from "@/lib/auth";
+import { maskPhoneNumber } from "@/lib/auth";
 import { getSurfaceConfigByHost } from "@/lib/surface";
+import { getVerifiedPrincipalFromCredentials } from "@/lib/verified-session";
 
 type DetailRow = {
   label: string;
@@ -279,13 +280,13 @@ function buildMedia(offering: any): MediaItem[] {
   return media;
 }
 
-function buildProviderRows(offering: any, viewerSummary: any) {
+function buildProviderRows(offering: any, viewerPrincipal: any) {
   const trader = offering.solution?.trader;
   return rowsOf([
     ["Provider", trader?.organisation_name || trader?.trader_name],
     ["Point of contact", offering.preferred_contact_name || trader?.poc_name],
     ["Email", offering.preferred_contact_email || trader?.email],
-    ["Phone", maskPhoneNumber(offering.preferred_contact_phone || trader?.mobile, viewerSummary)],
+    ["Phone", maskPhoneNumber(offering.preferred_contact_phone || trader?.mobile, viewerPrincipal)],
     ["Website", trader?.website],
     ["Association status", trader?.association_status],
     ["Contact details", offering.preferred_contact_details || offering.contact_details],
@@ -481,7 +482,10 @@ export default async function OfferingDetailPage({
   const headerStore = await headers();
   const cookieStore = await cookies();
   const surface = getSurfaceConfigByHost(headerStore.get("host"));
-  const viewerSummary = parseSharedUserSummaryCookie(cookieStore.get("grameee_user_summary")?.value);
+  const viewerPrincipal = await getVerifiedPrincipalFromCredentials({
+    authorization: headerStore.get("authorization"),
+    cookieToken: cookieStore.get("grameee_access_token")?.value
+  });
 
   let offering: any;
   try {
@@ -500,7 +504,7 @@ export default async function OfferingDetailPage({
     offering.trainer_name ||
     "Solution Provider";
   const providerEmail = offering.preferred_contact_email || offering.solution?.trader?.email || offering.trainer_email || "";
-  const providerRows = buildProviderRows(offering, viewerSummary);
+  const providerRows = buildProviderRows(offering, viewerPrincipal);
   const documents = buildDocuments(offering, kind);
   const media = buildMedia(offering);
   const quickCards = buildQuickCards(offering, kind, providerRows[0]?.value || providerName, documents, media);
@@ -525,8 +529,8 @@ export default async function OfferingDetailPage({
       surfaceCopilotLabel={surface.copilotLabel}
       originalTitle={title}
       originalDescription={description}
-      actorEmail={viewerSummary?.email}
-      actorName={viewerSummary?.fullName || viewerSummary?.username}
+      actorEmail={viewerPrincipal?.email || undefined}
+      actorName={viewerPrincipal?.displayName || undefined}
       copy={{
         kind,
         kindLabel: kind === "product" ? "Product Offering View" : kind === "knowledge" ? "Knowledge Offering View" : "Service Offering View",

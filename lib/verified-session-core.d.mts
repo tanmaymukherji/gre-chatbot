@@ -19,6 +19,8 @@ export type PrincipalCapability =
 export type VerifiedPrincipal = Readonly<{
   userId: string;
   email: string | null;
+  displayName: string | null;
+  phone: string | null;
   role: VerifiedRole;
   sessionId: string;
   capabilities: readonly PrincipalCapability[];
