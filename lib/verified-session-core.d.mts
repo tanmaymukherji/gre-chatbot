@@ -8,6 +8,7 @@ export type PrincipalCapability =
   | "contact:provider"
   | "contact:sixm"
   | "phone:protected"
+  | "admin:console"
   | "admin:api-keys"
   | "admin:cache"
   | "admin:imports"

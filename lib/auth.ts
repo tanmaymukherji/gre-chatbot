@@ -1,6 +1,11 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { ADMIN_COOKIE_NAME, getAdminSession } from "@/lib/grameee-admin-auth";
-import { isSecurityFlagEnabled, SECURITY_FLAGS } from "@/lib/security-flags";
+import { decideAdminAuthorization } from "@/lib/admin-authorization-core.mjs";
+import {
+  getVerifiedPrincipal,
+  VerifiedSessionError
+} from "@/lib/verified-session";
+import type { PrincipalCapability } from "@/lib/verified-session";
 
 const SHARED_SUMMARY_COOKIE = "grameee_user_summary";
 
@@ -53,39 +58,42 @@ export function getSharedUserSummary(request: NextRequest) {
   return parseSharedUserSummary(request.cookies.get(SHARED_SUMMARY_COOKIE)?.value);
 }
 
-function isSharedAdmin(summary: SharedUserSummary | null) {
-  const role = String(summary?.role || "").trim().toLowerCase();
-  return role === "admin";
-}
+export async function requireAdminUser(
+  request: NextRequest,
+  requiredCapability: PrincipalCapability = "admin:console"
+) {
+  const principal = await getVerifiedPrincipal(request).catch(() => null);
+  const verifiedDecision = decideAdminAuthorization({
+    principal,
+    legacySession: null,
+    requiredCapability
+  });
 
-export function getSharedGrameeeAdminSession(request: NextRequest) {
-  const summary = getSharedUserSummary(request);
+  if (verifiedDecision.ok) return verifiedDecision.session;
 
-  if (!isSharedAdmin(summary)) {
-    return null;
-  }
-
-  return {
-    username: String(summary?.username || summary?.email || "admin").trim() || "admin",
-    source: "grameee" as const
-  };
-}
-
-export async function requireAdminUser(request: NextRequest) {
   const legacySession = await getAdminSession(request.cookies.get(ADMIN_COOKIE_NAME)?.value);
-  if (legacySession?.username) {
-    return {
-      ...legacySession,
-      source: "legacy" as const
-    };
+  const finalDecision = decideAdminAuthorization({
+    principal,
+    legacySession,
+    requiredCapability
+  });
+
+  if (finalDecision.ok) return finalDecision.session;
+
+  if (!("status" in finalDecision)) {
+    throw new VerifiedSessionError("Admin login required.", 401);
   }
 
-  if (await isSecurityFlagEnabled(SECURITY_FLAGS.adminCookieBridge)) {
-    const sharedSession = getSharedGrameeeAdminSession(request);
-    if (sharedSession?.username) {
-      return sharedSession;
-    }
-  }
+  throw new VerifiedSessionError(
+    finalDecision.status === 403 ? "Insufficient permission." : "Admin login required.",
+    finalDecision.status
+  );
+}
 
-  throw new Error("Admin login required.");
+export function adminAuthorizationErrorResponse(error: unknown) {
+  const status = error instanceof VerifiedSessionError ? error.status : 401;
+  return NextResponse.json(
+    { error: status === 403 ? "Insufficient permission." : "Admin login required." },
+    { status }
+  );
 }

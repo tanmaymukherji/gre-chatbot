@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createServerSupabaseClient } from "@/lib/supabase";
-import { requireAdminUser } from "@/lib/auth";
+import { adminAuthorizationErrorResponse, requireAdminUser } from "@/lib/auth";
 import {
   SHARED_SHOWCASE_PAYLOAD_KEY,
   SHOWCASE_SURFACE_SLUGS,
@@ -31,12 +31,9 @@ const updateSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    await requireAdminUser(request);
+    await requireAdminUser(request, "admin:showcase");
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Admin login required." },
-      { status: 401 }
-    );
+    return adminAuthorizationErrorResponse(error);
   }
 
   try {
@@ -63,14 +60,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  let session;
   try {
-    session = await requireAdminUser(request);
+    await requireAdminUser(request, "admin:showcase");
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Admin login required." },
-      { status: 401 }
-    );
+    return adminAuthorizationErrorResponse(error);
   }
 
   try {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createServerSupabaseClient } from "@/lib/supabase";
-import { requireAdminUser } from "@/lib/auth";
+import { adminAuthorizationErrorResponse, requireAdminUser } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 
 function generateApiKey(): string {
@@ -30,11 +30,10 @@ const updateSchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
-  let session;
   try {
-    session = await requireAdminUser(request);
-  } catch {
-    return NextResponse.json({ error: "Admin login required." }, { status: 401 });
+    await requireAdminUser(request, "admin:api-keys");
+  } catch (error) {
+    return adminAuthorizationErrorResponse(error);
   }
 
   try {
@@ -65,11 +64,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  let session;
   try {
-    session = await requireAdminUser(request);
-  } catch {
-    return NextResponse.json({ error: "Admin login required." }, { status: 401 });
+    await requireAdminUser(request, "admin:api-keys");
+  } catch (error) {
+    return adminAuthorizationErrorResponse(error);
   }
 
   try {
@@ -117,11 +115,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  let session;
   try {
-    session = await requireAdminUser(request);
-  } catch {
-    return NextResponse.json({ error: "Admin login required." }, { status: 401 });
+    await requireAdminUser(request, "admin:api-keys");
+  } catch (error) {
+    return adminAuthorizationErrorResponse(error);
   }
 
   try {
@@ -157,11 +154,10 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  let session;
   try {
-    session = await requireAdminUser(request);
-  } catch {
-    return NextResponse.json({ error: "Admin login required." }, { status: 401 });
+    await requireAdminUser(request, "admin:api-keys");
+  } catch (error) {
+    return adminAuthorizationErrorResponse(error);
   }
 
   try {

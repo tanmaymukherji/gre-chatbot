@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
-import { requireAdminUser } from "@/lib/auth";
+import { adminAuthorizationErrorResponse, requireAdminUser } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
-    await requireAdminUser(request);
-  } catch {
-    return NextResponse.json({ error: "Admin login required." }, { status: 401 });
+    await requireAdminUser(request, "admin:uploads");
+  } catch (error) {
+    return adminAuthorizationErrorResponse(error);
   }
 
   try {

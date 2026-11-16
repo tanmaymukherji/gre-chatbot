@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminUser } from "@/lib/auth";
+import { adminAuthorizationErrorResponse, requireAdminUser } from "@/lib/auth";
+import { ACCESS_TOKEN_COOKIE, extractAccessToken } from "@/lib/verified-session-core.mjs";
 
 const EDGE_FUNCTION_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/gre-mis-admin`;
 
 export async function POST(request: NextRequest) {
   try {
-    await requireAdminUser(request);
+    await requireAdminUser(request, "admin:imports");
+  } catch (error) {
+    return adminAuthorizationErrorResponse(error);
+  }
 
+  try {
     const formData = await request.formData();
     const solutionFile = formData.get("solutionFile");
     const traderFile = formData.get("traderFile");
@@ -21,8 +26,10 @@ export async function POST(request: NextRequest) {
     const solutionBase64 = Buffer.from(await solutionFile.arrayBuffer()).toString("base64");
     const traderBase64 = Buffer.from(await traderFile.arrayBuffer()).toString("base64");
 
-    const grameeeAccessToken = request.cookies.get("grameee_access_token")?.value;
-    const grameeeUserSummary = request.cookies.get("grameee_user_summary")?.value;
+    const grameeeAccessToken = extractAccessToken({
+      authorization: request.headers.get("authorization"),
+      cookieToken: request.cookies.get(ACCESS_TOKEN_COOKIE)?.value
+    });
 
     const response = await fetch(EDGE_FUNCTION_URL, {
       method: "POST",
@@ -34,8 +41,7 @@ export async function POST(request: NextRequest) {
         solutionFileName: solutionFile.name,
         traderFileName: traderFile.name,
         aiProvider: "gemini",
-        grameeeAccessToken,
-        grameeeUserSummary,
+        grameeeAccessToken
       }),
     });
 

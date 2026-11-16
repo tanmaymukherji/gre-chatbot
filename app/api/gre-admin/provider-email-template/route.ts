@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase";
-import { requireAdminUser } from "@/lib/auth";
+import { adminAuthorizationErrorResponse, requireAdminUser } from "@/lib/auth";
 import { getProviderEmailTemplateDefaults } from "@/lib/provider-email-template";
 import { z } from "zod";
 
@@ -11,7 +11,12 @@ const updateSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    await requireAdminUser(request);
+    await requireAdminUser(request, "admin:templates");
+  } catch (error) {
+    return adminAuthorizationErrorResponse(error);
+  }
+
+  try {
     const supabase = createServerSupabaseClient();
     const { data, error } = await supabase
       .from("filter_options_cache")
@@ -37,17 +42,20 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Admin login required."
-      },
-      { status: 401 }
+      { error: error instanceof Error ? error.message : "Provider email templates could not be loaded." },
+      { status: 500 }
     );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    await requireAdminUser(request);
+    await requireAdminUser(request, "admin:templates");
+  } catch (error) {
+    return adminAuthorizationErrorResponse(error);
+  }
+
+  try {
     const payload = updateSchema.parse(await request.json());
     const supabase = createServerSupabaseClient();
     const { data: existingRow, error: readError } = await supabase

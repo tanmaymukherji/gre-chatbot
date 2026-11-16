@@ -98,6 +98,7 @@ export function AdminConsole() {
   }, []);
 
   useEffect(() => {
+    if (!sessionUsername) return;
     fetch("/api/gre-admin/provider-email-template")
       .then((response) => response.json())
       .then((data) => {
@@ -111,9 +112,10 @@ export function AdminConsole() {
       .catch(() => {
         setTemplateStatus("Provider email templates could not be loaded.");
       });
-  }, []);
+  }, [sessionUsername]);
 
   useEffect(() => {
+    if (!sessionUsername) return;
     fetch("/api/gre-admin/sixm-email-template")
       .then((response) => response.json())
       .then((data) => {
@@ -123,9 +125,10 @@ export function AdminConsole() {
       .catch(() => {
         setSixmTemplateStatus("6M email template could not be loaded.");
       });
-  }, []);
+  }, [sessionUsername]);
 
   useEffect(() => {
+    if (!sessionUsername) return;
     fetch("/api/gre-admin/showcase")
       .then((response) => response.json())
       .then((data) => {
@@ -138,7 +141,7 @@ export function AdminConsole() {
       .catch(() => {
         setShowcaseStatus("GRE feature and partner content could not be loaded.");
       });
-  }, []);
+  }, [sessionUsername]);
 
   async function logIn() {
     setBusy(true);

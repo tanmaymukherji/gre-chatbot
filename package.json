@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "node server.js",
     "lint": "next lint",
-    "test:verified-session": "node --test lib/verified-session.test.mjs",
+    "test:verified-session": "node --test lib/verified-session.test.mjs lib/admin-authorization.test.mjs",
     "import:sample": "node scripts/run-sample-import.mjs"
   },
   "dependencies": {

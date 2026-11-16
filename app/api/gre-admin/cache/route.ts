@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { invalidateSearchCaches, refreshSurfaceCaches } from "@/lib/database";
+import { adminAuthorizationErrorResponse, requireAdminUser } from "@/lib/auth";
 
 export const revalidate = 0;
 
 export async function POST(request: NextRequest) {
+  try {
+    await requireAdminUser(request, "admin:cache");
+  } catch (error) {
+    return adminAuthorizationErrorResponse(error);
+  }
+
   invalidateSearchCaches();
   const payload = await request.json().catch(() => ({}));
   const surface = payload?.surface === "askgre" || payload?.surface === "supergre" ? payload.surface : "all";

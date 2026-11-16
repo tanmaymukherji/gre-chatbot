@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ADMIN_COOKIE_NAME, getAdminSession } from "@/lib/grameee-admin-auth";
-import { getSharedGrameeeAdminSession } from "@/lib/auth";
+import { adminAuthorizationErrorResponse, requireAdminUser } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
-  const sharedSession = getSharedGrameeeAdminSession(request);
-  const legacySession = sharedSession
-    ? null
-    : await getAdminSession(request.cookies.get(ADMIN_COOKIE_NAME)?.value);
-  const session = sharedSession || legacySession;
+  let session;
+  try {
+    session = await requireAdminUser(request, "admin:console");
+  } catch (error) {
+    return adminAuthorizationErrorResponse(error);
+  }
 
   return NextResponse.json({
-    authenticated: Boolean(session),
-    username: session?.username || null,
-    source: sharedSession ? "grameee" : legacySession ? "legacy" : null
+    authenticated: true,
+    username: session.username,
+    source: session.source
   });
 }

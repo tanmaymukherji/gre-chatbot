@@ -219,7 +219,7 @@ export function SixMExplorerPage() {
           onEmailSelection={async () => {
             setEmailError(null);
             try {
-              const tmplResp = await fetch("/api/gre-admin/sixm-email-template");
+              const tmplResp = await fetch("/api/sixm-email-template");
               const tmplData = await tmplResp.json();
               setEmailTemplate(tmplData?.templateBody || "");
             } catch {}
