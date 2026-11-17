@@ -27,8 +27,6 @@ export type ImpactAuditEvent = {
 };
 
 const IMPACT_API_PATH = "/api/impact";
-const DIRECT_IMPACT_URL = "https://zphabezqbboaexmmhcic.supabase.co/functions/v1/grameee-admin";
-const DIRECT_IMPACT_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwaGFiZXpxYmJvYWV4bW1oY2ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNTY5MTgsImV4cCI6MjA5MTczMjkxOH0.cHZCuzwiAEEQjPo6WAADaD5oBZapFmk45dOe4A4g37U";
 const IMPACT_PENDING_KEY = "grameee-impact-pending";
 
 function normalizeCounters(value: unknown): ImpactCounters {
@@ -83,26 +81,9 @@ function clearPendingCounters() {
 }
 
 async function postImpactIncrement(counterKey: ImpactCounterKey, delta = 1, auditEvent?: ImpactAuditEvent | null) {
-  if (DIRECT_IMPACT_URL && DIRECT_IMPACT_ANON_KEY) {
-    return fetch(DIRECT_IMPACT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: DIRECT_IMPACT_ANON_KEY,
-        Authorization: `Bearer ${DIRECT_IMPACT_ANON_KEY}`,
-      },
-      body: JSON.stringify({
-        action: "incrementImpactCounter",
-        counterKey,
-        delta,
-        auditEvent: auditEvent || undefined,
-      }),
-      keepalive: true,
-    }).catch(() => null);
-  }
-
   return fetch(IMPACT_API_PATH, {
     method: "POST",
+    credentials: "same-origin",
     headers: {
       "Content-Type": "application/json",
     },
@@ -160,27 +141,7 @@ export async function fetchImpactCounters(): Promise<ImpactCounters> {
     return flushedCounters;
   }
 
-  if (DIRECT_IMPACT_URL && DIRECT_IMPACT_ANON_KEY) {
-    const response = await fetch(DIRECT_IMPACT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: DIRECT_IMPACT_ANON_KEY,
-        Authorization: `Bearer ${DIRECT_IMPACT_ANON_KEY}`,
-      },
-      body: JSON.stringify({ action: "getImpactCounters" }),
-      cache: "no-store",
-    });
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      throw new Error(data?.error || "Impact counters could not be loaded.");
-    }
-
-    return normalizeCounters(data?.counters);
-  }
-
-  const response = await fetch(IMPACT_API_PATH, { cache: "no-store" });
+  const response = await fetch(IMPACT_API_PATH, { cache: "no-store", credentials: "same-origin" });
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {

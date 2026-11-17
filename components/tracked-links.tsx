@@ -22,24 +22,14 @@ function buildAuditEvent(auditEvent?: ImpactAuditEvent) {
     return auditEvent;
   }
 
-  let summary: Record<string, unknown> | null = null;
-  const rawSummary = readCookie("grameee_user_summary");
-  if (rawSummary) {
-    try {
-      summary = JSON.parse(rawSummary) as Record<string, unknown>;
-    } catch {
-      summary = null;
-    }
-  }
-
   const hostname = window.location.hostname || "";
   const surface = auditEvent?.surface || (hostname.startsWith("supergre.") ? "supergre" : hostname.startsWith("askgre.") ? "askgre" : hostname);
   return {
     ...auditEvent,
     kind: auditEvent?.kind || "view",
     surface,
-    actorEmail: auditEvent?.actorEmail || String(summary?.email || "").trim().toLowerCase() || undefined,
-    actorName: auditEvent?.actorName || String(summary?.fullName || summary?.username || "").trim() || undefined,
+    actorEmail: undefined,
+    actorName: undefined,
   } satisfies ImpactAuditEvent;
 }
 

@@ -5,40 +5,7 @@ import {
   getVerifiedPrincipal,
   VerifiedSessionError
 } from "@/lib/verified-session";
-import type { PrincipalCapability } from "@/lib/verified-session";
-import type { VerifiedPrincipal } from "@/lib/verified-session";
-
-const SHARED_SUMMARY_COOKIE = "grameee_user_summary";
-
-export type SharedUserSummary = {
-  email?: string;
-  fullName?: string;
-  organization?: string;
-  organizationLink?: string;
-  phone?: string;
-  username?: string;
-  role?: string;
-  privileges?: {
-    gre?: boolean;
-  };
-};
-
-function parseSharedUserSummary(rawValue: string | undefined) {
-  if (!rawValue) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(rawValue) as SharedUserSummary;
-    return parsed && typeof parsed === "object" ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-export function parseSharedUserSummaryCookie(rawValue: string | undefined) {
-  return parseSharedUserSummary(rawValue);
-}
+import type { PrincipalCapability, VerifiedPrincipal } from "@/lib/verified-session";
 
 export function canViewProtectedPhones(principal: Pick<VerifiedPrincipal, "capabilities"> | null | undefined) {
   return principal?.capabilities.includes("phone:protected") === true;
@@ -55,10 +22,6 @@ export function maskPhoneNumber(
   if (digits.length < 4) return "Hidden";
   const visible = digits.slice(-4);
   return `Hidden for users (ending ${visible})`;
-}
-
-export function getSharedUserSummary(request: NextRequest) {
-  return parseSharedUserSummary(request.cookies.get(SHARED_SUMMARY_COOKIE)?.value);
 }
 
 export async function requireAdminUser(
