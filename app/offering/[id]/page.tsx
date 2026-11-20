@@ -238,9 +238,13 @@ function buildMedia(offering: any): MediaItem[] {
   const primaryImage = offering.solution?.solution_image_url || payload.SolutionImage || payload.solutionImage;
   const gallery = urlList(
     primaryImage,
+    offering.product_brochure_url,
+    offering.service_brochure_url,
     payload.OfferingImage,
     payload.offering_image,
     payload.offering_image_attachment,
+    payload.product_brochure_attachment,
+    payload.service_brochure_attachment,
     payload.galleryUrls,
     payload.imageUrls,
     payload.images,
