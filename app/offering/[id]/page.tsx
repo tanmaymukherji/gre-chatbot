@@ -204,18 +204,22 @@ function chipList(offering: any, kind: "product" | "service" | "knowledge") {
 
 function buildDocuments(offering: any, kind: "product" | "service" | "knowledge"): DocumentItem[] {
   const payload = getPayload(offering);
+  const primaryBrochure =
+    kind === "service" ? offering.service_brochure_url :
+    kind === "product" ? offering.product_brochure_url :
+    kind === "knowledge" && isPdfUrl(cleanText(offering.knowledge_content_url)) ? offering.knowledge_content_url : "";
+  const fallbackBrochure = primaryBrochure ? "" :
+    kind === "service" ? payload.service_brochure_attachment || payload.product_brochure_attachment :
+    kind === "product" ? payload.product_brochure_attachment || payload.service_brochure_attachment :
+    kind === "knowledge" ? payload.knowledge_content_attachment : "";
   const values = [
-    kind === "service" ? offering.service_brochure_url : "",
-    kind === "product" ? offering.product_brochure_url : "",
-    kind === "knowledge" && isPdfUrl(cleanText(offering.knowledge_content_url)) ? offering.knowledge_content_url : "",
+    primaryBrochure,
+    fallbackBrochure,
     kind === "service" ? payload["Service offering Brochure"] : "",
     kind === "product" ? payload["Product Brochure"] : "",
     kind === "knowledge" && isPdfUrl(cleanText(payload["Knowledge Offering Content"])) ? payload["Knowledge Offering Content"] : "",
     payload.brochure,
     payload.brochure_url,
-    payload.service_brochure_attachment,
-    payload.product_brochure_attachment,
-    payload.knowledge_content_attachment,
     payload.document,
     payload.document_url,
     payload.documentLink,
@@ -236,15 +240,15 @@ function buildDocuments(offering: any, kind: "product" | "service" | "knowledge"
 function buildMedia(offering: any): MediaItem[] {
   const payload = getPayload(offering);
   const primaryImage = offering.solution?.solution_image_url || payload.SolutionImage || payload.solutionImage;
+  const productBrochure = offering.product_brochure_url || payload.product_brochure_attachment;
+  const serviceBrochure = offering.service_brochure_url || payload.service_brochure_attachment;
   const gallery = urlList(
     primaryImage,
-    offering.product_brochure_url,
-    offering.service_brochure_url,
+    productBrochure,
+    serviceBrochure,
     payload.OfferingImage,
     payload.offering_image,
-    payload.offering_image_attachment,
-    payload.product_brochure_attachment,
-    payload.service_brochure_attachment,
+    primaryImage ? "" : payload.offering_image_attachment,
     payload.galleryUrls,
     payload.imageUrls,
     payload.images,
