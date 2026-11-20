@@ -68,7 +68,10 @@ function uniqueValues(values: unknown[]) {
   return values
     .flatMap((value) => {
       if (Array.isArray(value)) return value;
-      return cleanText(value).split(/[;,|\n]/);
+      const text = cleanText(value);
+      // Data URLs contain both a semicolon and comma (`data:type;base64,...`).
+      // Treat them as one resource instead of splitting off the MIME prefix.
+      return /^data:/i.test(text) ? [text] : text.split(/[;,|\n]/);
     })
     .map((value) => cleanText(value))
     .filter((value) => {
