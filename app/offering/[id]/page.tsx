@@ -171,6 +171,13 @@ function documentType(url: string) {
   return extension && extension.length <= 5 ? extension : "DOC";
 }
 
+function inlineDocumentUrl(url: string) {
+  const repositoryAsset = url.match(
+    /^https:\/\/raw\.githubusercontent\.com\/tanmaymukherji\/gre-chatbot\/main\/public\/(.+)$/i
+  );
+  return repositoryAsset?.[1] ? `/${repositoryAsset[1]}` : url;
+}
+
 function offeringKind(offering: any): "product" | "service" | "knowledge" {
   const text = [
     offering.offering_group,
@@ -232,7 +239,7 @@ function buildDocuments(offering: any, kind: "product" | "service" | "knowledge"
   const urls = urlList(...values).filter((url) => !isImageUrl(url) && !isVideoUrl(url));
   return urls.map((url, index) => ({
     title: index === 0 ? (kind === "knowledge" ? "Knowledge guide" : kind === "service" ? "Service brochure" : "Product brochure") : `Resource ${index + 1}`,
-    url,
+    url: inlineDocumentUrl(url),
     typeLabel: documentType(url)
   }));
 }
